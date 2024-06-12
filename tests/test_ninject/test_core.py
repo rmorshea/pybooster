@@ -1,4 +1,4 @@
-from typing import Annotated, TypeAlias, TypedDict
+from typing import Annotated, TypedDict
 
 import pytest
 

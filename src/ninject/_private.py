@@ -51,7 +51,7 @@ def get_injected_context_vars_from_callable(func: Callable[..., Any]) -> Mapping
             anno = param.annotation
             if isinstance(anno, str):
                 try:
-                    anno = eval(anno, func.__globals__, func.__closure__)  # noqa: S307
+                    anno = eval(anno, func.__globals__)  # noqa: S307
                 except NameError as e:
                     msg = f"{e} - is it defined as a global?"
                     raise NameError(msg) from None

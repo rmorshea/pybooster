@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from functools import wraps
-from typing import Annotated, get_type_hints
+from typing import Annotated
 
 import pytest
 
@@ -106,7 +106,7 @@ def test_get_injected_context_vars_from_callable_error_if_injected_default_by_no
 def test_get_injected_context_vars_from_callable_error_if_locals_when_annotation_is_str():
     var_a = ContextVar("a")
 
-    def func(*, a: "Annotated[int, var_a]" = INJECTED):
+    def func(*, _a: "Annotated[int, var_a]" = INJECTED):
         raise NotImplementedError()
 
     with pytest.raises(NameError, match=r"name .* is not defined - is it defined as a global"):
