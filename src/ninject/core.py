@@ -65,7 +65,7 @@ inject = Inject()
 del Inject
 
 
-class Providers:
+class Context:
     """A context manager for setting provider functions."""
 
     def __init__(self) -> None:
@@ -84,7 +84,6 @@ class Providers:
             raise TypeError(msg)
 
         def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
-
             if var in self._context_providers:
                 msg = f"Provider for {var} has already been set"
                 raise RuntimeError(msg)
@@ -101,7 +100,7 @@ class Providers:
 
             for field_name, field_type in get_type_hints(typed_dict, include_extras=True).items():
                 if not (field_var := get_context_var_from_annotation(field_type)):
-                    msg = f"Expected {field_type!r} to be annotated with a context var"
+                    msg = f"Expected {field_name}: {field_type!r} to be annotated with a context var"
                     raise TypeError(msg)
 
                 provide_field = _make_injection_wrapper(
@@ -166,9 +165,8 @@ def _make_injection_wrapper(
             contexts: list[UniformContext] = []
 
             try:
-                for name, var in dependencies.items():
-                    if name in kwargs:
-                        continue
+                for name in dependencies.keys() - kwargs.keys():
+                    var = dependencies[name]
                     context = get_context_provider(var)()
                     kwargs[name] = await context.__aenter__()
                     contexts.append(context)
@@ -184,9 +182,8 @@ def _make_injection_wrapper(
         def sync_gen_wrapper(*args: Any, **kwargs: Any) -> Any:
             contexts: list[UniformContext] = []
             try:
-                for name, var in dependencies.items():
-                    if name in kwargs:
-                        continue
+                for name in dependencies.keys() - kwargs.keys():
+                    var = dependencies[name]
                     context = get_context_provider(var)()
                     kwargs[name] = context.__enter__()
                     contexts.append(context)
@@ -202,9 +199,8 @@ def _make_injection_wrapper(
             contexts: list[UniformContext] = []
 
             try:
-                for name, var in dependencies.items():
-                    if name in kwargs:
-                        continue
+                for name in dependencies.keys() - kwargs.keys():
+                    var = dependencies[name]
                     context = get_context_provider(var)()
                     kwargs[name] = await context.__aenter__()
                     contexts.append(context)
@@ -219,9 +215,8 @@ def _make_injection_wrapper(
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             contexts: list[UniformContext] = []
             try:
-                for name, var in dependencies.items():
-                    if name in kwargs:
-                        continue
+                for name in dependencies.keys() - kwargs.keys():
+                    var = dependencies[name]
                     context = get_context_provider(var)()
                     kwargs[name] = context.__enter__()
                     contexts.append(context)

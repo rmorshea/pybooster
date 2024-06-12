@@ -46,6 +46,9 @@ def get_injected_context_vars_from_callable(func: Callable[..., Any]) -> Mapping
 
     for param in inspect.signature(func).parameters.values():
         if param.default is INJECTED:
+            if param.kind is not inspect.Parameter.KEYWORD_ONLY:
+                msg = f"Expected injected parameter {param.name!r} to be keyword-only"
+                raise TypeError(msg)
             anno = param.annotation
             if isinstance(anno, str):
                 try:
@@ -266,11 +269,7 @@ def get_context_provider(dependency_var: ContextVar[R]) -> UniformContextProvide
     except KeyError:
         msg = f"No provider declared for {dependency_var}"
         raise RuntimeError(msg) from None
-    try:
-        return context_provider_var.get()
-    except LookupError:
-        msg = f"Provider for {dependency_var} has not been set"
-        raise RuntimeError(msg) from None
+    return context_provider_var.get()
 
 
 UniformContext: TypeAlias = "SyncUniformContext[R] | AsyncUniformContext[R]"
