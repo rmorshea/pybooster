@@ -15,6 +15,7 @@ from typing import (
     TypeAlias,
     TypedDict,
     TypeVar,
+    cast,
 )
 
 P = ParamSpec("P")
@@ -42,14 +43,13 @@ AnyProvider: TypeAlias = (
 def dependencies(cls: type[D]) -> type[D]:
     """Annotate a TypedDict as a dependency."""
     if issubclass(cls, dict) and TypedDict in getattr(cls, "__orig_bases__", []):
-        return Annotated[cls, ContextVar(cls.__name__)]
+        return cast(type[D], Annotated[cls, ContextVar(cls.__name__)])
     else:
         msg = f"Expected {cls!r} to be a TypedDict"
         raise TypeError(msg)
 
 
 class _DependencyAnnotation:
-
     def __class_getitem__(cls, item: tuple[Any, str]) -> Annotated:
         try:
             anno, name = item
@@ -60,7 +60,6 @@ class _DependencyAnnotation:
 
 
 if TYPE_CHECKING:
-    Dependency = Annotated
-    """Annotate a type as a dependency."""
+    from typing import Annotated as Dependency
 else:
     Dependency = _DependencyAnnotation

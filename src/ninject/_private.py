@@ -20,12 +20,7 @@ from typing import (
     get_origin,
 )
 
-from ninject.types import (
-    AsyncContextProvider,
-    AsyncFunctionProvider,
-    SyncContextProvider,
-    SyncFunctionProvider,
-)
+from ninject.types import AsyncContextProvider, SyncContextProvider
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -192,16 +187,15 @@ UniformContext: TypeAlias = "SyncUniformContext[R] | AsyncUniformContext[R]"
 UniformContextProvider: TypeAlias = "Callable[[], UniformContext[R]]"
 
 
-def asyncfunctioncontextmanager(func: Callable[[], Awaitable[R]]) -> AsyncFunctionProvider[R]:
+def asyncfunctioncontextmanager(func: Callable[[], Awaitable[R]]) -> AsyncContextProvider[R]:
     return lambda: AsyncFunctionContextManager(func)
 
 
-def syncfunctioncontextmanager(func: Callable[[], R]) -> SyncFunctionProvider[R]:
+def syncfunctioncontextmanager(func: Callable[[], R]) -> SyncContextProvider[R]:
     return lambda: SyncFunctionContextManager(func)
 
 
 class AsyncFunctionContextManager(AsyncContextManager[R]):
-
     def __init__(self, func: Callable[[], Awaitable[R]]) -> None:
         self.func = func
 
@@ -213,7 +207,6 @@ class AsyncFunctionContextManager(AsyncContextManager[R]):
 
 
 class SyncFunctionContextManager(ContextManager[R]):
-
     def __init__(self, func: Callable[[], R]) -> None:
         self.func = func
 
@@ -269,10 +262,6 @@ def get_context_provider(dependency_var: ContextVar[R]) -> UniformContextProvide
         msg = f"No provider declared for {dependency_var}"
         raise RuntimeError(msg) from None
     return context_provider_var.get()
-
-
-UniformContext: TypeAlias = "SyncUniformContext[R] | AsyncUniformContext[R]"
-UniformContextProvider: TypeAlias = "Callable[[], UniformContext[R]]"
 
 
 _CONTEXT_PROVIDER_VARS_BY_DEPENDENCY_VAR: dict[ContextVar, ContextVar[UniformContextProvider]] = {}

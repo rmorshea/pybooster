@@ -2,18 +2,18 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/ninject.svg)](https://pypi.org/project/ninject)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ninject.svg)](https://pypi.org/project/ninject)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Ninject uses modern Python features to provide a simple and performant dependency
 injection framework.
 
 -   [Installation](#installation)
--   [Usage](#usage)
-    -   [Kinds of Providers](#kinds-of-providers)
-    -   [Providers with Dependencies](#providers-with-dependencies)
-    -   [Providing Multiple Dependencies](#providing-multiple-dependencies)
-    -   [Providing Dependencies Concurrently](#providing-dependencies-concurrently)
-    -   [Mixing Async and Sync Providers](#mixing-async-and-sync-providers)
--   [License](#license)
+-   [Basic Usage](#usage)
+-   [Kinds of Providers](#kinds-of-providers)
+-   [Providers with Dependencies](#providers-with-dependencies)
+-   [Providing Multiple Dependencies](#providing-multiple-dependencies)
+-   [Providing Dependencies Concurrently](#providing-dependencies-concurrently)
+-   [Mixing Async and Sync Providers](#mixing-async-and-sync-providers)
 
 ## Installation
 
@@ -21,7 +21,7 @@ injection framework.
 pip install ninject
 ```
 
-## Usage
+## Basic Usage
 
 First declare a `Dependency` and `inject` it into a dependent function.
 
@@ -63,7 +63,7 @@ The output will be:
 Hello, World!
 ```
 
-### Kinds of Providers
+## Kinds of Providers
 
 A provider is one of the following
 
@@ -132,7 +132,7 @@ class AsyncContextManager(AsyncContextManager):
         pass
 ```
 
-### Providers with Dependencies
+## Providers with Dependencies
 
 Providers can have their own dependencies:
 
@@ -143,7 +143,14 @@ Greeting = Dependency[str, "Greeting"]
 Recipient = Dependency[str, "Recipient"]
 Message = Dependency[str, "Message"]
 
+
+@inject
+def print_message(*, message: Message = inject.ed):
+    print(message)
+
+
 context = Context()
+
 
 @context.provides(Greeting)
 def provide_greeting() -> str:
@@ -160,13 +167,9 @@ def provide_message(*, greeting: Greeting = inject.ed, recipient: Recipient = in
     return f"{greeting}, {recipient}!"
 
 
-@inject
-def print_message(*, message: Message = inject.ed):
-    print(message)
-
-
-with context:
-    print_message()
+if __name__ == "__main__":
+    with context:
+        print_message()
 ```
 
 The output will be:
@@ -175,7 +178,15 @@ The output will be:
 Hello, World!
 ```
 
-### Providing Multiple Dependencies
+> 🔵 The syntax `Dependency[SomeType, "SomeName"]` can cause
+> ["Undefined name" errors in Ruff](https://github.com/astral-sh/ruff/issues/11378). You
+> can either turn off `F281` errors in Ruff and allow some other tool to catch them
+> (e.g. your type checker) or use
+> [`Annotated`](https://docs.python.org/3/library/typing.html#typing.Annotated) and
+> [`ContextVar`](https://docs.python.org/3/library/contextvars.html) to declare
+> dependencies - `Annotated[SomeType, ContextVar("SomeName")]`
+
+## Providing Multiple Dependencies
 
 A single provider can supply multiple dependencies in the form of a `TypedDict`.
 
@@ -193,6 +204,11 @@ class MessageContent(TypedDict):
     recipient: Recipient
 
 
+@inject
+def print_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+    print(f"{greeting}, {recipient}!")
+
+
 context = Context()
 
 
@@ -201,13 +217,9 @@ def provide_message_content() -> dict:
     return {"greeting": "Hello", "recipient": "World"}
 
 
-@inject
-def print_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
-    print(f"{greeting}, {recipient}!")
-
-
-with context:
-    print_message()
+if __name__ == "__main__":
+    with context:
+        print_message()
 ```
 
 You may also depend on the `TypedDict` directly:
@@ -226,6 +238,13 @@ class MessageContent(TypedDict):
     recipient: Recipient
 
 
+@inject
+def print_message(*, message_content: MessageContent = inject.ed):  # TypeError!
+    greeting = message_content["greeting"]
+    recipient = message_content["recipient"]
+    print(f"{greeting}, {recipient}!")
+
+
 context = Context()
 
 
@@ -234,15 +253,9 @@ def provide_message_content() -> dict:
     return {"greeting": "Hello", "recipient": "World"}
 
 
-
-@inject
-def print_message(*, message_content: MessageContent = inject.ed):  # TypeError!
-    greeting = message_content["greeting"]
-    recipient = message_content["recipient"]
-    print(f"{greeting}, {recipient}!")
-
-with context:
-    print_message()
+if __name__ == "__main__":
+    with context:
+        print_message()
 ```
 
 Note that the `dependencies` decorator returns an `Annotated` type so you won't be able
@@ -265,17 +278,17 @@ class MessageContent(TypedDict):
 MessageContentDependency = Dependency[MessageContent, "MessageContent"]
 ```
 
-### Providing Dependencies Concurrently
+## Providing Dependencies Concurrently
 
-Ninject does not execute async providers concurrently. If you want to do so, you do so
-by leveraging the ability to provide
+Ninject does not execute async providers concurrently. If you want to do so, you can
+leverage the ability to provide
 [multiple dependencies](#providing-multiple-dependencies) at once.
 
 ```python
 import asyncio
 from typing import TypedDict
 
-from ninject import Dependency, Context, inject, dependencies
+from ninject import Context, Dependency, dependencies, inject
 
 Greeting = Dependency[str, "Greeting"]
 Recipient = Dependency[str, "Recipient"]
@@ -285,6 +298,11 @@ Recipient = Dependency[str, "Recipient"]
 class MessageContent(TypedDict):
     greeting: Greeting
     recipient: Recipient
+
+
+@inject
+async def print_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+    print(f"{greeting}, {recipient}!")
 
 
 context = Context()
@@ -304,12 +322,12 @@ async def provide_message_content() -> dict:
     return {"greeting": greeting, "recipient": recipient}
 
 
-@inject
-def print_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
-    print(f"{greeting}, {recipient}!")
+if __name__ == "__main__":
+    with context:
+        asyncio.run(print_message())
 ```
 
-### Mixing Async and Sync Providers
+## Mixing Async and Sync Providers
 
 To mix async and sync providers, the highest order dependent function must be async. So,
 in the example below, the fact that the sync `provide_message` function depends on the
@@ -341,12 +359,9 @@ async def print_message(*, message: Message = inject.ed):
     print(message)
 
 
-async def main():
+if __name__ == "__main__":
     with context:
-        await print_message()
-
-
-asyncio.run(main())
+        asyncio.run(print_message())
 ```
 
 If `print_message` were sync, then the following error would be raised:
@@ -354,8 +369,3 @@ If `print_message` were sync, then the following error would be raised:
 ```
 RuntimeError: Cannot use an async context manager in a sync context
 ```
-
-## License
-
-`ninject` is distributed under the terms of the
-[MIT](https://spdx.org/licenses/MIT.html) license.

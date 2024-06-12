@@ -95,14 +95,26 @@ class Context:
 
     def _provides_dict(self, var: ContextVar[R], cls: type[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
         def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
-            self._context_providers[var] = _make_context_provider(var, provider)
+            context_provider = self._context_providers[var] = _make_context_provider(var, provider)
+            if isinstance(context_provider(), SyncUniformContext):
+
+                def make_field_provider(field_name: str):
+                    def provide_field(provided_dict: dict) -> Any:
+                        return provided_dict[field_name]
+
+                    return provide_field
+
+            else:
+
+                def make_field_provider(field_name: str):
+                    async def provide_field(provided_dict: dict) -> Any:
+                        return provided_dict[field_name]
+
+                    return provide_field
 
             for field_name, field_type in get_type_hints(cls, include_extras=True).items():
                 if field_var := get_context_var_from_annotation(field_type):
-                    provide_field = _make_injection_wrapper(
-                        lambda field_name=field_name, *, provided_dict: provided_dict[field_name],
-                        {"provided_dict": var},
-                    )
+                    provide_field = _make_injection_wrapper(make_field_provider(field_name), {"provided_dict": var})
                     self._context_providers[field_var] = _make_context_provider(field_var, provide_field)
 
             return provider
@@ -153,7 +165,6 @@ def _make_injection_wrapper(
     func: Callable[P, R],
     dependencies: Mapping[str, ContextVar],
 ) -> Callable[P, R]:
-
     wrapper: Callable[..., Any]
     if isasyncgenfunction(func):
 

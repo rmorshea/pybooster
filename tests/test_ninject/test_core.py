@@ -247,18 +247,18 @@ def test_provides_typed_dict():
 
     @dependencies
     class IntAndStr(TypedDict):
-        int: MyInt
-        str: MyStr
+        my_int: MyInt
+        my_str: MyStr
         something_else: list[str]
 
     @context.provides(IntAndStr)
     def provide_my_dict():
-        return {"int": 42, "str": "Hello", "something_else": ["a", "b"]}
+        return {"my_int": 42, "my_str": "Hello", "something_else": ["a", "b"]}
 
     @inject
     def use_my_dict(*, my_str: MyStr = inject.ed, my_int: MyInt = inject.ed, my_dict: IntAndStr = inject.ed):
-        assert my_str == my_dict["str"]
-        assert my_int == my_dict["int"]
+        assert my_str == my_dict["my_str"]
+        assert my_int == my_dict["my_int"]
         return f"{my_str} {my_int} {my_dict['something_else']}"
 
     with context:
@@ -340,7 +340,6 @@ def test_annotation_for_typeddict_provides_must_have_context_var():
 
 
 def test_unsupported_provider_type():
-
     context = Context()
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
@@ -354,7 +353,6 @@ def test_unsupported_provider_type():
             raise NotImplementedError()
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
-
         context.provides(MyInt)(NotValidProvider())
 
 
@@ -387,47 +385,47 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
             exit_called = True
 
     @inject
-    def use_my_int_and_str(*, _: MyInt = inject.ed):
+    def sync_use_my_int_and_str(*, _: MyInt = inject.ed):
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
         with context:
-            use_my_int_and_str()
+            sync_use_my_int_and_str()
 
     assert exit_called
     exit_called = False
 
     @inject
-    async def use_my_int_and_str(*, _: MyInt = inject.ed):
+    async def async_use_my_int_and_str(*, _: MyInt = inject.ed):
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
         with context:
-            await use_my_int_and_str()
+            await async_use_my_int_and_str()
 
     assert exit_called
     exit_called = False
 
     @inject
-    def use_my_int_and_str(*, _: MyInt = inject.ed):
+    def sync_use_my_int_and_str_gen(*, _: MyInt = inject.ed):
         yield
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
         with context:
-            list(use_my_int_and_str())
+            list(sync_use_my_int_and_str_gen())
 
     assert exit_called
     exit_called = False
 
     @inject
-    async def use_my_int_and_str(*, _: MyInt = inject.ed):
+    async def async_use_my_int_and_str_gen(*, _: MyInt = inject.ed):
         yield
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
         with context:
-            async for _ in use_my_int_and_str():
+            async for _ in async_use_my_int_and_str_gen():
                 pass
 
     assert exit_called

@@ -72,21 +72,20 @@ def test_get_context_var_from_annotation():
 
 
 def test_get_injected_context_vars_from_callable():
-
-    def func(*, _a: Annotated[int, VAR_A] = INJECTED, _b: Annotated[str, VAR_B] = INJECTED):
+    def func_1(*, _a: Annotated[int, VAR_A] = INJECTED, _b: Annotated[str, VAR_B] = INJECTED):
         raise NotImplementedError()
 
-    assert get_injected_context_vars_from_callable(func) == {"_a": VAR_A, "_b": VAR_B}
+    assert get_injected_context_vars_from_callable(func_1) == {"_a": VAR_A, "_b": VAR_B}
 
-    def func(*, _a: "Annotated[int, VAR_A]" = INJECTED, _b: "Annotated[str, VAR_B]" = INJECTED):
+    def func_2(*, _a: "Annotated[int, VAR_A]" = INJECTED, _b: "Annotated[str, VAR_B]" = INJECTED):
         raise NotImplementedError()
 
-    assert get_injected_context_vars_from_callable(func) == {"_a": VAR_A, "_b": VAR_B}
+    assert get_injected_context_vars_from_callable(func_2) == {"_a": VAR_A, "_b": VAR_B}
 
-    def func(_a: Annotated[int, "not var"], _b: Annotated[str, "not var"] = "default"):
+    def func_3(_a: Annotated[int, "not var"], _b: Annotated[str, "not var"] = "default"):
         raise NotImplementedError()
 
-    assert get_injected_context_vars_from_callable(func) == {}
+    assert get_injected_context_vars_from_callable(func_3) == {}
 
 
 def test_get_injected_context_vars_from_callable_error_if_injected_default_by_no_var():
