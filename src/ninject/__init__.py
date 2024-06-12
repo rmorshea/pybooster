@@ -1,10 +1,11 @@
-from ninject.__about__ import __version__
-from ninject.core import Providers, inject
-from ninject.types import AnyProvider
+__version__ = "0.0.1"
 
-__all__ = [
-    "Providers",
-    "inject",
+from ninject.core import Providers, inject
+from ninject.types import AnyProvider, Dependency
+
+__all__ = (
     "AnyProvider",
-    "__version__",
-]
+    "Dependency",
+    "inject",
+    "Providers",
+)

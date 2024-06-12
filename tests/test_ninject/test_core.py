@@ -1,13 +1,12 @@
-from contextvars import ContextVar
-from typing import Annotated, TypedDict
+from typing import TypedDict
 
 import pytest
 
-from ninject import Providers, inject
+from ninject import Dependency, Providers, inject
 
-MyInt = Annotated[int, ContextVar("my_int")]
-MyStr = Annotated[str, ContextVar("my_str")]
-MyBytes = Annotated[bytes, ContextVar("my_bytes")]
+MyInt = Dependency[int, "my_int"]
+MyStr = Dependency[str, "my_str"]
+MyBytes = Dependency[bytes, "my_bytes"]
 
 
 def test_inject_repr():

@@ -34,7 +34,7 @@ from ninject._private import (
     exhaust_exits,
     get_context_provider,
     get_context_var_from_annotation,
-    get_context_vars_from_callable,
+    get_injected_context_vars_from_callable,
     get_wrapped,
     set_context_provider,
     syncfunctioncontextmanager,
@@ -53,7 +53,7 @@ class Inject:
 
     def __call__(self, func: Callable[P, R]) -> Callable[P, R]:
         """Inject values into a function."""
-        dependencies = get_context_vars_from_callable(func)
+        dependencies = get_injected_context_vars_from_callable(func)
         return _make_injection_wrapper(func, dependencies)
 
     def __repr__(self) -> str:
@@ -130,7 +130,7 @@ def _make_context_provider(
     provider: AnyProvider[R],
 ) -> UniformContextProvider[R]:
     wrapped = get_wrapped(provider)
-    dependencies = tuple(get_context_vars_from_callable(wrapped).values())
+    dependencies = tuple(get_injected_context_vars_from_callable(wrapped).values())
 
     if isinstance(wrapped := get_wrapped(provider), type):
         if issubclass(wrapped, ContextManager):

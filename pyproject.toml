@@ -30,7 +30,7 @@ Issues = "https://github.com/rmorshea/ninject/issues"
 Source = "https://github.com/rmorshea/ninject"
 
 [tool.hatch.version]
-path = "src/ninject/__about__.py"
+path = "src/ninject/__init__.py"
 
 [tool.hatch.envs.default]
 dependencies = ["coverage[toml]>=6.5", "pytest", "pytest-asyncio"]
@@ -125,7 +125,7 @@ ban-relative-imports = "all"
 source_pkgs = ["ninject", "tests"]
 branch = true
 parallel = true
-omit = ["src/ninject/__about__.py"]
+omit = []
 
 [tool.coverage.paths]
 ninject = ["src/ninject"]

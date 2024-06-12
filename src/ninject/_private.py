@@ -18,6 +18,7 @@ from typing import (
     cast,
     get_args,
     get_origin,
+    get_type_hints,
 )
 
 from ninject.types import (
@@ -40,31 +41,48 @@ def get_wrapped(func: Callable[P, R]) -> Callable[P, R]:
     return func
 
 
-def get_context_vars_from_callable(func: Callable[..., Any]) -> Mapping[str, ContextVar]:
+def get_injected_context_vars_from_callable(func: Callable[..., Any]) -> Mapping[str, ContextVar]:
     context_vars: dict[str, ContextVar] = {}
 
     for param in inspect.signature(func).parameters.values():
         if param.default is INJECTED:
             anno = param.annotation
             if isinstance(anno, str):
-                anno = eval(anno, func.__globals__)  # noqa: S307
+                try:
+                    anno = eval(anno, func.__globals__, func.__closure__)  # noqa: S307
+                except NameError as e:
+                    msg = f"{e} - is it defined as a global?"
+                    raise NameError(msg) from None
             if get_origin(anno) is not Annotated:
-                msg = f"Expected {param.name!r} to be annotated with a context var"
+                msg = (
+                    f"Expected {param.name!r} to be annotated with a "
+                    f"ContextVar - did use Dependency[{anno}, 'name']?"
+                )
                 raise TypeError(msg)
             if var := get_context_var_from_annotation(anno):
                 context_vars[param.name] = var
+            else:
+                msg = (
+                    f"Expected {param.name!r} to be annotated with a "
+                    f"ContextVar - did use Dependency[{anno}, 'name']?"
+                )
+                raise TypeError(msg)
 
     return context_vars
 
 
 def get_context_var_from_annotation(anno: Any) -> ContextVar | None:
     if get_origin(anno) is not Annotated:
-        msg = f"Expected {anno!r} to be annotated with a context var"
-        raise TypeError(msg)
+        return None
     _, *metadata = get_args(anno)
+    var: ContextVar | None = None
     for meta in metadata:
         if isinstance(meta, ContextVar):
-            return meta
+            if var is not None:
+                msg = "Expected exactly one ContextVar"
+                raise TypeError(msg)
+            var = meta
+    return var
 
 
 class SyncUniformContext(ContextManager[R], AsyncContextManager[R]):
