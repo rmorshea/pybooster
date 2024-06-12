@@ -1,8 +1,9 @@
-from typing import Annotated, TypedDict
+from typing import Annotated, TypeAlias, TypedDict
 
 import pytest
 
 from ninject import Context, Dependency, inject
+from ninject.types import dependencies
 
 MyInt = Dependency[int, "my_int"]
 MyStr = Dependency[str, "my_str"]
@@ -244,16 +245,24 @@ async def test_async_provider_with_sync_dependency_used_in_async_function():
 def test_provides_typed_dict():
     context = Context()
 
-    @context.provides(TypedDict("MyDict", {"int": MyInt, "str": MyStr}))
+    @dependencies
+    class IntAndStr(TypedDict):
+        int: MyInt
+        str: MyStr
+        something_else: list[str]
+
+    @context.provides(IntAndStr)
     def provide_my_dict():
-        return {"int": 42, "str": "Hello"}
+        return {"int": 42, "str": "Hello", "something_else": ["a", "b"]}
 
     @inject
-    def use_my_str(*, my_str: MyStr = inject.ed, my_int: MyInt = inject.ed):
-        return f"{my_str} {my_int}"
+    def use_my_dict(*, my_str: MyStr = inject.ed, my_int: MyInt = inject.ed, my_dict: IntAndStr = inject.ed):
+        assert my_str == my_dict["str"]
+        assert my_int == my_dict["int"]
+        return f"{my_str} {my_int} {my_dict['something_else']}"
 
     with context:
-        assert use_my_str() == "Hello 42"
+        assert use_my_dict() == "Hello 42 ['a', 'b']"
 
 
 def test_reuse_sync_provider():

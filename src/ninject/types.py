@@ -13,11 +13,13 @@ from typing import (
     Iterator,
     ParamSpec,
     TypeAlias,
+    TypedDict,
     TypeVar,
 )
 
 P = ParamSpec("P")
 R = TypeVar("R")
+D = TypeVar("D", bound=dict)
 
 SyncContextProvider: TypeAlias = Callable[[], ContextManager[R]]
 AsyncContextProvider: TypeAlias = Callable[[], AsyncContextManager[R]]
@@ -37,6 +39,15 @@ AnyProvider: TypeAlias = (
 """Any type of provider that can be passed to `Provider.provides`"""
 
 
+def dependencies(cls: type[D]) -> type[D]:
+    """Annotate a TypedDict as a dependency."""
+    if issubclass(cls, dict) and TypedDict in getattr(cls, "__orig_bases__", []):
+        return Annotated[cls, ContextVar(cls.__name__)]
+    else:
+        msg = f"Expected {cls!r} to be a TypedDict"
+        raise TypeError(msg)
+
+
 class _DependencyAnnotation:
 
     def __class_getitem__(cls, item: tuple[Any, str]) -> Annotated:
@@ -50,6 +61,6 @@ class _DependencyAnnotation:
 
 if TYPE_CHECKING:
     Dependency = Annotated
-    """A type hint for a dependency annotated with a context var."""
+    """Annotate a type as a dependency."""
 else:
     Dependency = _DependencyAnnotation

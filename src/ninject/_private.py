@@ -18,7 +18,6 @@ from typing import (
     cast,
     get_args,
     get_origin,
-    get_type_hints,
 )
 
 from ninject.types import (

@@ -10,16 +10,16 @@ from inspect import (
     isgeneratorfunction,
 )
 from typing import (
-    Annotated,
     Any,
     AsyncContextManager,
     Callable,
     ContextManager,
     Mapping,
     ParamSpec,
+    TypedDict,
     TypeVar,
     cast,
-    get_origin,
+    get_args,
     get_type_hints,
 )
 
@@ -73,16 +73,17 @@ class Context:
 
     def provides(self, annotation: type[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
         """Add a provider function."""
-        if get_origin(annotation) is Annotated:
-            return self._provides_scalar(annotation)
-        else:
-            return self._provides_dict(annotation)
-
-    def _provides_scalar(self, annotation: type[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
         if not (var := get_context_var_from_annotation(annotation)):
             msg = f"Expected {annotation!r} to be annotated with a context var"
             raise TypeError(msg)
 
+        annotation_type = get_args(annotation)[0]
+        if issubclass(annotation_type, dict) and TypedDict in getattr(annotation_type, "__orig_bases__", ()):
+            return self._provides_dict(var, annotation_type)
+        else:
+            return self._provides_scalar(var)
+
+    def _provides_scalar(self, var: ContextVar[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
         def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
             if var in self._context_providers:
                 msg = f"Provider for {var} has already been set"
@@ -92,22 +93,17 @@ class Context:
 
         return decorator
 
-    def _provides_dict(self, typed_dict: type[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
-
+    def _provides_dict(self, var: ContextVar[R], cls: type[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
         def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
-            typed_dict_var = ContextVar(f"{typed_dict.__name__}_context_var")
-            self._context_providers[typed_dict_var] = _make_context_provider(typed_dict_var, provider)
+            self._context_providers[var] = _make_context_provider(var, provider)
 
-            for field_name, field_type in get_type_hints(typed_dict, include_extras=True).items():
-                if not (field_var := get_context_var_from_annotation(field_type)):
-                    msg = f"Expected {field_name}: {field_type!r} to be annotated with a context var"
-                    raise TypeError(msg)
-
-                provide_field = _make_injection_wrapper(
-                    lambda field_name=field_name, *, provided_dict: provided_dict[field_name],
-                    {"provided_dict": typed_dict_var},
-                )
-                self._context_providers[field_var] = _make_context_provider(field_var, provide_field)
+            for field_name, field_type in get_type_hints(cls, include_extras=True).items():
+                if field_var := get_context_var_from_annotation(field_type):
+                    provide_field = _make_injection_wrapper(
+                        lambda field_name=field_name, *, provided_dict: provided_dict[field_name],
+                        {"provided_dict": var},
+                    )
+                    self._context_providers[field_var] = _make_context_provider(field_var, provide_field)
 
             return provider
 
