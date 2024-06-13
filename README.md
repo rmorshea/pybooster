@@ -9,7 +9,7 @@ injection framework.
 
 -   [Installation](#installation)
 -   [Basic Usage](#basic-usage)
--   [Types of Providers](#kinds-of-providers)
+-   [Types of Providers](#types-of-providers)
 -   [Providers with Dependencies](#providers-with-dependencies)
 -   [Providing Multiple Dependencies](#providing-multiple-dependencies)
 -   [Providing Dependencies Concurrently](#providing-dependencies-concurrently)
