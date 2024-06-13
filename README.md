@@ -240,9 +240,12 @@ if __name__ == "__main__":
 
 ## Providing Dependencies Concurrently
 
-Ninject does not execute async providers concurrently. If you want to do so, you can
-leverage the ability to provide
-[multiple dependencies](#providing-multiple-dependencies) at once.
+Ninject does not execute async providers concurrently since doing so can add a
+substantial amount of overhead to async function calls if it's unnecessary. You want to
+provide dependencies concurrently you can leverage the ability to provide
+[multiple dependencies](#providing-multiple-dependencies) at once. With that in mind,
+you can use `asyncio.gather` to run several async functions concurrently before
+providing the dependencies:
 
 ```python
 import asyncio
