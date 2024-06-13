@@ -74,8 +74,6 @@ A provider is one of the following
 -   An async context manager class that yields a value
 
 ```python
-from contextlib import ContextManager, AsyncContextManager
-
 from ninject import Dependency, Context
 
 Message = Dependency("Message", str)
@@ -99,7 +97,7 @@ def sync_generator() -> Message:
 
 
 @context.provides
-class SyncContextManager(ContextManager):
+class SyncContextManager:
     def __enter__(self) -> Message:
         return Message("Hello, World!")
 
@@ -124,7 +122,7 @@ async def async_generator() -> Message:
 
 
 @context.provides
-class AsyncContextManager(AsyncContextManager):
+class AsyncContextManager:
     async def __aenter__(self) -> Message:
         return Message("Hello, World!")
 
