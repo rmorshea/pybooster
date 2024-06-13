@@ -227,14 +227,14 @@ def test_sync_provider_with_async_dependency_used_in_sync_function():
 
     @context.provides
     async def provide_greeting() -> Greeting:
-        return Greeting("Hello")
+        raise NotImplementedError()
 
     @context.provides
-    def provide_message(*, greeting: Greeting = inject.ed) -> Message:
-        return Message(f"{greeting}, World!")
+    def provide_message(*, _: Greeting = inject.ed) -> Message:
+        raise NotImplementedError()
 
     with context:
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError, match=r"Cannot use an async provider .* in a sync context"):
             sync_use_message()
 
 
@@ -321,7 +321,7 @@ def test_error_if_register_provider_for_same_dependency():
 def test_unsupported_provider_type():
     context = Context()
 
-    with pytest.raises(TypeError, match="Cannot determine return type"):
+    with pytest.raises(TypeError, match="Unsupported provider type"):
 
         @context.provides
         class NotContextManager:
@@ -331,7 +331,7 @@ def test_unsupported_provider_type():
         def __call__(self):
             raise NotImplementedError()
 
-    with pytest.raises(TypeError, match="Expected a function or class"):
+    with pytest.raises(TypeError, match="Unsupported provider type"):
         context.provides(cls=Greeting)(NotValidProvider())
 
 

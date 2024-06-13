@@ -1,15 +1,17 @@
 from contextlib import asynccontextmanager, contextmanager
 from functools import wraps
+from typing import AsyncIterator, Callable, ContextManager, Generator, Iterator
 
 import pytest
 
 from ninject._private import (
     INJECTED,
+    _get_wrapped,
     async_exhaust_exits,
     exhaust_exits,
     get_context_provider,
     get_injected_dependency_types_from_callable,
-    get_wrapped,
+    get_provider_info,
 )
 
 
@@ -94,7 +96,7 @@ def test_get_wrapped():
     def wrapper():
         raise NotImplementedError()
 
-    assert get_wrapped(func) == func
+    assert _get_wrapped(func) == func
 
 
 def test_get_context_provider_error_if_missing():
@@ -103,3 +105,55 @@ def test_get_context_provider_error_if_missing():
 
     with pytest.raises(RuntimeError, match="No provider declared for"):
         get_context_provider(Thing)
+
+
+PROVIDER_AND_EXPECTED_TYPE = []
+
+
+def add_provider_and_expected_type(cls: type) -> Callable[[Callable], Callable]:
+    def decorator(func) -> Callable:
+        PROVIDER_AND_EXPECTED_TYPE.append((func, cls))
+        return func
+
+    return decorator
+
+
+@add_provider_and_expected_type(int)
+def sync_func() -> int:
+    ...
+
+
+@add_provider_and_expected_type(int)
+def sync_iter() -> Iterator[int]:
+    ...
+
+
+@add_provider_and_expected_type(int)
+def sync_gen() -> Generator[int, None, None]:
+    ...
+
+
+@add_provider_and_expected_type(int)
+class SyncContextManagerTypeInGeneric(ContextManager[int]):
+    ...
+
+
+@add_provider_and_expected_type(int)
+class SyncContextManagerTypeInEnter(ContextManager):
+    def __enter__(self) -> int:
+        ...
+
+
+@add_provider_and_expected_type(int)
+async def async_func() -> int:
+    ...
+
+
+@add_provider_and_expected_type(int)
+async def async_iter() -> AsyncIterator[int]:
+    ...
+
+
+@pytest.mark.parametrize("provider, expected_type", PROVIDER_AND_EXPECTED_TYPE)
+def test_get_provider_info_provides_type(provider, expected_type):
+    assert get_provider_info(provider).provides_type == expected_type

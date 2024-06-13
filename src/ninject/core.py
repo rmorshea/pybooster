@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from functools import wraps
 from inspect import isasyncgenfunction, iscoroutinefunction, isfunction, isgeneratorfunction
 from typing import (
@@ -95,11 +94,7 @@ class Context:
         """Add a provider function."""
 
         def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
-            provider_info = get_provider_info(provider)
-
-            if cls is not None:
-                provider_info = replace(provider_info, provides_type=cls)
-
+            provider_info = get_provider_info(provider, cls)
             attr_or_item, field_types = get_dependency_type_info(provider_info.provides_type)
 
             if attr_or_item is None:
