@@ -1,25 +1,39 @@
 from __future__ import annotations
 
-import inspect
 import sys
+from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass, field
+from functools import wraps
+from inspect import Parameter, isasyncgenfunction, iscoroutinefunction, isfunction, isgeneratorfunction, signature
 from typing import (
     Annotated,
     Any,
     AsyncContextManager,
+    AsyncGenerator,
+    AsyncIterator,
     Awaitable,
     Callable,
     ContextManager,
+    Coroutine,
+    Generator,
+    Generic,
+    Iterator,
+    Literal,
     Mapping,
     ParamSpec,
     Sequence,
     TypeAlias,
+    TypedDict,
     TypeVar,
     cast,
     get_args,
     get_origin,
+    get_type_hints,
 )
+from weakref import WeakKeyDictionary
 
+import ninject
 from ninject.types import AsyncContextProvider, SyncContextProvider
 
 P = ParamSpec("P")
@@ -29,18 +43,139 @@ R = TypeVar("R")
 INJECTED = cast(Any, (type("INJECTED", (), {"__repr__": lambda _: "INJECTED"}))())
 
 
+def add_dependency(cls: type) -> None:
+    _DEPENDENCIES.add(cls)
+
+
+def is_dependency(cls: type) -> bool:
+    return cls in _DEPENDENCIES
+
+
+def get_dependency_type_info(cls: type) -> tuple[Literal["attr", "item"] | None, dict[int | str, Any]]:
+    if is_dependency(cls):
+        return None, {}
+    elif get_origin(cls) is tuple:
+        return "item", {i: t for i, t in enumerate(get_args(cls)) if is_dependency(t)}
+    else:
+        return (
+            "item" if issubclass(cls, dict) and TypedDict in getattr(cls, "__orig_bases__", []) else "attr",
+            {k: t for k, t in get_type_hints(cls).items() if is_dependency(t)},
+        )
+
+
+def get_provider_info(provider: Callable) -> ProviderInfo:
+    if isinstance(wrapped := get_wrapped(provider), type):
+        if issubclass(wrapped, ContextManager):
+            return SyncProviderInfo(
+                provides_type=get_provider_info(wrapped.__enter__).provides_type,
+                context_provider=provider,
+            )
+        elif issubclass(wrapped, AsyncContextManager):
+            return AsyncProviderInfo(
+                provides_type=get_provider_info(wrapped.__aenter__).provides_type,
+                context_provider=provider,
+            )
+
+    try:
+        type_hints = get_type_hints(provider)
+    except TypeError:
+        msg = f"Expected a function or class, got {provider!r}"
+        raise TypeError(msg) from None
+
+    return_type = _unwrap_annotated(type_hints.get("return"))
+    return_type_origin = get_origin(return_type)
+    if return_type is None:
+        msg = f"Cannot determine return type of {provider!r}"
+        raise TypeError(msg)
+
+    elif isasyncgenfunction(provider):
+        if issubclass(return_type_origin, (AsyncIterator, AsyncGenerator)):
+            return AsyncProviderInfo(
+                provides_type=get_args(return_type)[0],
+                context_provider=asynccontextmanager(ninject.inject(provider)),
+            )
+        else:
+            msg = f"Expected async generator to return an AsyncIterator or AsyncGenerator, got {return_type_origin!r}"
+            raise TypeError(msg)
+    elif iscoroutinefunction(provider):
+        return AsyncProviderInfo(
+            provides_type=return_type,
+            context_provider=asyncfunctioncontextmanager(ninject.inject(provider)),
+        )
+    elif isgeneratorfunction(provider):
+        if issubclass(return_type_origin, (Iterator, Generator)):
+            return SyncProviderInfo(
+                provides_type=get_args(return_type)[0],
+                context_provider=contextmanager(ninject.inject(provider)),
+            )
+        else:
+            msg = f"Expected generator to return an Iterator or Generator, got {return_type_origin!r}"
+            raise TypeError(msg)
+    elif isfunction(provider):
+        if return_type_origin is None:
+            return SyncProviderInfo(
+                provides_type=return_type,
+                context_provider=syncfunctioncontextmanager(ninject.inject(provider)),
+            )
+        elif issubclass(return_type_origin, Awaitable):
+            return AsyncProviderInfo(
+                provides_type=get_args(return_type)[0],
+                context_provider=asyncfunctioncontextmanager(ninject.inject(provider)),
+            )
+        elif issubclass(return_type_origin, Coroutine):
+            coro_yield_type, _, cor_return_type = get_args(return_type)
+            if _unwrap_annotated(coro_yield_type) in (None, Any):
+                return AsyncProviderInfo(
+                    provides_type=get_args(return_type)[0],
+                    context_provider=asynccontextmanager(ninject.inject(provider)),
+                )
+            else:
+                return AsyncProviderInfo(
+                    provides_type=cor_return_type,
+                    context_provider=asyncfunctioncontextmanager(ninject.inject(provider)),
+                )
+        elif issubclass(return_type_origin, ContextManager):
+            return SyncProviderInfo(
+                provides_type=get_provider_info(return_type.__enter__).provides_type,
+                context_provider=syncfunctioncontextmanager(ninject.inject(provider)),
+            )
+        elif issubclass(return_type_origin, AsyncContextManager):
+            return AsyncProviderInfo(
+                provides_type=get_provider_info(return_type.__aenter__).provides_type,
+                context_provider=asyncfunctioncontextmanager(ninject.inject(provider)),
+            )
+        else:
+            return SyncProviderInfo(
+                provides_type=return_type,
+                context_provider=syncfunctioncontextmanager(ninject.inject(provider)),
+            )
+
+    msg = f"Unsupported provider type: {provider!r}"
+    raise TypeError(msg)
+
+
+def _unwrap_annotated(anno: Any) -> Any:
+    if get_origin(anno) is Annotated:
+        return get_args(anno)[0]
+    return anno
+
+
+def is_typed_dict(cls: type) -> bool:
+    return issubclass(cls, dict) and TypedDict in getattr(cls, "__orig_bases__", [])
+
+
 def get_wrapped(func: Callable[P, R]) -> Callable[P, R]:
     while maybe_func := getattr(func, "__wrapped__", None):
         func = maybe_func
     return func
 
 
-def get_injected_context_vars_from_callable(func: Callable[..., Any]) -> Mapping[str, ContextVar]:
-    context_vars: dict[str, ContextVar] = {}
+def get_injected_dependency_types_from_callable(func: Callable[..., Any]) -> Mapping[str, type]:
+    dependency_types: dict[str, type] = {}
 
-    for param in inspect.signature(func).parameters.values():
+    for param in signature(get_wrapped(func)).parameters.values():
         if param.default is INJECTED:
-            if param.kind is not inspect.Parameter.KEYWORD_ONLY:
+            if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected injected parameter {param.name!r} to be keyword-only"
                 raise TypeError(msg)
             anno = param.annotation
@@ -50,36 +185,9 @@ def get_injected_context_vars_from_callable(func: Callable[..., Any]) -> Mapping
                 except NameError as e:
                     msg = f"{e} - is it defined as a global?"
                     raise NameError(msg) from None
-            if get_origin(anno) is not Annotated:
-                msg = (
-                    f"Expected {param.name!r} to be annotated with a "
-                    f"ContextVar - did use Dependency[{anno}, 'name']?"
-                )
-                raise TypeError(msg)
-            if var := get_context_var_from_annotation(anno):
-                context_vars[param.name] = var
-            else:
-                msg = (
-                    f"Expected {param.name!r} to be annotated with a "
-                    f"ContextVar - did use Dependency[{anno}, 'name']?"
-                )
-                raise TypeError(msg)
+            dependency_types[param.name] = anno
 
-    return context_vars
-
-
-def get_context_var_from_annotation(anno: Any) -> ContextVar | None:
-    if get_origin(anno) is not Annotated:
-        return None
-    _, *metadata = get_args(anno)
-    var: ContextVar | None = None
-    for meta in metadata:
-        if isinstance(meta, ContextVar):
-            if var is not None:
-                msg = "Expected exactly one ContextVar"
-                raise TypeError(msg)
-            var = meta
-    return var
+    return dependency_types
 
 
 class SyncUniformContext(ContextManager[R], AsyncContextManager[R]):
@@ -87,7 +195,7 @@ class SyncUniformContext(ContextManager[R], AsyncContextManager[R]):
         self,
         var: ContextVar[R],
         context_provider: SyncContextProvider[R],
-        dependencies: Sequence[ContextVar],
+        dependencies: Sequence[type],
     ):
         self.var = var
         self.context_provider = context_provider
@@ -99,8 +207,8 @@ class SyncUniformContext(ContextManager[R], AsyncContextManager[R]):
         try:
             return self.var.get()
         except LookupError:
-            for var in self.dependencies:
-                (dependency_context := get_context_provider(var)()).__enter__()
+            for cls in self.dependencies:
+                (dependency_context := get_context_provider(cls)()).__enter__()
                 self.dependency_contexts.append(dependency_context)
             self.context = context = self.context_provider()
             self.token = self.var.set(context.__enter__())
@@ -137,13 +245,18 @@ class SyncUniformContext(ContextManager[R], AsyncContextManager[R]):
                 finally:
                     await async_exhaust_exits(self.dependency_contexts)
 
+    def __repr__(self) -> str:
+        wrapped = get_wrapped(self.context_provider)
+        provider_str = getattr(wrapped, "__qualname__", str(wrapped))
+        return f"{self.__class__.__name__}({self.var.name}, {provider_str})"
+
 
 class AsyncUniformContext(ContextManager[R], AsyncContextManager[R]):
     def __init__(
         self,
         var: ContextVar[R],
         context_provider: AsyncContextProvider[R],
-        dependencies: Sequence[ContextVar],
+        dependencies: Sequence[type],
     ):
         self.var = var
         self.context_provider = context_provider
@@ -155,7 +268,7 @@ class AsyncUniformContext(ContextManager[R], AsyncContextManager[R]):
         try:
             return self.var.get()
         except LookupError:
-            msg = "Cannot use an async context manager in a sync context"
+            msg = f"Cannot use an async provider {self.var.name} in a sync context"
             raise RuntimeError(msg) from None
 
     def __exit__(self, etype: Any, evalue: Any, atrace: Any, /) -> None:
@@ -165,8 +278,8 @@ class AsyncUniformContext(ContextManager[R], AsyncContextManager[R]):
         try:
             return self.var.get()
         except LookupError:
-            for var in self.dependencies:
-                await (dependency_context := get_context_provider(var)()).__aenter__()
+            for cls in self.dependencies:
+                await (dependency_context := get_context_provider(cls)()).__aenter__()
                 self.dependency_contexts.append(dependency_context)
             self.context = context = self.context_provider()
             self.token = self.var.set(await context.__aenter__())
@@ -182,17 +295,41 @@ class AsyncUniformContext(ContextManager[R], AsyncContextManager[R]):
                 finally:
                     await async_exhaust_exits(self.dependency_contexts)
 
+    def __repr__(self) -> str:
+        wrapped = get_wrapped(self.context_provider)
+        provider_str = getattr(wrapped, "__qualname__", str(wrapped))
+        return f"{self.__class__.__name__}({self.var.name}, {provider_str})"
+
 
 UniformContext: TypeAlias = "SyncUniformContext[R] | AsyncUniformContext[R]"
 UniformContextProvider: TypeAlias = "Callable[[], UniformContext[R]]"
 
 
+@dataclass(kw_only=True)
+class SyncProviderInfo(Generic[R]):
+    sync: Literal[True] = field(default=True, init=False)
+    uniform_context_type: type[SyncUniformContext[R]] = field(default=SyncUniformContext, init=False)
+    provides_type: type[R]
+    context_provider: SyncContextProvider[R]
+
+
+@dataclass(kw_only=True)
+class AsyncProviderInfo(Generic[R]):
+    sync: Literal[False] = field(default=False, init=False)
+    uniform_context_type: type[AsyncUniformContext[R]] = field(default=AsyncUniformContext, init=False)
+    provides_type: type[R]
+    context_provider: AsyncContextProvider[R]
+
+
+ProviderInfo = SyncProviderInfo[R] | AsyncProviderInfo[R]
+
+
 def asyncfunctioncontextmanager(func: Callable[[], Awaitable[R]]) -> AsyncContextProvider[R]:
-    return lambda: AsyncFunctionContextManager(func)
+    return wraps(func)(lambda: AsyncFunctionContextManager(func))
 
 
 def syncfunctioncontextmanager(func: Callable[[], R]) -> SyncContextProvider[R]:
-    return lambda: SyncFunctionContextManager(func)
+    return wraps(func)(lambda: SyncFunctionContextManager(func))
 
 
 class AsyncFunctionContextManager(AsyncContextManager[R]):
@@ -243,25 +380,31 @@ async def async_exhaust_exits(ctxts: Sequence[AsyncContextManager[Any]]) -> None
         await async_exhaust_exits(ctxts)
 
 
-def set_context_provider(
-    dependency_var: ContextVar[R],
-    provider: UniformContextProvider[R],
-) -> Callable[[], None]:
-    if not (context_provider_var := _CONTEXT_PROVIDER_VARS_BY_DEPENDENCY_VAR.get(dependency_var)):
-        context_provider_var = _CONTEXT_PROVIDER_VARS_BY_DEPENDENCY_VAR[dependency_var] = ContextVar(
-            f"{dependency_var.name}_context_provider"
-        )
+def set_context_provider(cls: type[R], provider: UniformContextProvider[R]) -> Callable[[], None]:
+    if not (context_provider_var := _CONTEXT_PROVIDER_VARS_BY_TYPE.get(cls)):
+        context_provider_var = _CONTEXT_PROVIDER_VARS_BY_TYPE[cls] = ContextVar(f"{cls.__name__}_provider")
+
     token = context_provider_var.set(provider)
     return lambda: context_provider_var.reset(token)
 
 
-def get_context_provider(dependency_var: ContextVar[R]) -> UniformContextProvider[R]:
+def get_context_provider(cls: type[R]) -> UniformContextProvider[R]:
     try:
-        context_provider_var = _CONTEXT_PROVIDER_VARS_BY_DEPENDENCY_VAR[dependency_var]
+        context_provider_var = _CONTEXT_PROVIDER_VARS_BY_TYPE[cls]
     except KeyError:
-        msg = f"No provider declared for {dependency_var}"
+        msg = f"No provider declared for {cls}"
         raise RuntimeError(msg) from None
     return context_provider_var.get()
 
 
-_CONTEXT_PROVIDER_VARS_BY_DEPENDENCY_VAR: dict[ContextVar, ContextVar[UniformContextProvider]] = {}
+def setdefault_context_var(cls: type[R]) -> ContextVar:
+    if not (context_var := _DEPENDENCY_VARS_BY_TYPE.get(cls)):
+        context_var = _DEPENDENCY_VARS_BY_TYPE[cls] = ContextVar(f"{cls.__name__}_dependency")
+    return context_var
+
+
+_DEPENDENCY_VARS_BY_TYPE: WeakKeyDictionary[type, ContextVar] = WeakKeyDictionary()
+_CONTEXT_PROVIDER_VARS_BY_TYPE: WeakKeyDictionary[type, ContextVar[UniformContextProvider]] = WeakKeyDictionary()
+
+
+_DEPENDENCIES: set[type] = set()

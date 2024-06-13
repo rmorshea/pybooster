@@ -1,48 +1,51 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager, contextmanager
-from contextvars import ContextVar
+from dataclasses import replace
 from functools import wraps
-from inspect import (
-    isasyncgenfunction,
-    iscoroutinefunction,
-    isfunction,
-    isgeneratorfunction,
-)
+from inspect import isasyncgenfunction, iscoroutinefunction, isfunction, isgeneratorfunction
 from typing import (
+    TYPE_CHECKING,
     Any,
-    AsyncContextManager,
     Callable,
-    ContextManager,
+    Literal,
     Mapping,
+    NewType,
     ParamSpec,
-    TypedDict,
     TypeVar,
     cast,
-    get_args,
-    get_type_hints,
+    overload,
 )
 
 from ninject._private import (
     INJECTED,
-    AsyncUniformContext,
-    SyncUniformContext,
+    ProviderInfo,
+    SyncProviderInfo,
     UniformContext,
     UniformContextProvider,
+    add_dependency,
     async_exhaust_exits,
-    asyncfunctioncontextmanager,
     exhaust_exits,
     get_context_provider,
-    get_context_var_from_annotation,
-    get_injected_context_vars_from_callable,
-    get_wrapped,
+    get_dependency_type_info,
+    get_injected_dependency_types_from_callable,
+    get_provider_info,
     set_context_provider,
-    syncfunctioncontextmanager,
+    setdefault_context_var,
 )
-from ninject.types import AnyProvider
+from ninject.types import AnyProvider, AsyncFunctionProvider, SyncFunctionProvider
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+if TYPE_CHECKING:
+    Dependency = NewType
+else:
+
+    def Dependency(name, tp):  # noqa: N802
+        new_type = NewType(name, tp)
+        add_dependency(new_type)
+        return new_type
 
 
 class Inject:
@@ -53,7 +56,7 @@ class Inject:
 
     def __call__(self, func: Callable[P, R]) -> Callable[P, R]:
         """Inject values into a function."""
-        dependencies = get_injected_context_vars_from_callable(func)
+        dependencies = get_injected_dependency_types_from_callable(func)
         return _make_injection_wrapper(func, dependencies)
 
     def __repr__(self) -> str:
@@ -69,57 +72,68 @@ class Context:
     """A context manager for setting provider functions."""
 
     def __init__(self) -> None:
-        self._context_providers: dict[ContextVar, UniformContextProvider] = {}
+        self._context_providers: dict[type, UniformContextProvider] = {}
 
-    def provides(self, annotation: type[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
+    @overload
+    def provides(self, provider: AnyProvider[R], /) -> AnyProvider[R]:
+        ...
+
+    @overload
+    def provides(
+        self,
+        provider: AnyProvider[R] | None = ...,
+        *,
+        cls: type[R],
+    ) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
+        ...
+
+    def provides(
+        self,
+        provider: AnyProvider[R] | None = None,
+        cls: type[R] | None = None,
+    ) -> AnyProvider[R] | Callable[[AnyProvider[R]], AnyProvider[R]]:
         """Add a provider function."""
-        if not (var := get_context_var_from_annotation(annotation)):
-            msg = f"Expected {annotation!r} to be annotated with a context var"
-            raise TypeError(msg)
 
-        annotation_type = get_args(annotation)[0]
-        if issubclass(annotation_type, dict) and TypedDict in getattr(annotation_type, "__orig_bases__", ()):
-            return self._provides_dict(var, annotation_type)
-        else:
-            return self._provides_scalar(var)
-
-    def _provides_scalar(self, var: ContextVar[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
         def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
-            if var in self._context_providers:
-                msg = f"Provider for {var} has already been set"
-                raise RuntimeError(msg)
-            self._context_providers[var] = _make_context_provider(var, provider)
-            return provider
+            provider_info = get_provider_info(provider)
 
-        return decorator
+            if cls is not None:
+                provider_info = replace(provider_info, provides_type=cls)
 
-    def _provides_dict(self, var: ContextVar[R], cls: type[R]) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
-        def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
-            context_provider = self._context_providers[var] = _make_context_provider(var, provider)
-            if isinstance(context_provider(), SyncUniformContext):
+            attr_or_item, field_types = get_dependency_type_info(provider_info.provides_type)
 
-                def make_field_provider(field_name: str):
-                    def provide_field(provided_dict: dict) -> Any:
-                        return provided_dict[field_name]
-
-                    return provide_field
-
+            if attr_or_item is None:
+                self._provides_one(provider_info)
+            elif field_types:
+                self._provides_many(provider_info, attr_or_item, field_types)
             else:
-
-                def make_field_provider(field_name: str):
-                    async def provide_field(provided_dict: dict) -> Any:
-                        return provided_dict[field_name]
-
-                    return provide_field
-
-            for field_name, field_type in get_type_hints(cls, include_extras=True).items():
-                if field_var := get_context_var_from_annotation(field_type):
-                    provide_field = _make_injection_wrapper(make_field_provider(field_name), {"provided_dict": var})
-                    self._context_providers[field_var] = _make_context_provider(field_var, provide_field)
+                msg = (
+                    f"Unsupported dependency type {provider_info.provides_type} - "
+                    "expected a NewType or a class with NewType fields"
+                )
+                raise TypeError(msg)
 
             return provider
 
-        return decorator
+        return decorator if provider is None else decorator(provider)
+
+    def _provides_one(self, info: ProviderInfo[Any]) -> None:
+        if info.provides_type in self._context_providers:
+            msg = f"Provider for {info.provides_type} has already been set"
+            raise RuntimeError(msg)
+        self._context_providers[info.provides_type] = _make_context_provider(info)
+
+    def _provides_many(
+        self,
+        info: ProviderInfo[tuple],
+        attr_or_item: Literal["attr", "item"],
+        field_types: dict[str | int, Any],
+    ) -> None:
+        add_dependency(info.provides_type)
+        self._context_providers[info.provides_type] = _make_context_provider(info)
+        for f, f_type in field_types.items():
+            provide_item = _make_injection_wrapper(_make_item_provider(info, attr_or_item, f), {"value": f_type})
+            self.provides(provide_item, cls=f_type)
 
     def __enter__(self) -> None:
         self._reset_callbacks = [set_context_provider(v, p) for v, p in self._context_providers.items()]
@@ -132,39 +146,18 @@ class Context:
             del self._reset_callbacks
 
 
-def _make_context_provider(
-    var: ContextVar[R],
-    provider: AnyProvider[R],
-) -> UniformContextProvider[R]:
-    wrapped = get_wrapped(provider)
-    dependencies = tuple(get_injected_context_vars_from_callable(wrapped).values())
-
-    if isinstance(wrapped := get_wrapped(provider), type):
-        if issubclass(wrapped, ContextManager):
-            return lambda: SyncUniformContext(var, provider, dependencies)
-        elif issubclass(wrapped, AsyncContextManager):
-            return lambda: AsyncUniformContext(var, provider, dependencies)
-    elif isasyncgenfunction(provider):
-        ctx_provider = asynccontextmanager(inject(provider))
-        return lambda: AsyncUniformContext(var, ctx_provider, dependencies)
-    elif iscoroutinefunction(provider):
-        ctx_provider = asyncfunctioncontextmanager(inject(provider))
-        return lambda: AsyncUniformContext(var, ctx_provider, dependencies)
-    elif isgeneratorfunction(provider):
-        ctx_provider = contextmanager(inject(provider))
-        return lambda: SyncUniformContext(var, ctx_provider, dependencies)
-    elif isfunction(provider):
-        ctx_provider = syncfunctioncontextmanager(inject(provider))
-        return lambda: SyncUniformContext(var, ctx_provider, dependencies)
-
-    msg = f"Unsupported provider type: {provider} - expected one of: {AnyProvider}"
-    raise TypeError(msg)
+def _make_context_provider(info: ProviderInfo[R]) -> UniformContextProvider[R]:
+    var = setdefault_context_var(info.provides_type)
+    context_provider = info.context_provider
+    uniform_context_type = info.uniform_context_type
+    dependencies = tuple(get_injected_dependency_types_from_callable(info.context_provider).values())
+    return lambda: uniform_context_type(var, context_provider, dependencies)  # type: ignore[reportArgumentType]
 
 
-def _make_injection_wrapper(
-    func: Callable[P, R],
-    dependencies: Mapping[str, ContextVar],
-) -> Callable[P, R]:
+def _make_injection_wrapper(func: Callable[P, R], dependencies: Mapping[str, type]) -> Callable[P, R]:
+    if not dependencies:
+        return func
+
     wrapper: Callable[..., Any]
     if isasyncgenfunction(func):
 
@@ -173,8 +166,8 @@ def _make_injection_wrapper(
 
             try:
                 for name in dependencies.keys() - kwargs.keys():
-                    var = dependencies[name]
-                    context = get_context_provider(var)()
+                    cls = dependencies[name]
+                    context = get_context_provider(cls)()
                     kwargs[name] = await context.__aenter__()
                     contexts.append(context)
                 async for value in func(*args, **kwargs):
@@ -190,8 +183,8 @@ def _make_injection_wrapper(
             contexts: list[UniformContext] = []
             try:
                 for name in dependencies.keys() - kwargs.keys():
-                    var = dependencies[name]
-                    context = get_context_provider(var)()
+                    cls = dependencies[name]
+                    context = get_context_provider(cls)()
                     kwargs[name] = context.__enter__()
                     contexts.append(context)
                 yield from func(*args, **kwargs)
@@ -207,8 +200,8 @@ def _make_injection_wrapper(
 
             try:
                 for name in dependencies.keys() - kwargs.keys():
-                    var = dependencies[name]
-                    context = get_context_provider(var)()
+                    cls = dependencies[name]
+                    context = get_context_provider(cls)()
                     kwargs[name] = await context.__aenter__()
                     contexts.append(context)
                 return await func(*args, **kwargs)
@@ -223,8 +216,8 @@ def _make_injection_wrapper(
             contexts: list[UniformContext] = []
             try:
                 for name in dependencies.keys() - kwargs.keys():
-                    var = dependencies[name]
-                    context = get_context_provider(var)()
+                    cls = dependencies[name]
+                    context = get_context_provider(cls)()
                     kwargs[name] = context.__enter__()
                     contexts.append(context)
                 return func(*args, **kwargs)
@@ -237,4 +230,48 @@ def _make_injection_wrapper(
         msg = f"Unsupported function type: {func}"
         raise TypeError(msg)
 
-    return cast(Callable[P, R], wraps(func)(wrapper))
+    return cast(Callable[P, R], wraps(cast(Callable, func))(wrapper))
+
+
+def _make_item_provider(
+    info: ProviderInfo,
+    attr_or_item: Literal["attr", "item"],
+    field: str | int,
+) -> SyncFunctionProvider | AsyncFunctionProvider:
+    if attr_or_item == "attr":
+        if not isinstance(field, str):  # nocov
+            msg = f"Expected field to be a string, got {field}"
+            raise TypeError(msg)
+
+        if isinstance(info, SyncProviderInfo):
+
+            def sync_provide_attr_field(*, value: Any = inject.ed) -> Any:
+                return getattr(value, field)
+
+            return sync_provide_attr_field
+
+        else:
+
+            async def async_provide_attr_field(*, value: Any = inject.ed) -> Any:
+                return getattr(value, field)
+
+            return async_provide_attr_field
+
+    elif attr_or_item == "item":
+        if isinstance(info, SyncProviderInfo):
+
+            def sync_provide_item_field(*, value: Any = inject.ed) -> Any:
+                return value[field]
+
+            return sync_provide_item_field
+
+        else:
+
+            async def async_provide_item_field(*, value: Any = inject.ed) -> Any:
+                return value[field]
+
+            return async_provide_item_field
+
+
+class InvalidDependencyError(TypeError):
+    """Raised when a dependency is invalid."""

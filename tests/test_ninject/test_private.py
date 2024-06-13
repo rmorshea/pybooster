@@ -1,7 +1,5 @@
 from contextlib import asynccontextmanager, contextmanager
-from contextvars import ContextVar
 from functools import wraps
-from typing import Annotated
 
 import pytest
 
@@ -10,13 +8,9 @@ from ninject._private import (
     async_exhaust_exits,
     exhaust_exits,
     get_context_provider,
-    get_context_var_from_annotation,
-    get_injected_context_vars_from_callable,
+    get_injected_dependency_types_from_callable,
     get_wrapped,
 )
-
-VAR_A = ContextVar("a")
-VAR_B = ContextVar("b")
 
 
 def test_exhaust_exits():
@@ -61,63 +55,35 @@ async def test_async_exhaust_exits():
         await async_exhaust_exits([acm_1, acm_2, acm_3])
 
 
-def test_get_context_var_from_annotation():
-    assert get_context_var_from_annotation(int) is None
-
-    var = ContextVar("name")
-    assert get_context_var_from_annotation(Annotated[int, var]) is var
-
-    with pytest.raises(TypeError, match="Expected exactly one ContextVar"):
-        get_context_var_from_annotation(Annotated[int, var, var])
-
-
 def test_get_injected_context_vars_from_callable():
-    def func_1(*, _a: Annotated[int, VAR_A] = INJECTED, _b: Annotated[str, VAR_B] = INJECTED):
+    def func_1(*, _a: int = INJECTED, _b: str = INJECTED):
         raise NotImplementedError()
 
-    assert get_injected_context_vars_from_callable(func_1) == {"_a": VAR_A, "_b": VAR_B}
+    assert get_injected_dependency_types_from_callable(func_1) == {"_a": int, "_b": str}
 
-    def func_2(*, _a: "Annotated[int, VAR_A]" = INJECTED, _b: "Annotated[str, VAR_B]" = INJECTED):
+    def func_2(*, _a: "int" = INJECTED, _b: "str" = INJECTED):
         raise NotImplementedError()
 
-    assert get_injected_context_vars_from_callable(func_2) == {"_a": VAR_A, "_b": VAR_B}
-
-    def func_3(_a: Annotated[int, "not var"], _b: Annotated[str, "not var"] = "default"):
-        raise NotImplementedError()
-
-    assert get_injected_context_vars_from_callable(func_3) == {}
-
-
-def test_get_injected_context_vars_from_callable_error_if_injected_default_by_no_var():
-    def func(*, _a: Annotated[int, "no var"] = INJECTED):
-        raise NotImplementedError()
-
-    with pytest.raises(TypeError, match=r"Expected .* to be annotated with a "):
-        get_injected_context_vars_from_callable(func)
-
-    def func(*, _a: int = INJECTED):
-        raise NotImplementedError()
-
-    with pytest.raises(TypeError, match=r"Expected .* to be annotated with a "):
-        get_injected_context_vars_from_callable(func)
+    assert get_injected_dependency_types_from_callable(func_2) == {"_a": int, "_b": str}
 
 
 def test_get_injected_context_vars_from_callable_error_if_locals_when_annotation_is_str():
-    var_a = ContextVar("a")
+    class Thing:
+        ...
 
-    def func(*, _a: "Annotated[int, var_a]" = INJECTED):
+    def func(*, _a: "Thing" = INJECTED):
         raise NotImplementedError()
 
     with pytest.raises(NameError, match=r"name .* is not defined - is it defined as a global"):
-        get_injected_context_vars_from_callable(func)
+        get_injected_dependency_types_from_callable(func)
 
 
 def test_injected_parameter_must_be_keyword_only():
-    def func(_a: Annotated[int, VAR_A] = INJECTED):
+    def func(_a: int = INJECTED):
         raise NotImplementedError()
 
     with pytest.raises(TypeError, match="Expected injected parameter .* to be keyword-only"):
-        get_injected_context_vars_from_callable(func)
+        get_injected_dependency_types_from_callable(func)
 
 
 def test_get_wrapped():
@@ -131,8 +97,9 @@ def test_get_wrapped():
     assert get_wrapped(func) == func
 
 
-def test_get_context_provider():
-    var = ContextVar("name")
+def test_get_context_provider_error_if_missing():
+    class Thing:
+        ...
 
     with pytest.raises(RuntimeError, match="No provider declared for"):
-        get_context_provider(var)
+        get_context_provider(Thing)

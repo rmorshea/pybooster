@@ -9,7 +9,7 @@ injection framework.
 
 -   [Installation](#installation)
 -   [Basic Usage](#usage)
--   [Kinds of Providers](#kinds-of-providers)
+-   [Types of Providers](#kinds-of-providers)
 -   [Providers with Dependencies](#providers-with-dependencies)
 -   [Providing Multiple Dependencies](#providing-multiple-dependencies)
 -   [Providing Dependencies Concurrently](#providing-dependencies-concurrently)
@@ -28,8 +28,7 @@ First declare a `Dependency` and `inject` it into a dependent function.
 ```python
 from ninject import Dependency, inject
 
-# declare a dependency
-Message = Dependency[str, "Message"]
+Message = Dependency("Message", str)
 
 
 @inject
@@ -45,9 +44,9 @@ from ninject import Context
 context = Context()
 
 
-@context.provides(Message)
-def provide_message() -> str:
-    return "Hello, World!"
+@context.provides
+def provide_message() -> Message:
+    return Message("Hello, World!")
 ```
 
 Finally, establish the `context` and call the function with the `inject.ed` dependency:
@@ -63,7 +62,7 @@ The output will be:
 Hello, World!
 ```
 
-## Kinds of Providers
+## Types of Providers
 
 A provider is one of the following
 
@@ -78,30 +77,30 @@ A provider is one of the following
 from contextlib import ContextManager, AsyncContextManager
 from ninject import Dependency, Context
 
-Message = Dependency[str, "Message"]
+Message = Dependency("Message", str)
 
 context = Context()
 
 # --- Sync Providers -------------------------------------
 
 
-@context.provides(Message)
-def sync_function() -> str:
-    return "Hello, World!"
+@context.provides
+def sync_function() -> Message:
+    return Message("Hello, World!")
 
 
-@context.provides(Message)
-def sync_generator() -> str:
+@context.provides
+def sync_generator() -> Message:
     try:
-        yield "Hello, World!"
+        yield Message("Hello, World!")
     finally:
         pass
 
 
-@context.provides(Message)
+@context.provides
 class SyncContextManager(ContextManager):
-    def __enter__(self) -> str:
-        return "Hello, World!"
+    def __enter__(self) -> Message:
+        return Message("Hello, World!")
 
     def __exit__(self, *args) -> None:
         pass
@@ -110,23 +109,23 @@ class SyncContextManager(ContextManager):
 # --- Async Providers ------------------------------------
 
 
-@context.provides(Message)
-async def async_function() -> str:
-    return "Hello, World!"
+@context.provides
+async def async_function() -> Message:
+    return Message("Hello, World!")
 
 
-@context.provides(Message)
-async def async_generator() -> str:
+@context.provides
+async def async_generator() -> Message:
     try:
-        yield "Hello, World!"
+        yield Message("Hello, World!")
     finally:
         pass
 
 
-@context.provides(Message)
+@context.provides
 class AsyncContextManager(AsyncContextManager):
-    async def __aenter__(self) -> str:
-        return "Hello, World!"
+    async def __aenter__(self) -> Message:
+        return Message("Hello, World!")
 
     async def __aexit__(self, *args) -> None:
         pass
@@ -139,9 +138,9 @@ Providers can have their own dependencies:
 ```python
 from ninject import Dependency, Context, inject
 
-Greeting = Dependency[str, "Greeting"]
-Recipient = Dependency[str, "Recipient"]
-Message = Dependency[str, "Message"]
+Greeting = Dependency("Greeting", str)
+Recipient = Dependency("Recipient", str)
+Message = Dependency("Message", str)
 
 
 @inject
@@ -152,19 +151,19 @@ def print_message(*, message: Message = inject.ed):
 context = Context()
 
 
-@context.provides(Greeting)
-def provide_greeting() -> str:
-    return "Hello"
+@context.provides
+def provide_greeting() -> Greeting:
+    return Greeting("Hello")
 
 
-@context.provides(Recipient)
-def provide_recipient() -> str:
-    return "World"
+@context.provides
+def provide_recipient() -> Greeting:
+    return Greeting("World")
 
 
-@context.provides(Message)
-def provide_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> str:
-    return f"{greeting}, {recipient}!"
+@context.provides
+def provide_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> Message:
+    return Message(f"{greeting}, {recipient}!")
 
 
 if __name__ == "__main__":
@@ -178,30 +177,16 @@ The output will be:
 Hello, World!
 ```
 
-> 🔵 The syntax `Dependency[SomeType, "SomeName"]` can cause
-> ["Undefined name" errors in Ruff](https://github.com/astral-sh/ruff/issues/11378). You
-> can either turn off `F281` errors in Ruff and allow some other tool to catch them
-> (e.g. your type checker) or use
-> [`Annotated`](https://docs.python.org/3/library/typing.html#typing.Annotated) and
-> [`ContextVar`](https://docs.python.org/3/library/contextvars.html) to declare
-> dependencies - `Annotated[SomeType, ContextVar("SomeName")]`
-
 ## Providing Multiple Dependencies
 
-A single provider can supply multiple dependencies in the form of a `TypedDict`.
+A single provider can supply multiple dependencies:
 
 ```python
-from typing import TypedDict
 from ninject import Dependency, Context, inject, dependencies
 
-Greeting = Dependency[str, "Greeting"]
-Recipient = Dependency[str, "Recipient"]
-
-
-@dependencies
-class MessageContent(TypedDict):
-    greeting: Greeting
-    recipient: Recipient
+Greeting = Dependency("Greeting", str)
+Recipient = Dependency("Recipient", str)
+MessageContent = tuple[Greeting, Recipient]
 
 
 @inject
@@ -212,9 +197,9 @@ def print_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inje
 context = Context()
 
 
-@context.provides(MessageContent)
-def provide_message_content() -> dict:
-    return {"greeting": "Hello", "recipient": "World"}
+@context.provides
+def provide_message_content() -> MessageContent:
+    return "Hello", "World"
 
 
 if __name__ == "__main__":
@@ -222,20 +207,14 @@ if __name__ == "__main__":
         print_message()
 ```
 
-You may also depend on the `TypedDict` directly:
+You may also depend on `MessageContent` directly:
 
 ```python
-from typing import TypedDict
 from ninject import Dependency, Context, inject, dependencies
 
-Greeting = Dependency[str, "Greeting"]
-Recipient = Dependency[str, "Recipient"]
-
-
-@dependencies
-class MessageContent(TypedDict):
-    greeting: Greeting
-    recipient: Recipient
+Greeting = Dependency("Greeting", str)
+Recipient = Dependency("Recipient", str)
+MessageContent = tuple[Greeting, Recipient]
 
 
 @inject
@@ -263,11 +242,10 @@ to call it directly as you normally would. If you want to do this you'll need to
 two separate types defined - one for the `TypedDict`and one for the`Dependency`:
 
 ```python
-from typing import TypedDict
 from ninject import Dependency
 
-Greeting = Dependency[str, "Greeting"]
-Recipient = Dependency[str, "Recipient"]
+Greeting = Dependency("Greeting", str)
+Recipient = Dependency("Recipient", str)
 
 
 class MessageContent(TypedDict):
@@ -286,12 +264,10 @@ leverage the ability to provide
 
 ```python
 import asyncio
-from typing import TypedDict
-
 from ninject import Context, Dependency, dependencies, inject
 
-Greeting = Dependency[str, "Greeting"]
-Recipient = Dependency[str, "Recipient"]
+Greeting = Dependency("Greeting", str)
+Recipient = Dependency("Recipient", str)
 
 
 @dependencies
@@ -338,8 +314,8 @@ dependent function) is async:
 import asyncio
 from ninject import Dependency, Context, inject
 
-Recipient = Dependency[str, "Recipient"]
-Message = Dependency[str, "Message"]
+Greeting = Dependency("Greeting", str)
+Recipient = Dependency("Recipient", str)
 
 context = Context()
 
