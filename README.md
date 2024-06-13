@@ -163,7 +163,9 @@ def provide_recipient() -> Greeting:
 
 
 @context.provides
-def provide_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> Message:
+def provide_message(
+    *, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed
+) -> Message:
     return Message(f"{greeting}, {recipient}!")
 
 
@@ -278,7 +280,9 @@ class MessageContent(TypedDict):
 
 
 @inject
-async def print_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+async def print_message(
+    *, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed
+):
     print(f"{greeting}, {recipient}!")
 
 
