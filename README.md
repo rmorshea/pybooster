@@ -75,6 +75,7 @@ A provider is one of the following
 
 ```python
 from contextlib import ContextManager, AsyncContextManager
+
 from ninject import Dependency, Context
 
 Message = Dependency("Message", str)
@@ -136,7 +137,7 @@ class AsyncContextManager(AsyncContextManager):
 Providers can have their own dependencies:
 
 ```python
-from ninject import Dependency, Context, inject
+from ninject import Context, Dependency, inject
 
 Greeting = Dependency("Greeting", str)
 Recipient = Dependency("Recipient", str)
@@ -182,7 +183,7 @@ Hello, World!
 A single provider can supply multiple dependencies:
 
 ```python
-from ninject import Dependency, Context, inject, dependencies
+from ninject import Context, Dependency, inject
 
 Greeting = Dependency("Greeting", str)
 Recipient = Dependency("Recipient", str)
@@ -210,7 +211,7 @@ if __name__ == "__main__":
 You may also depend on `MessageContent` directly:
 
 ```python
-from ninject import Dependency, Context, inject, dependencies
+from ninject import Context, Dependency, inject
 
 Greeting = Dependency("Greeting", str)
 Recipient = Dependency("Recipient", str)
@@ -264,7 +265,7 @@ leverage the ability to provide
 
 ```python
 import asyncio
-from ninject import Context, Dependency, dependencies, inject
+from ninject import Context, Dependency, inject
 
 Greeting = Dependency("Greeting", str)
 Recipient = Dependency("Recipient", str)
@@ -312,7 +313,7 @@ dependent function) is async:
 
 ```python
 import asyncio
-from ninject import Dependency, Context, inject
+from ninject import Context, Dependency, inject
 
 Greeting = Dependency("Greeting", str)
 Recipient = Dependency("Recipient", str)
