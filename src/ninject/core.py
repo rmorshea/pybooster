@@ -15,21 +15,25 @@ from typing import (
     overload,
 )
 
-from ninject._private import (
-    INJECTED,
-    ProviderInfo,
-    SyncProviderInfo,
+from ninject._private._contexts import (
     UniformContext,
     UniformContextProvider,
-    add_dependency,
     async_exhaust_exits,
     exhaust_exits,
     get_context_provider,
+)
+from ninject._private._global import (
+    add_dependency,
+    set_context_provider,
+    setdefault_context_var,
+)
+from ninject._private._inspect import (
+    INJECTED,
+    ProviderInfo,
+    SyncProviderInfo,
     get_dependency_type_info,
     get_injected_dependency_types_from_callable,
     get_provider_info,
-    set_context_provider,
-    setdefault_context_var,
 )
 from ninject.types import AnyProvider, AsyncFunctionProvider, SyncFunctionProvider
 
@@ -74,8 +78,7 @@ class Context:
         self._context_providers: dict[type, UniformContextProvider] = {}
 
     @overload
-    def provides(self, provider: AnyProvider[R], /) -> AnyProvider[R]:
-        ...
+    def provides(self, provider: AnyProvider[R], /) -> AnyProvider[R]: ...
 
     @overload
     def provides(
@@ -83,8 +86,7 @@ class Context:
         provider: AnyProvider[R] | None = ...,
         *,
         cls: type[R],
-    ) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
-        ...
+    ) -> Callable[[AnyProvider[R]], AnyProvider[R]]: ...
 
     def provides(
         self,
@@ -266,7 +268,3 @@ def _make_item_provider(
                 return value[field]
 
             return async_provide_item_field
-
-
-class InvalidDependencyError(TypeError):
-    """Raised when a dependency is invalid."""
