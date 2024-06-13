@@ -8,7 +8,7 @@ Ninject uses modern Python features to provide a simple and performant dependenc
 injection framework.
 
 -   [Installation](#installation)
--   [Basic Usage](#usage)
+-   [Basic Usage](#basic-usage)
 -   [Types of Providers](#kinds-of-providers)
 -   [Providers with Dependencies](#providers-with-dependencies)
 -   [Providing Multiple Dependencies](#providing-multiple-dependencies)
