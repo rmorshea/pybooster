@@ -1,11 +1,9 @@
 __version__ = "0.0.1"
 
-from ninject.core import Context, inject
-from ninject.types import AnyProvider, Dependency
+from ninject.core import Context, Dependency, inject
 
 __all__ = (
-    "AnyProvider",
+    "Context",
     "Dependency",
     "inject",
-    "Context",
 )
