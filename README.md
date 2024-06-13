@@ -293,9 +293,9 @@ if __name__ == "__main__":
 ## Mixing Async and Sync Providers
 
 To mix async and sync providers, the highest order dependent function must be async. So,
-in the example below, the fact that the sync `provide_message` function depends on the
-async `provide_recipient` function works because `print_message` (the highest order
-dependent function) is async:
+in the example below, that highest order dependent async function is `print_message`.
+The fact that `print_message` is async is what allows the sync `provide_message`
+function to depend on the async `provide_recipient` function:
 
 ```python
 import asyncio
