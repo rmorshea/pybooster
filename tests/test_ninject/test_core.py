@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated, TypedDict
 
 import pytest
@@ -5,9 +6,46 @@ import pytest
 from ninject import Context, Dependency, inject
 from ninject.types import dependencies
 
-MyInt = Dependency[int, "my_int"]
-MyStr = Dependency[str, "my_str"]
-MyBytes = Dependency[bytes, "my_bytes"]
+Greeting = Dependency[str, "Greeting"]
+Recipient = Dependency[str, "Recipient"]
+Message = Dependency[str, "Message"]
+
+
+@dependencies
+class MessageContent(TypedDict):
+    greeting: Greeting
+    recipient: Recipient
+    punctuation: str
+
+
+@inject
+def sync_use_greeting(*, greeting: Greeting = inject.ed):
+    return f"{greeting}, World!"
+
+
+@inject
+async def async_use_greeting(*, greeting: Greeting = inject.ed):
+    return f"{greeting}, World!"
+
+
+@inject
+def sync_use_message(*, message: Message = inject.ed):
+    return message
+
+
+@inject
+async def async_use_message(*, message: Message = inject.ed):
+    return message
+
+
+@inject
+def sync_use_message_content(*, message_content: MessageContent = inject.ed):
+    return f"{message_content['greeting']}, {message_content['recipient']}{message_content['punctuation']}"
+
+
+@inject
+async def async_use_message_content(*, message_content: MessageContent = inject.ed):
+    return f"{message_content['greeting']}, {message_content['recipient']}{message_content['punctuation']}"
 
 
 def test_inject_repr():
@@ -21,31 +59,23 @@ def test_injected_repr():
 def test_inject_single_dependency_from_sync_function_provider():
     context = Context()
 
-    @context.provides(MyInt)
-    def provide_my_int():
-        return 42
-
-    @inject
-    def use_my_int(*, my_str: MyInt = inject.ed):
-        return my_str
+    @context.provides(Greeting)
+    def provide_greeting():
+        return "Hello"
 
     with context:
-        assert use_my_int() == 42
+        assert sync_use_greeting() == "Hello, World!"
 
 
 async def test_inject_single_dependency_from_async_function_provider():
     context = Context()
 
-    @context.provides(MyInt)
-    async def provide_my_int():
-        return 42
-
-    @inject
-    async def use_my_int(*, my_str: MyInt = inject.ed):
-        return my_str
+    @context.provides(Greeting)
+    async def provide_greeting():
+        return "Hello"
 
     with context:
-        assert await use_my_int() == 42
+        assert await async_use_greeting() == "Hello, World!"
 
 
 def test_inject_single_dependency_from_sync_generator_provider():
@@ -53,21 +83,17 @@ def test_inject_single_dependency_from_sync_generator_provider():
 
     did_cleanup = False
 
-    @context.provides(MyInt)
-    def provide_my_int():
+    @context.provides(Greeting)
+    def provide_greeting():
         try:
-            yield 42
+            yield "Hello"
         finally:
             nonlocal did_cleanup
             did_cleanup = True
 
-    @inject
-    def use_my_int(*, my_str: MyInt = inject.ed):
-        return my_str
-
     with context:
         assert not did_cleanup
-        assert use_my_int() == 42
+        assert sync_use_greeting() == "Hello, World!"
         assert did_cleanup
 
 
@@ -76,21 +102,17 @@ async def test_inject_single_dependency_from_async_generator_provider():
 
     did_cleanup = False
 
-    @context.provides(MyInt)
-    async def provide_my_int():
+    @context.provides(Greeting)
+    async def provide_greeting():
         try:
-            yield 42
+            yield "Hello"
         finally:
             nonlocal did_cleanup
             did_cleanup = True
 
-    @inject
-    async def use_my_int(*, my_str: MyInt = inject.ed):
-        return my_str
-
     with context:
         assert not did_cleanup
-        assert await use_my_int() == 42
+        assert await async_use_greeting() == "Hello, World!"
         assert did_cleanup
 
 
@@ -99,22 +121,18 @@ def test_inject_single_dependency_from_sync_context_manager_provider():
 
     did_cleanup = False
 
-    @context.provides(MyInt)
-    class MyIntProvider:
+    @context.provides(Greeting)
+    class ProvideGreeting:
         def __enter__(self):
-            return 42
+            return "Hello"
 
         def __exit__(self, etype, evalue, etrace):
             nonlocal did_cleanup
             did_cleanup = True
 
-    @inject
-    def use_my_int(*, my_str: MyInt = inject.ed):
-        return my_str
-
     with context:
         assert not did_cleanup
-        assert use_my_int() == 42
+        assert sync_use_greeting() == "Hello, World!"
         assert did_cleanup
 
 
@@ -123,199 +141,182 @@ async def test_inject_single_dependency_from_async_context_manager_provider():
 
     did_cleanup = False
 
-    @context.provides(MyInt)
-    class MyIntProvider:
+    @context.provides(Greeting)
+    class ProvideGreeting:
         async def __aenter__(self):
-            return 42
+            return "Hello"
 
         async def __aexit__(self, etype, evalue, etrace):
             nonlocal did_cleanup
             did_cleanup = True
 
-    @inject
-    async def use_my_int(*, my_str: MyInt = inject.ed):
-        return my_str
-
     with context:
         assert not did_cleanup
-        assert await use_my_int() == 42
+        assert await async_use_greeting() == "Hello, World!"
         assert did_cleanup
 
 
-def test_nesting_providers_contexts():
-    context_1 = Context()
-    context_2 = Context()
+def test_nesting_sync_providers_contexts():
+    hello_context = Context()
+    good_morning_context = Context()
 
-    @context_1.provides(MyInt)
-    def provide_my_first_int():
-        return 42
+    @hello_context.provides(Greeting)
+    def provide_hello_greeting():
+        return "Hello"
 
-    @context_2.provides(MyInt)
-    def provide_my_second_int():
-        return 123
+    @good_morning_context.provides(Greeting)
+    def provide_good_morning_greeting():
+        return "Good morning"
 
-    @inject
-    def use_my_int(*, my_str: MyInt = inject.ed):
-        return my_str
+    with hello_context:
+        assert sync_use_greeting() == "Hello, World!"
+        with good_morning_context:
+            assert sync_use_greeting() == "Good morning, World!"
+        assert sync_use_greeting() == "Hello, World!"
 
-    with context_1:
-        assert use_my_int() == 42
-        with context_2:
-            assert use_my_int() == 123
-        assert use_my_int() == 42
+
+async def test_nesting_async_providers_contexts():
+    hello_context = Context()
+    good_morning_context = Context()
+
+    @hello_context.provides(Greeting)
+    async def provide_hello_greeting():
+        return "Hello"
+
+    @good_morning_context.provides(Greeting)
+    async def provide_good_morning_greeting():
+        return "Good morning"
+
+    with hello_context:
+        assert await async_use_greeting() == "Hello, World!"
+        with good_morning_context:
+            assert await async_use_greeting() == "Good morning, World!"
+        assert await async_use_greeting() == "Hello, World!"
 
 
 def test_sync_provider_with_sync_dependency():
     context = Context()
 
-    @context.provides(MyInt)
-    def provide_my_int():
-        return 42
+    @context.provides(Greeting)
+    def provide_greeting():
+        return "Hello"
 
-    @context.provides(MyStr)
-    def provide_my_str(*, my_int: MyInt = inject.ed):
-        return f"The answer is... {my_int}"
-
-    @inject
-    def use_my_str(*, my_str: MyStr = inject.ed):
-        return my_str
+    @context.provides(Message)
+    def provide_message(*, greeting: Greeting = inject.ed):
+        return f"{greeting}, World!"
 
     with context:
-        assert use_my_str() == "The answer is... 42"
+        assert sync_use_message() == "Hello, World!"
 
 
 async def test_sync_provider_with_async_dependency_used_in_async_function():
     context = Context()
 
-    @context.provides(MyInt)
-    async def provide_my_int():
-        return 42
+    @context.provides(Greeting)
+    async def provide_greeting():
+        return "Hello"
 
-    @context.provides(MyStr)
-    def provide_my_str(*, my_int: MyInt = inject.ed):
-        return f"The answer is... {my_int}"
-
-    @inject
-    async def use_my_str(*, my_str: MyStr = inject.ed):
-        return my_str
+    @context.provides(Message)
+    def provide_message(*, greeting: Greeting = inject.ed):
+        return f"{greeting}, World!"
 
     with context:
-        assert await use_my_str() == "The answer is... 42"
+        assert await async_use_message() == "Hello, World!"
 
 
 def test_sync_provider_with_async_dependency_used_in_sync_function():
     context = Context()
 
-    @context.provides(MyInt)
-    async def provide_my_int():
-        raise NotImplementedError()
+    @context.provides(Greeting)
+    async def provide_greeting():
+        return "Hello"
 
-    @context.provides(MyStr)
-    def provide_my_str(*, _: MyInt = inject.ed):
-        raise NotImplementedError()
-
-    @inject
-    def use_my_str(*, _: MyStr = inject.ed):
-        raise NotImplementedError()
+    @context.provides(Message)
+    def provide_message(*, greeting: Greeting = inject.ed):
+        return f"{greeting}, World!"
 
     with context:
         with pytest.raises(RuntimeError):
-            use_my_str()
+            sync_use_message()
 
 
 async def test_async_provider_with_sync_dependency_used_in_async_function():
     context = Context()
 
-    @context.provides(MyInt)
-    def provide_my_int():
-        return 42
+    @context.provides(Greeting)
+    def provide_greeting():
+        return "Hello"
 
-    @context.provides(MyStr)
-    async def provide_my_str(*, my_int: MyInt = inject.ed):
-        return f"The answer is... {my_int}"
-
-    @inject
-    async def use_my_str(*, my_str: MyStr = inject.ed):
-        return my_str
+    @context.provides(Message)
+    async def provide_message(*, greeting: Greeting = inject.ed):
+        return f"{greeting}, World!"
 
     with context:
-        assert await use_my_str() == "The answer is... 42"
+        assert await async_use_message() == "Hello, World!"
 
 
 def test_provides_typed_dict():
     context = Context()
 
-    @dependencies
-    class IntAndStr(TypedDict):
-        my_int: MyInt
-        my_str: MyStr
-        something_else: list[str]
-
-    @context.provides(IntAndStr)
+    @context.provides(MessageContent)
     def provide_my_dict():
-        return {"my_int": 42, "my_str": "Hello", "something_else": ["a", "b"]}
-
-    @inject
-    def use_my_dict(*, my_str: MyStr = inject.ed, my_int: MyInt = inject.ed, my_dict: IntAndStr = inject.ed):
-        assert my_str == my_dict["my_str"]
-        assert my_int == my_dict["my_int"]
-        return f"{my_str} {my_int} {my_dict['something_else']}"
+        return {"greeting": "Hello", "recipient": "World", "punctuation": "!"}
 
     with context:
-        assert use_my_dict() == "Hello 42 ['a', 'b']"
+        assert sync_use_message_content() == "Hello, World!"
 
 
 def test_reuse_sync_provider():
     context = Context()
 
-    @context.provides(MyInt)
-    def provide_my_int():
-        return 42
+    @context.provides(Greeting)
+    def provide_greeting():
+        return "Hello"
 
     @inject
-    def use_my_int_1(*, my_str: MyInt = inject.ed):
-        return my_str
+    def use_greeting(*, greeting: Greeting = inject.ed):
+        return greeting
 
     @inject
-    def use_my_int_2(*, my_str: MyInt = inject.ed):
-        return my_str + use_my_int_1()
+    def use_greeting_again(*, greeting: Greeting = inject.ed):
+        return f"{greeting} {use_greeting()}"
 
     with context:
-        assert use_my_int_2() == 84
-        assert use_my_int_1() == 42
+        assert use_greeting_again() == "Hello Hello"
+        assert use_greeting() == "Hello"
 
 
 async def test_reuse_async_provider():
     context = Context()
 
-    @context.provides(MyInt)
-    async def provide_my_int():
-        return 42
+    @context.provides(Greeting)
+    async def provide_greeting():
+        return "Hello"
 
     @inject
-    async def use_my_int_1(*, my_str: MyInt = inject.ed):
-        return my_str
+    async def use_greeting(*, greeting: Greeting = inject.ed):
+        return greeting
 
     @inject
-    async def use_my_int_2(*, my_str: MyInt = inject.ed):
-        return my_str + await use_my_int_1()
+    async def use_greeting_again(*, greeting: Greeting = inject.ed):
+        return f"{greeting} {await use_greeting()}"
 
     with context:
-        assert await use_my_int_2() == 84
-        assert await use_my_int_1() == 42
+        assert await use_greeting_again() == "Hello Hello"
+        assert await use_greeting() == "Hello"
 
 
 def test_error_if_register_provider_for_same_dependency():
     context = Context()
 
-    @context.provides(MyInt)
-    def provide_my_int():
+    @context.provides(Greeting)
+    def provide_greeting():
         raise NotImplementedError()
 
     with pytest.raises(RuntimeError):
 
-        @context.provides(MyInt)
-        def provide_my_int_again():  # nocov
+        @context.provides(Greeting)
+        def provide_greeting_again():  # nocov
             raise NotImplementedError()
 
 
@@ -324,8 +325,8 @@ def test_annotation_for_provides_must_have_context_var():
 
     with pytest.raises(TypeError, match=r"Expected .* to be annotated with a context var"):
 
-        @context.provides(Annotated[int, "not var"])
-        def provide_my_int():  # nocov
+        @context.provides(Annotated[str, "not var"])
+        def not_implemented():  # nocov
             raise NotImplementedError()
 
 
@@ -335,7 +336,7 @@ def test_annotation_for_typeddict_provides_must_have_context_var():
     with pytest.raises(TypeError, match=r"Expected .* to be annotated with a context var"):
 
         @context.provides(TypedDict("MyDict", {"int": Annotated[int, "not var"]}))
-        def provide_my_dict():  # nocov
+        def not_implemented():  # nocov
             raise NotImplementedError()
 
 
@@ -344,7 +345,7 @@ def test_unsupported_provider_type():
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
 
-        @context.provides(MyInt)
+        @context.provides(Greeting)
         class NotContextManager:
             pass
 
@@ -353,22 +354,18 @@ def test_unsupported_provider_type():
             raise NotImplementedError()
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
-        context.provides(MyInt)(NotValidProvider())
+        context.provides(Greeting)(NotValidProvider())
 
 
 def test_provider_not_called_if_dependency_provided_explicitely():
     context = Context()
 
-    @context.provides(MyInt)
-    def provide_my_int():
+    @context.provides(Greeting)
+    def not_implemented():
         raise NotImplementedError()
 
-    @inject
-    def use_my_int(*, my_int: MyInt = inject.ed):
-        return my_int
-
     with context:
-        assert use_my_int(my_int=123) == 123
+        assert sync_use_greeting(greeting="Hello") == "Hello, World!"
 
 
 async def test_inject_handles_exits_if_error_in_provider_for_each_injected_function_type():
@@ -376,56 +373,56 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
     exit_called = False
     expected_error_message = "An expected error"
 
-    @context.provides(MyInt)
-    def provide_my_int():
+    @context.provides(Greeting)
+    def provide_greeting():
         try:
-            yield 42
+            yield "Hello"
         finally:
             nonlocal exit_called
             exit_called = True
 
     @inject
-    def sync_use_my_int_and_str(*, _: MyInt = inject.ed):
+    def sync_func_raises_expected_error(*, _: Greeting = inject.ed):
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
         with context:
-            sync_use_my_int_and_str()
+            sync_func_raises_expected_error()
 
     assert exit_called
     exit_called = False
 
     @inject
-    async def async_use_my_int_and_str(*, _: MyInt = inject.ed):
+    async def async_func_raises_expected_error(*, _: Greeting = inject.ed):
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
         with context:
-            await async_use_my_int_and_str()
+            await async_func_raises_expected_error()
 
     assert exit_called
     exit_called = False
 
     @inject
-    def sync_use_my_int_and_str_gen(*, _: MyInt = inject.ed):
+    def sync_gen_raises_expected_error(*, _: Greeting = inject.ed):
         yield
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
         with context:
-            list(sync_use_my_int_and_str_gen())
+            list(sync_gen_raises_expected_error())
 
     assert exit_called
     exit_called = False
 
     @inject
-    async def async_use_my_int_and_str_gen(*, _: MyInt = inject.ed):
+    async def async_gen_raises_expected_error(*, _: Greeting = inject.ed):
         yield
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
         with context:
-            async for _ in async_use_my_int_and_str_gen():
+            async for _ in async_gen_raises_expected_error():
                 pass
 
     assert exit_called
@@ -439,3 +436,24 @@ def test_unsupported_function_type_for_injected():
 
     with pytest.raises(TypeError, match="Unsupported function type"):
         inject(UnsupportedFunction())
+
+
+async def test_concurrently_provide_dependencies():
+    context = Context()
+
+    async def get_greeting() -> str:
+        return "Hello"
+
+    async def get_recipient() -> str:
+        return "World"
+
+    async def get_punctuation() -> str:
+        return "!"
+
+    @context.provides(MessageContent)
+    async def provide_message_content() -> dict:
+        greeting, recipient, punctuation = await asyncio.gather(get_greeting(), get_recipient(), get_punctuation())
+        return {"greeting": greeting, "recipient": recipient, "punctuation": punctuation}
+
+    with context:
+        assert await async_use_message_content() == "Hello, World!"
