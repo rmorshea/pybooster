@@ -238,25 +238,6 @@ if __name__ == "__main__":
         print_message()
 ```
 
-Note that the `dependencies` decorator returns an `Annotated` type so you won't be able
-to call it directly as you normally would. If you want to do this you'll need to have
-two separate types defined - one for the `TypedDict`and one for the`Dependency`:
-
-```python
-from ninject import Dependency
-
-Greeting = Dependency("Greeting", str)
-Recipient = Dependency("Recipient", str)
-
-
-class MessageContent(TypedDict):
-    greeting: Greeting
-    recipient: Recipient
-
-
-MessageContentDependency = Dependency[MessageContent, "MessageContent"]
-```
-
 ## Providing Dependencies Concurrently
 
 Ninject does not execute async providers concurrently. If you want to do so, you can
