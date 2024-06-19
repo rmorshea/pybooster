@@ -64,6 +64,7 @@ line-length = 120
 skip-string-normalization = true
 
 [tool.ruff]
+preview = true
 target-version = "py37"
 line-length = 120
 
@@ -129,7 +130,7 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
 # Tests can use magic values, assertions, and relative imports
-"tests/**/*" = ["PLR2004", "S101", "TID252"]
+"tests/**/*" = ["PLC2701", "S101", "TID252", "RUF029", "PLC2801"]
 
 [tool.coverage.run]
 source_pkgs = ["ninject", "tests"]
@@ -147,7 +148,6 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
   '\.\.\.',
-  "raise NotImplementedError",
 ]
 fail_under = 100
 show_missing = true
