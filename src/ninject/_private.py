@@ -53,10 +53,9 @@ INJECTED = cast(Any, (type("INJECTED", (), {"__repr__": lambda _: "INJECTED"}))(
 def get_caller_module_name(depth: int = 1) -> str | None:
     frame = currentframe()
     for _ in range(depth + 1):
-        try:
-            frame = frame.f_back
-        except AttributeError:  # nocov
-            break
+        if frame is None:
+            return None  # nocov
+        frame = frame.f_back
     if frame is None:
         return None  # nocov
     return frame.f_globals.get("__name__")
@@ -98,9 +97,8 @@ def get_injected_dependency_types_from_callable(func: Callable[..., Any]) -> Map
 
 
 class _BaseUniformContext:
-
-    var: ContextVar[R]
-    context_provider: SyncContextProvider[R]
+    var: ContextVar
+    context_provider: Any
 
     def __repr__(self) -> str:
         wrapped = _get_wrapped(self.context_provider)
@@ -214,7 +212,6 @@ UniformContextProvider: TypeAlias = "Callable[[], UniformContext[R]]"
 
 
 class _BaseProviderInfo(Generic[R]):
-
     type: type[R]
 
     @cached_property

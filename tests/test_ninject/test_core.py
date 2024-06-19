@@ -226,10 +226,12 @@ def test_sync_provider_with_async_dependency_used_in_sync_function():
     context = Context()
 
     @context.provides
-    async def provide_greeting() -> Greeting: ...
+    async def provide_greeting() -> Greeting:
+        ...
 
     @context.provides
-    def provide_message(*, _: Greeting = inject.ed) -> Message: ...
+    def provide_message(*, _: Greeting = inject.ed) -> Message:
+        ...
 
     with context:
         with pytest.raises(RuntimeError, match=r"Cannot use an async provider .* in a sync context"):
@@ -306,12 +308,14 @@ def test_error_if_register_provider_for_same_dependency():
     context = Context()
 
     @context.provides
-    def provide_greeting() -> Greeting: ...
+    def provide_greeting() -> Greeting:
+        ...
 
     with pytest.raises(RuntimeError):
 
         @context.provides
-        def provide_greeting_again() -> Greeting: ...
+        def provide_greeting_again() -> Greeting:
+            ...
 
 
 def test_unsupported_provider_type():
@@ -324,17 +328,19 @@ def test_unsupported_provider_type():
             pass
 
     class NotValidProvider:
-        def __call__(self): ...
+        def __call__(self):
+            ...
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
-        context.provides(cls=Greeting)(NotValidProvider())
+        context.provides(cls=Greeting)(NotValidProvider())  # type: ignore[reportArgumentType]
 
 
 def test_provider_not_called_if_dependency_provided_explicitely():
     context = Context()
 
     @context.provides
-    def not_implemented() -> Greeting: ...
+    def not_implemented() -> Greeting:
+        ...
 
     with context:
         assert sync_use_greeting(greeting=Greeting("Hello")) == "Hello, World!"
@@ -426,10 +432,12 @@ def test_context_repr():
     context = Context()
 
     @context.provides
-    def provide_greeting() -> Greeting: ...
+    def provide_greeting() -> Greeting:
+        ...
 
     @context.provides
-    def provide_recipient() -> Recipient: ...
+    def provide_recipient() -> Recipient:
+        ...
 
     assert repr(context) == f"Context({Greeting!r}, {Recipient!r})"
 
@@ -440,4 +448,5 @@ def test_error_if_no_return_type_annotation():
     with pytest.raises(TypeError, match="Cannot determine return type"):
 
         @context.provides
-        def provide_greeting(): ...
+        def provide_greeting():
+            ...

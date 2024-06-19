@@ -75,7 +75,8 @@ class Context:
         self._context_providers: dict[type, UniformContextProvider] = {}
 
     @overload
-    def provides(self, provider: AnyProvider[R], /) -> AnyProvider[R]: ...
+    def provides(self, provider: AnyProvider[R], /) -> AnyProvider[R]:
+        ...
 
     @overload
     def provides(
@@ -83,7 +84,8 @@ class Context:
         provider: AnyProvider[R] | None = ...,
         *,
         cls: type[R],
-    ) -> Callable[[AnyProvider[R]], AnyProvider[R]]: ...
+    ) -> Callable[[AnyProvider[R]], AnyProvider[R]]:
+        ...
 
     def provides(
         self,
