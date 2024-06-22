@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator, Iterator
+from dataclasses import dataclass
 from typing import TypedDict
 
 import pytest
@@ -12,6 +13,13 @@ Message = Dependency("Message", str)
 
 
 class MessageContent(TypedDict):
+    greeting: Greeting
+    recipient: Recipient
+    punctuation: str
+
+
+@dataclass
+class MessageContentObject:
     greeting: Greeting
     recipient: Recipient
     punctuation: str
@@ -45,6 +53,16 @@ def sync_use_message_content(*, message_content: MessageContent = inject.ed):
 @inject
 async def async_use_message_content(*, message_content: MessageContent = inject.ed):
     return f"{message_content['greeting']}, {message_content['recipient']}{message_content['punctuation']}"
+
+
+@inject
+def sync_use_message_content_object(*, message_content: MessageContentObject = inject.ed):
+    return f"{message_content.greeting}, {message_content.recipient}{message_content.punctuation}"
+
+
+@inject
+async def async_use_message_content_object(*, message_content: MessageContentObject = inject.ed):
+    return f"{message_content.greeting}, {message_content.recipient}{message_content.punctuation}"
 
 
 def test_inject_repr():
@@ -312,7 +330,8 @@ def test_error_if_register_provider_for_same_dependency():
     with pytest.raises(RuntimeError):
 
         @context.provides
-        def provide_greeting_again() -> Greeting: ...
+        def provide_greeting_again() -> Greeting:  # nocov
+            ...
 
 
 def test_unsupported_provider_type():
@@ -402,7 +421,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
     exit_called = False
 
 
-async def test_concurrently_provide_dependencies():
+async def test_concurrently_provide_many_dependencies_from_dict():
     context = Context()
 
     async def get_greeting():
@@ -411,17 +430,57 @@ async def test_concurrently_provide_dependencies():
     async def get_recipient():
         return Recipient("World")
 
-    async def get_punctuation() -> str:
-        return "!"
-
     @context.provides
     async def provide_message_content() -> MessageContent:
-        greeting, recipient, punctuation = await asyncio.gather(get_greeting(), get_recipient(), get_punctuation())
-        return {"greeting": greeting, "recipient": recipient, "punctuation": punctuation}
+        greeting, recipient = await asyncio.gather(get_greeting(), get_recipient())
+        return {"greeting": greeting, "recipient": recipient, "punctuation": "!"}
 
     with context:
         assert await async_use_message_content() == "Hello, World!"
         assert await async_use_greeting() == "Hello, World!"
+
+
+def test_sync_provide_many_dependencies_from_dict():
+    context = Context()
+
+    @context.provides
+    def provide_message_content() -> MessageContent:
+        return {"greeting": Greeting("Hello"), "recipient": Recipient("World"), "punctuation": "!"}
+
+    with context:
+        assert sync_use_message_content() == "Hello, World!"
+        assert sync_use_greeting() == "Hello, World!"
+
+
+async def test_concurrently_provide_many_dependencies_from_dataclass():
+    context = Context()
+
+    async def get_greeting():
+        return Greeting("Hello")
+
+    async def get_recipient():
+        return Recipient("World")
+
+    @context.provides
+    async def provide_message_content() -> MessageContentObject:
+        greeting, recipient = await asyncio.gather(get_greeting(), get_recipient())
+        return MessageContentObject(greeting, recipient, "!")
+
+    with context:
+        assert await async_use_message_content_object() == "Hello, World!"
+        assert await async_use_greeting() == "Hello, World!"
+
+
+def test_sync_provide_many_dependencies_from_dataclass():
+    context = Context()
+
+    @context.provides
+    def provide_message_content() -> MessageContentObject:
+        return MessageContentObject(Greeting("Hello"), Recipient("World"), "!")
+
+    with context:
+        assert sync_use_message_content_object() == "Hello, World!"
+        assert sync_use_greeting() == "Hello, World!"
 
 
 def test_context_repr():
@@ -443,3 +502,11 @@ def test_error_if_no_return_type_annotation():
 
         @context.provides
         def provide_greeting(): ...
+
+
+def test_cannot_inject_class():
+    with pytest.raises(TypeError, match="Unsupported function type"):
+
+        @inject
+        class MyClass:
+            def __init__(self, *, greeting: Greeting = inject.ed): ...

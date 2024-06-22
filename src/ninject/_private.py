@@ -21,6 +21,7 @@ from typing import (
     Callable,
     Generic,
     Literal,
+    NewType,
     ParamSpec,
     TypeAlias,
     TypedDict,
@@ -33,12 +34,149 @@ from typing import (
 from weakref import WeakKeyDictionary
 
 import ninject
-from ninject.types import AsyncContextProvider, SyncContextProvider
+from ninject.types import AsyncContextProvider, AsyncFunctionProvider, SyncContextProvider, SyncFunctionProvider
 
 P = ParamSpec("P")
 R = TypeVar("R")
 
 INJECTED = cast(Any, (type("INJECTED", (), {"__repr__": lambda _: "INJECTED"}))())
+
+
+def make_context_provider(info: ProviderInfo[R], dependencies: Mapping[str, type] | None) -> UniformContextProvider[R]:
+    var = setdefault_context_var(info.type)
+    context_provider = info.context_provider
+    uniform_context_type = info.uniform_context_type
+    if dependencies is None:
+        dependencies = get_injected_dependency_types_from_callable(info.context_provider)
+    return lambda: uniform_context_type(var, context_provider, tuple(dependencies.values()))  # type: ignore[reportArgumentType]
+
+
+def make_item_provider(
+    item: Any,
+    value_type: type,
+    *,
+    is_sync: bool,
+    from_obj: bool,
+) -> SyncFunctionProvider | AsyncFunctionProvider:
+    if from_obj:
+        if not isinstance(item, str):  # nocov
+            msg = f"Expected field to be a string, got {item}"
+            raise TypeError(msg)
+
+        if is_sync:
+
+            def sync_provide_attr_field(*, value=INJECTED) -> Any:
+                return getattr(value, item)
+
+            sync_provide_attr_field.__annotations__["value"] = value_type
+
+            return sync_provide_attr_field
+
+        else:
+
+            async def async_provide_attr_field(*, value=INJECTED) -> Any:
+                return getattr(value, item)
+
+            async_provide_attr_field.__annotations__["value"] = value_type
+
+            return async_provide_attr_field
+
+    elif is_sync:
+
+        def sync_provide_item_field(*, value=INJECTED) -> Any:
+            return value[item]
+
+        sync_provide_item_field.__annotations__["value"] = value_type
+
+        return sync_provide_item_field
+
+    else:
+
+        async def async_provide_item_field(*, value=INJECTED) -> Any:
+            return value[item]
+
+        async_provide_item_field.__annotations__["value"] = value_type
+
+        return async_provide_item_field
+
+
+def make_injection_wrapper(func: Callable[P, R], dependencies: Mapping[str, type]) -> Callable[P, R]:
+    if not dependencies:
+        return func
+
+    wrapper: Callable[..., Any]
+    if isasyncgenfunction(func):
+
+        async def async_gen_wrapper(*args: Any, **kwargs: Any) -> Any:
+            contexts: list[UniformContext] = []
+
+            try:
+                for name in dependencies.keys() - kwargs.keys():
+                    cls = dependencies[name]
+                    context = get_context_provider(cls)()
+                    kwargs[name] = await context.__aenter__()
+                    contexts.append(context)
+                async for value in func(*args, **kwargs):
+                    yield value
+            finally:
+                await async_exhaust_exits(contexts)
+
+        wrapper = async_gen_wrapper
+
+    elif isgeneratorfunction(func):
+
+        def sync_gen_wrapper(*args: Any, **kwargs: Any) -> Any:
+            contexts: list[UniformContext] = []
+            try:
+                for name in dependencies.keys() - kwargs.keys():
+                    cls = dependencies[name]
+                    context = get_context_provider(cls)()
+                    kwargs[name] = context.__enter__()
+                    contexts.append(context)
+                yield from func(*args, **kwargs)
+            finally:
+                exhaust_exits(contexts)
+
+        wrapper = sync_gen_wrapper
+
+    elif iscoroutinefunction(func):
+
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            contexts: list[UniformContext] = []
+
+            try:
+                for name in dependencies.keys() - kwargs.keys():
+                    cls = dependencies[name]
+                    context = get_context_provider(cls)()
+                    kwargs[name] = await context.__aenter__()
+                    contexts.append(context)
+                return await func(*args, **kwargs)
+            finally:
+                await async_exhaust_exits(contexts)
+
+        wrapper = async_wrapper
+
+    elif isfunction(func):
+
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            contexts: list[UniformContext] = []
+            try:
+                for name in dependencies.keys() - kwargs.keys():
+                    cls = dependencies[name]
+                    context = get_context_provider(cls)()
+                    kwargs[name] = context.__enter__()
+                    contexts.append(context)
+                return func(*args, **kwargs)
+            finally:
+                exhaust_exits(contexts)
+
+        wrapper = sync_wrapper
+
+    else:
+        msg = f"Unsupported function type: {func}"
+        raise TypeError(msg)
+
+    return cast(Callable[P, R], wraps(cast(Callable, func))(wrapper))
 
 
 def get_caller_module_name(depth: int = 1) -> str | None:
@@ -207,7 +345,7 @@ class _BaseProviderInfo(Generic[R]):
 
     @cached_property
     def container_info(self) -> ContainerInfo | None:
-        if is_dependency(self.type):
+        if isinstance(self.type, NewType):
             return None
         elif get_origin(self.type) is tuple:
             container_type = "map"
@@ -225,7 +363,6 @@ class _BaseProviderInfo(Generic[R]):
 
 @dataclass(kw_only=True)
 class SyncProviderInfo(_BaseProviderInfo[R]):
-    sync: Literal[True] = field(default=True, init=False)
     uniform_context_type: type[SyncUniformContext[R]] = field(default=SyncUniformContext, init=False)
     type: type[R]
     context_provider: SyncContextProvider[R]
@@ -233,7 +370,6 @@ class SyncProviderInfo(_BaseProviderInfo[R]):
 
 @dataclass(kw_only=True)
 class AsyncProviderInfo(_BaseProviderInfo[R]):
-    sync: Literal[False] = field(default=False, init=False)
     uniform_context_type: type[AsyncUniformContext[R]] = field(default=AsyncUniformContext, init=False)
     type: type[R]
     context_provider: AsyncContextProvider[R]
@@ -318,7 +454,11 @@ def get_context_provider(cls: type[R]) -> UniformContextProvider[R]:
     except KeyError:
         msg = f"No provider declared for {cls}"
         raise RuntimeError(msg) from None
-    return context_provider_var.get()
+    try:
+        return context_provider_var.get()
+    except LookupError:
+        msg = f"No active provider for {cls}"
+        raise RuntimeError(msg) from None
 
 
 def setdefault_context_var(cls: type[R]) -> ContextVar:

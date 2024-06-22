@@ -15,6 +15,7 @@ from ninject._private import (
     AsyncProviderInfo,
     ProviderInfo,
     SyncProviderInfo,
+    SyncUniformContext,
     _get_wrapped,
     add_dependency,
     async_exhaust_exits,
@@ -23,6 +24,7 @@ from ninject._private import (
     get_injected_dependency_types_from_callable,
     get_provider_info,
     is_dependency,
+    set_context_provider,
 )
 from ninject.core import Context, Dependency
 
@@ -252,3 +254,19 @@ def test_explicit_type_must_be_context_manager_if_not_callable():
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
         get_provider_info(NotContextManager, int)
+
+
+def test_errors_on_get_context_provider():
+    nt = NewType("nt", int)
+
+    def fake_context_provider() -> SyncUniformContext: ...
+
+    with pytest.raises(RuntimeError, match="No provider declared for"):
+        get_context_provider(nt)
+
+    reset = set_context_provider(nt, fake_context_provider)
+    assert get_context_provider(nt) is fake_context_provider
+
+    reset()
+    with pytest.raises(RuntimeError, match="No active provider for"):
+        get_context_provider(nt)
