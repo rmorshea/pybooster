@@ -1,5 +1,5 @@
-from collections.abc import AsyncIterator, Generator, Iterator
-from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
+from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
 from functools import wraps
 from typing import (
     Callable,
@@ -145,11 +145,7 @@ def sync_gen() -> Generator[int, None, None]: ...
 
 
 @add_provider_and_expected_type(int, "sync")
-class SyncContextManagerTypeInGeneric(AbstractContextManager[int]): ...
-
-
-@add_provider_and_expected_type(int, "sync")
-class SyncContextManagerTypeInEnter(AbstractContextManager):
+class SyncContextManager(AbstractContextManager):
     def __enter__(self) -> int: ...
 
 
@@ -159,6 +155,15 @@ async def async_func() -> int: ...
 
 @add_provider_and_expected_type(int, "async")
 async def async_iter() -> AsyncIterator[int]: ...
+
+
+@add_provider_and_expected_type(int, "async")
+async def async_gen() -> AsyncGenerator[int, None]: ...
+
+
+@add_provider_and_expected_type(int, "async")
+class AsyncContextManager(AbstractAsyncContextManager):
+    async def __aenter__(self) -> int: ...
 
 
 @pytest.mark.parametrize("provider, expected_type, sync_or_async", PROVIDER_AND_EXPECTED_TYPE)

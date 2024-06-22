@@ -475,16 +475,7 @@ def _get_wrapped(func: Callable[P, R]) -> Callable[P, R]:
 
 def _get_context_manager_type(cls: type[AbstractContextManager | AbstractAsyncContextManager]) -> Any:
     method_name = "__aenter__" if issubclass(cls, AbstractAsyncContextManager) else "__enter__"
-    for base in getattr(cls, "__orig_bases__", ()):
-        if (
-            (base_origin := get_origin(base))
-            and issubclass(base_origin, AbstractContextManager)
-            and (base_args := get_args(base))
-        ):
-            provides_type = base_args[0]
-            break
-    else:
-        provides_type = get_provider_info(getattr(cls, method_name)).type
+    provides_type = get_provider_info(getattr(cls, method_name)).type
     return provides_type
 
 
@@ -543,8 +534,6 @@ def _infer_provider_info(provider: Any) -> ProviderInfo:
         return _get_provider_info(provider, return_type)
     elif issubclass(return_type_origin, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
         return _get_provider_info(provider, get_args(return_type)[0])
-    elif issubclass(return_type_origin, (AbstractContextManager, AbstractAsyncContextManager)):
-        return _get_provider_info(provider, get_provider_info(return_type).type)
     else:
         return _get_provider_info(provider, return_type)
 
