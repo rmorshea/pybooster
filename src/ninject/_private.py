@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sys
-from contextlib import asynccontextmanager, contextmanager
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Generator, Iterator, Mapping, Sequence
+from contextlib import AsyncContextManager, ContextManager, asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import cached_property, wraps
@@ -17,19 +18,10 @@ from inspect import (
 from typing import (
     Annotated,
     Any,
-    AsyncContextManager,
-    AsyncGenerator,
-    AsyncIterator,
-    Awaitable,
     Callable,
-    ContextManager,
-    Generator,
     Generic,
-    Iterator,
     Literal,
-    Mapping,
     ParamSpec,
-    Sequence,
     TypeAlias,
     TypedDict,
     TypeVar,

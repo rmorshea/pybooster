@@ -1,12 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Awaitable, Iterator
+from contextlib import AsyncContextManager, ContextManager
 from typing import (
-    AsyncContextManager,
-    AsyncIterator,
-    Awaitable,
     Callable,
-    ContextManager,
-    Iterator,
     TypeAlias,
     TypeVar,
 )

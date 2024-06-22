@@ -1,5 +1,6 @@
 import asyncio
-from typing import AsyncIterator, Iterator, TypedDict
+from collections.abc import AsyncIterator, Iterator
+from typing import TypedDict
 
 import pytest
 

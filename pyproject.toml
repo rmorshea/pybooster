@@ -7,15 +7,13 @@ name = "ninject"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 license = "MIT"
 keywords = []
 authors = [{ name = "U.N. Owen", email = "void@some.where" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.7",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -59,13 +57,13 @@ all = ["style", "typing"]
 asyncio_mode = "auto"
 
 [tool.black]
-target-version = ["py37"]
+target-version = ["py39"]
 line-length = 120
 skip-string-normalization = true
 
 [tool.ruff]
 preview = true
-target-version = "py37"
+target-version = "py39"
 line-length = 120
 
 [tool.ruff.format]

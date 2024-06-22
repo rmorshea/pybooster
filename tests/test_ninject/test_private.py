@@ -1,11 +1,8 @@
-from contextlib import asynccontextmanager, contextmanager
+from collections.abc import AsyncIterator, Generator, Iterator
+from contextlib import ContextManager, asynccontextmanager, contextmanager
 from functools import wraps
 from typing import (
-    AsyncIterator,
     Callable,
-    ContextManager,
-    Generator,
-    Iterator,
     Literal,
     NewType,
     TypedDict,
