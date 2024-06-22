@@ -27,6 +27,8 @@ jobs:
                   restore-keys: ${{ runner.os }}-pip-
             - name: Install Hatch
               run: pipx install hatch
+            - name: Run lint
+              run: hatch run lint:all
             - name: Run tests
               run: hatch run cov
             - name: Build dist
