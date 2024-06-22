@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Generator, Iterator, Mapping, Sequence
-from contextlib import AsyncContextManager, ContextManager, asynccontextmanager, contextmanager
+from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import cached_property, wraps
@@ -37,7 +37,6 @@ from ninject.types import AsyncContextProvider, SyncContextProvider
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
 
 INJECTED = cast(Any, (type("INJECTED", (), {"__repr__": lambda _: "INJECTED"}))())
 
@@ -98,7 +97,7 @@ class _BaseUniformContext:
         return f"{self.__class__.__name__}({self.var.name}, {provider_str})"
 
 
-class SyncUniformContext(ContextManager[R], AsyncContextManager[R], _BaseUniformContext):
+class SyncUniformContext(AbstractContextManager[R], AbstractAsyncContextManager[R], _BaseUniformContext):
     def __init__(
         self,
         var: ContextVar[R],
@@ -154,7 +153,7 @@ class SyncUniformContext(ContextManager[R], AsyncContextManager[R], _BaseUniform
                     await async_exhaust_exits(self.dependency_contexts)
 
 
-class AsyncUniformContext(ContextManager[R], AsyncContextManager[R], _BaseUniformContext):
+class AsyncUniformContext(AbstractContextManager[R], AbstractAsyncContextManager[R], _BaseUniformContext):
     def __init__(
         self,
         var: ContextVar[R],
@@ -257,7 +256,7 @@ def syncfunctioncontextmanager(func: Callable[[], R]) -> SyncContextProvider[R]:
     return wraps(func)(lambda: SyncFunctionContextManager(func))
 
 
-class AsyncFunctionContextManager(AsyncContextManager[R]):
+class AsyncFunctionContextManager(AbstractAsyncContextManager[R]):
     def __init__(self, func: Callable[[], Awaitable[R]]) -> None:
         self.func = func
 
@@ -268,7 +267,7 @@ class AsyncFunctionContextManager(AsyncContextManager[R]):
         pass
 
 
-class SyncFunctionContextManager(ContextManager[R]):
+class SyncFunctionContextManager(AbstractContextManager[R]):
     def __init__(self, func: Callable[[], R]) -> None:
         self.func = func
 
@@ -279,7 +278,7 @@ class SyncFunctionContextManager(ContextManager[R]):
         pass
 
 
-def exhaust_exits(ctxts: Sequence[ContextManager]) -> None:
+def exhaust_exits(ctxts: Sequence[AbstractContextManager]) -> None:
     if not ctxts:
         return
     try:
@@ -292,7 +291,7 @@ def exhaust_exits(ctxts: Sequence[ContextManager]) -> None:
         exhaust_exits(ctxts)
 
 
-async def async_exhaust_exits(ctxts: Sequence[AsyncContextManager[Any]]) -> None:
+async def async_exhaust_exits(ctxts: Sequence[AbstractAsyncContextManager[Any]]) -> None:
     if not ctxts:
         return
     try:
@@ -334,12 +333,12 @@ def _get_wrapped(func: Callable[P, R]) -> Callable[P, R]:
     return func
 
 
-def _get_context_manager_type(cls: type[ContextManager | AsyncContextManager]) -> Any:
-    method_name = "__aenter__" if issubclass(cls, AsyncContextManager) else "__enter__"
+def _get_context_manager_type(cls: type[AbstractContextManager | AbstractAsyncContextManager]) -> Any:
+    method_name = "__aenter__" if issubclass(cls, AbstractAsyncContextManager) else "__enter__"
     for base in getattr(cls, "__orig_bases__", ()):
         if (
             (base_origin := get_origin(base))
-            and issubclass(base_origin, ContextManager)
+            and issubclass(base_origin, AbstractContextManager)
             and (base_args := get_args(base))
         ):
             provides_type = base_args[0]
@@ -351,9 +350,9 @@ def _get_context_manager_type(cls: type[ContextManager | AsyncContextManager]) -
 
 def _get_provider_info(provider: Callable, provides_type: Any) -> ProviderInfo:
     if isinstance(provider, type):
-        if issubclass(provider, ContextManager):
+        if issubclass(provider, AbstractContextManager):
             return SyncProviderInfo(type=provides_type, context_provider=provider)
-        elif issubclass(provider, AsyncContextManager):
+        elif issubclass(provider, AbstractAsyncContextManager):
             return AsyncProviderInfo(type=provides_type, context_provider=provider)
     elif iscoroutinefunction(provider):
         return AsyncProviderInfo(
@@ -381,7 +380,7 @@ def _get_provider_info(provider: Callable, provides_type: Any) -> ProviderInfo:
 
 def _infer_provider_info(provider: Any) -> ProviderInfo:
     if isinstance(provider, type):
-        if issubclass(provider, (ContextManager, AsyncContextManager)):
+        if issubclass(provider, (AbstractContextManager, AbstractAsyncContextManager)):
             return _get_provider_info(provider, _get_context_manager_type(provider))
         else:
             msg = f"Unsupported provider type {provider!r}  - expected a callable or context manager."
@@ -404,7 +403,7 @@ def _infer_provider_info(provider: Any) -> ProviderInfo:
         return _get_provider_info(provider, return_type)
     elif issubclass(return_type_origin, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
         return _get_provider_info(provider, get_args(return_type)[0])
-    elif issubclass(return_type_origin, (ContextManager, AsyncContextManager)):
+    elif issubclass(return_type_origin, (AbstractContextManager, AbstractAsyncContextManager)):
         return _get_provider_info(provider, get_provider_info(return_type).type)
     else:
         return _get_provider_info(provider, return_type)

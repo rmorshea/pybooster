@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Iterator
-from contextlib import AsyncContextManager, ContextManager
+from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from typing import (
     Callable,
     TypeAlias,
@@ -10,8 +10,8 @@ from typing import (
 
 T = TypeVar("T")
 
-SyncContextProvider: TypeAlias = Callable[[], ContextManager[T]]
-AsyncContextProvider: TypeAlias = Callable[[], AsyncContextManager[T]]
+SyncContextProvider: TypeAlias = Callable[[], AbstractContextManager[T]]
+AsyncContextProvider: TypeAlias = Callable[[], AbstractAsyncContextManager[T]]
 SyncGeneratorProvider: TypeAlias = Callable[[], Iterator[T]]
 AsyncGeneratorProvider: TypeAlias = Callable[[], AsyncIterator[T]]
 SyncFunctionProvider: TypeAlias = Callable[[], T]
