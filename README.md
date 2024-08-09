@@ -253,13 +253,7 @@ from ninject import Context, Dependency, inject
 
 Greeting = Dependency("Greeting", str)
 Recipient = Dependency("Recipient", str)
-
-
-@dependencies
-class MessageContent(TypedDict):
-    greeting: Greeting
-    recipient: Recipient
-
+MessageContent = tuple[Greeting, Recipient]
 
 @inject
 async def print_message(
@@ -279,10 +273,8 @@ async def get_recipient() -> str:
     return "World"
 
 
-@context.provides(MessageContent)
-async def provide_message_content() -> dict:
-    greeting, recipient = await asyncio.gather(get_message(), get_recipient())
-    return {"greeting": greeting, "recipient": recipient}
+async def provide_message_content() -> MessageContent:
+    return tuple(await asyncio.gather(get_message(), get_recipient()))
 
 
 if __name__ == "__main__":

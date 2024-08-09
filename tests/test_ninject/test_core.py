@@ -11,18 +11,7 @@ Greeting = Dependency("Greeting", str)
 Recipient = Dependency("Recipient", str)
 Message = Dependency("Message", str)
 
-
-class MessageContent(TypedDict):
-    greeting: Greeting
-    recipient: Recipient
-    punctuation: str
-
-
-@dataclass
-class MessageContentObject:
-    greeting: Greeting
-    recipient: Recipient
-    punctuation: str
+MessageContent = tuple[Greeting, Recipient]
 
 
 @inject
@@ -46,23 +35,13 @@ async def async_use_message(*, message: Message = inject.ed):
 
 
 @inject
-def sync_use_message_content(*, message_content: MessageContent = inject.ed):
-    return f"{message_content['greeting']}, {message_content['recipient']}{message_content['punctuation']}"
+def sync_use_message_content(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+    return f"{greeting}, {recipient}!"
 
 
 @inject
-async def async_use_message_content(*, message_content: MessageContent = inject.ed):
-    return f"{message_content['greeting']}, {message_content['recipient']}{message_content['punctuation']}"
-
-
-@inject
-def sync_use_message_content_object(*, message_content: MessageContentObject = inject.ed):
-    return f"{message_content.greeting}, {message_content.recipient}{message_content.punctuation}"
-
-
-@inject
-async def async_use_message_content_object(*, message_content: MessageContentObject = inject.ed):
-    return f"{message_content.greeting}, {message_content.recipient}{message_content.punctuation}"
+async def async_use_message_content(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+    return f"{greeting}, {recipient}!"
 
 
 def test_inject_repr():
@@ -270,17 +249,6 @@ async def test_async_provider_with_sync_dependency_used_in_async_function():
         assert await async_use_message() == "Hello, World!"
 
 
-def test_provides_typed_dict():
-    context = Context()
-
-    @context.provides
-    def provide_my_dict() -> MessageContent:
-        return {"greeting": Greeting("Hello"), "recipient": Recipient("World"), "punctuation": "!"}
-
-    with context:
-        assert sync_use_message_content() == "Hello, World!"
-
-
 def test_reuse_sync_provider():
     context = Context()
 
@@ -421,7 +389,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
     exit_called = False
 
 
-async def test_concurrently_provide_many_dependencies_from_dict():
+async def test_concurrently_provide_many_dependencies_from_tuple():
     context = Context()
 
     async def get_greeting():
@@ -432,54 +400,22 @@ async def test_concurrently_provide_many_dependencies_from_dict():
 
     @context.provides
     async def provide_message_content() -> MessageContent:
-        greeting, recipient = await asyncio.gather(get_greeting(), get_recipient())
-        return {"greeting": greeting, "recipient": recipient, "punctuation": "!"}
+        return tuple(await asyncio.gather(get_greeting(), get_recipient()))
 
     with context:
         assert await async_use_message_content() == "Hello, World!"
         assert await async_use_greeting() == "Hello, World!"
 
 
-def test_sync_provide_many_dependencies_from_dict():
+def test_sync_provide_many_dependencies_from_tuple():
     context = Context()
 
     @context.provides
     def provide_message_content() -> MessageContent:
-        return {"greeting": Greeting("Hello"), "recipient": Recipient("World"), "punctuation": "!"}
+        return Greeting("Hello"), Recipient("World")
 
     with context:
         assert sync_use_message_content() == "Hello, World!"
-        assert sync_use_greeting() == "Hello, World!"
-
-
-async def test_concurrently_provide_many_dependencies_from_dataclass():
-    context = Context()
-
-    async def get_greeting():
-        return Greeting("Hello")
-
-    async def get_recipient():
-        return Recipient("World")
-
-    @context.provides
-    async def provide_message_content() -> MessageContentObject:
-        greeting, recipient = await asyncio.gather(get_greeting(), get_recipient())
-        return MessageContentObject(greeting, recipient, "!")
-
-    with context:
-        assert await async_use_message_content_object() == "Hello, World!"
-        assert await async_use_greeting() == "Hello, World!"
-
-
-def test_sync_provide_many_dependencies_from_dataclass():
-    context = Context()
-
-    @context.provides
-    def provide_message_content() -> MessageContentObject:
-        return MessageContentObject(Greeting("Hello"), Recipient("World"), "!")
-
-    with context:
-        assert sync_use_message_content_object() == "Hello, World!"
         assert sync_use_greeting() == "Hello, World!"
 
 

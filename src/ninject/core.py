@@ -1,30 +1,28 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    NewType,
-    ParamSpec,
-    TypeVar,
-    overload,
-)
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Callable, NewType, ParamSpec, TypeVar, get_args, get_origin, overload
 
-from ninject._private import (
+from ninject._dependency import (
+    AsyncDependencyContext,
+    DependencyContextProvider,
+    SyncDependencyContext,
+    add_dependency_type,
+    get_dependency_name,
+    get_dependency_value_var,
+    set_dependency_context_provider,
+)
+from ninject._inspect import (
     INJECTED,
+    AsyncProviderInfo,
     ProviderInfo,
-    SyncProviderInfo,
-    UniformContextProvider,
-    add_dependency,
     get_caller_module_name,
     get_injected_dependency_types_from_callable,
     get_provider_info,
-    make_context_provider,
-    make_injection_wrapper,
-    make_item_provider,
-    set_context_provider,
 )
+from ninject._provider import make_context_providers
+from ninject._wrapper import make_injection_wrapper
 from ninject.types import AnyProvider
 
 P = ParamSpec("P")
@@ -38,7 +36,7 @@ else:
     def Dependency(name, tp):  # noqa: N802
         new_type = NewType(name, tp)
         new_type.__module__ = get_caller_module_name()
-        add_dependency(new_type)
+        add_dependency_type(name, new_type)
         return new_type
 
 
@@ -62,11 +60,22 @@ inject = Inject()
 del Inject
 
 
+@contextmanager
+def let(cls: type[R], value: R) -> Iterator[R]:
+    """Set the value of a dependency for the duration of the context."""
+    var = get_dependency_value_var(cls)  # Ensure the provider exists
+    reset_token = var.set(value)
+    try:
+        yield value
+    finally:
+        var.reset(reset_token)
+
+
 class Context:
     """A context manager for setting provider functions."""
 
     def __init__(self) -> None:
-        self._context_providers: dict[type, UniformContextProvider] = {}
+        self._context_providers: dict[type, DependencyContextProvider] = {}
 
     @overload
     def provides(
@@ -103,31 +112,20 @@ class Context:
         """Add a provider function."""
 
         def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
-            provider_info = get_provider_info(provider, cls)
+            info = get_provider_info(provider, cls)
 
-            if not provider_info.container_info:
-                self._provides_one(provider_info, dependencies)
-            else:
-                add_dependency(provider_info.type)
-                self._provides_one(provider_info, dependencies)
-                from_obj = provider_info.container_info.kind == "obj"
-                is_sync = isinstance(provider_info, SyncProviderInfo)
-                for dep_key, dep_type in provider_info.container_info.dependencies.items():
-                    item_provider = make_item_provider(dep_key, provider_info.type, is_sync=is_sync, from_obj=from_obj)
-                    self.provides(item_provider, cls=dep_type, dependencies={"value": provider_info.type})
+            providers = make_context_providers(info, dependencies)
+            if conflicts := self._context_providers.keys() & providers.keys():
+                msg = f"Providers already defined for {conflicts}"
+                raise RuntimeError(msg)
+            self._context_providers.update(providers)
 
             return provider
 
         return decorator if provider is None else decorator(provider)
 
-    def _provides_one(self, info: ProviderInfo[Any], dependencies: Mapping[str, type] | None) -> None:
-        if info.type in self._context_providers:
-            msg = f"Provider for {info.type} has already been set"
-            raise RuntimeError(msg)
-        self._context_providers[info.type] = make_context_provider(info, dependencies)
-
     def __enter__(self) -> None:
-        self._reset_callbacks = [set_context_provider(v, p) for v, p in self._context_providers.items()]
+        self._reset_callbacks = [set_dependency_context_provider(v, p) for v, p in self._context_providers.items()]
 
     def __exit__(self, etype: Any, evalue: Any, atrace: Any, /) -> None:
         try:

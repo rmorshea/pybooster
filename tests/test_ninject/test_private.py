@@ -10,8 +10,8 @@ from typing import (
 
 import pytest
 
-from ninject._private import (
-    INJECTED,
+from ninject._inspect import INJECTED
+from ninject._utils import (
     AsyncProviderInfo,
     ProviderInfo,
     SyncProviderInfo,
