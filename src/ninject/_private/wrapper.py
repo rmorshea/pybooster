@@ -1,11 +1,19 @@
 from asyncio import iscoroutinefunction
 from collections.abc import Mapping
 from functools import wraps
-from inspect import isasyncgenfunction, isfunction, isgeneratorfunction
-from typing import Any, Callable, ParamSpec, TypeVar, cast
+from inspect import isasyncgenfunction
+from inspect import isfunction
+from inspect import isgeneratorfunction
+from typing import Any
+from typing import Callable
+from typing import ParamSpec
+from typing import TypeVar
+from typing import cast
 
-from ninject._dependency import DependencyContext, get_dependency_context_provider
-from ninject._utils import async_exhaust_exits, exhaust_exits
+from ninject._private.scope import Scope
+from ninject._private.scope import get_scope_provider
+from ninject._private.utils import async_exhaust_exits
+from ninject._private.utils import exhaust_exits
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -19,12 +27,12 @@ def make_injection_wrapper(func: Callable[P, R], dependencies: Mapping[str, type
     if isasyncgenfunction(func):
 
         async def async_gen_wrapper(*args: Any, **kwargs: Any) -> Any:
-            contexts: list[DependencyContext] = []
+            contexts: list[Scope] = []
 
             try:
                 for name in dependencies.keys() - kwargs.keys():
                     cls = dependencies[name]
-                    context = get_dependency_context_provider(cls)()
+                    context = get_scope_provider(cls)()
                     kwargs[name] = await context.__aenter__()
                     contexts.append(context)
                 async for value in func(*args, **kwargs):
@@ -37,11 +45,11 @@ def make_injection_wrapper(func: Callable[P, R], dependencies: Mapping[str, type
     elif isgeneratorfunction(func):
 
         def sync_gen_wrapper(*args: Any, **kwargs: Any) -> Any:
-            contexts: list[DependencyContext] = []
+            contexts: list[Scope] = []
             try:
                 for name in dependencies.keys() - kwargs.keys():
                     cls = dependencies[name]
-                    context = get_dependency_context_provider(cls)()
+                    context = get_scope_provider(cls)()
                     kwargs[name] = context.__enter__()
                     contexts.append(context)
                 yield from func(*args, **kwargs)
@@ -53,12 +61,12 @@ def make_injection_wrapper(func: Callable[P, R], dependencies: Mapping[str, type
     elif iscoroutinefunction(func):
 
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            contexts: list[DependencyContext] = []
+            contexts: list[Scope] = []
 
             try:
                 for name in dependencies.keys() - kwargs.keys():
                     cls = dependencies[name]
-                    context = get_dependency_context_provider(cls)()
+                    context = get_scope_provider(cls)()
                     kwargs[name] = await context.__aenter__()
                     contexts.append(context)
                 return await func(*args, **kwargs)
@@ -70,11 +78,11 @@ def make_injection_wrapper(func: Callable[P, R], dependencies: Mapping[str, type
     elif isfunction(func):
 
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            contexts: list[DependencyContext] = []
+            contexts: list[Scope] = []
             try:
                 for name in dependencies.keys() - kwargs.keys():
                     cls = dependencies[name]
-                    context = get_dependency_context_provider(cls)()
+                    context = get_scope_provider(cls)()
                     kwargs[name] = context.__enter__()
                     contexts.append(context)
                 return func(*args, **kwargs)

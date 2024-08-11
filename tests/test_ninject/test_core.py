@@ -1,15 +1,17 @@
 import asyncio
-from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
-from typing import TypedDict
+from collections.abc import AsyncIterator
+from collections.abc import Iterator
+from typing import NewType
 
 import pytest
 
-from ninject import Context, Dependency, inject
+from ninject import Context
+from ninject import inject
+from ninject import let
 
-Greeting = Dependency("Greeting", str)
-Recipient = Dependency("Recipient", str)
-Message = Dependency("Message", str)
+Greeting = NewType("Greeting", str)
+Recipient = NewType("Recipient", str)
+Message = NewType("Message", str)
 
 MessageContent = tuple[Greeting, Recipient]
 
@@ -35,12 +37,12 @@ async def async_use_message(*, message: Message = inject.ed):
 
 
 @inject
-def sync_use_message_content(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+def sync_use_message_content_parts(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
     return f"{greeting}, {recipient}!"
 
 
 @inject
-async def async_use_message_content(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+async def async_use_message_content_parts(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
     return f"{greeting}, {recipient}!"
 
 
@@ -295,7 +297,7 @@ def test_error_if_register_provider_for_same_dependency():
     @context.provides
     def provide_greeting() -> Greeting: ...
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError, match=r"Providers already defined for"):
 
         @context.provides
         def provide_greeting_again() -> Greeting:  # nocov
@@ -403,7 +405,7 @@ async def test_concurrently_provide_many_dependencies_from_tuple():
         return tuple(await asyncio.gather(get_greeting(), get_recipient()))
 
     with context:
-        assert await async_use_message_content() == "Hello, World!"
+        assert await async_use_message_content_parts() == "Hello, World!"
         assert await async_use_greeting() == "Hello, World!"
 
 
@@ -415,7 +417,7 @@ def test_sync_provide_many_dependencies_from_tuple():
         return Greeting("Hello"), Recipient("World")
 
     with context:
-        assert sync_use_message_content() == "Hello, World!"
+        assert sync_use_message_content_parts() == "Hello, World!"
         assert sync_use_greeting() == "Hello, World!"
 
 
@@ -446,3 +448,13 @@ def test_cannot_inject_class():
         @inject
         class MyClass:
             def __init__(self, *, greeting: Greeting = inject.ed): ...
+
+
+def test_let_dependency_equal_value():
+    with let(Greeting, "Hello"):
+        assert sync_use_greeting() == "Hello, World!"
+
+
+def test_let_message_content_equal_value():
+    with let(MessageContent, ("Hello", "World")):
+        assert sync_use_message_content_parts() == "Hello, World!"

@@ -1,15 +1,38 @@
 from __future__ import annotations
 
 from asyncio import iscoroutinefunction
-from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator, Mapping
-from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
+from collections.abc import AsyncGenerator
+from collections.abc import AsyncIterator
+from collections.abc import Generator
+from collections.abc import Iterator
+from collections.abc import Mapping
+from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractContextManager
+from contextlib import asynccontextmanager
+from contextlib import contextmanager
 from dataclasses import dataclass
-from inspect import Parameter, currentframe, isasyncgenfunction, isfunction, isgeneratorfunction, signature
-from typing import Annotated, Any, Callable, Generic, ParamSpec, TypeVar, cast, get_args, get_origin, get_type_hints
+from inspect import Parameter
+from inspect import currentframe
+from inspect import isasyncgenfunction
+from inspect import isfunction
+from inspect import isgeneratorfunction
+from inspect import signature
+from typing import Annotated
+from typing import Any
+from typing import Callable
+from typing import Generic
+from typing import ParamSpec
+from typing import TypeVar
+from typing import cast
+from typing import get_args
+from typing import get_origin
+from typing import get_type_hints
 
 import ninject
-from ninject._utils import asyncfunctioncontextmanager, syncfunctioncontextmanager
-from ninject.types import AsyncContextProvider, SyncContextProvider
+from ninject._private.utils import asyncfunctioncontextmanager
+from ninject._private.utils import syncfunctioncontextmanager
+from ninject.types import AsyncContextProvider
+from ninject.types import SyncContextProvider
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -18,7 +41,7 @@ R = TypeVar("R")
 INJECTED = cast(Any, type("Injected", (), {"__repr__": lambda _: "INJECTED"})())
 
 
-def get_injected_dependency_types_from_callable(func: Callable[..., Any]) -> Mapping[str, type]:
+def get_dependency_types_from_callable(func: Callable[..., Any]) -> Mapping[str, type]:
     dependency_types: dict[str, type] = {}
 
     for param in signature(get_wrapped(func)).parameters.values():
@@ -60,50 +83,50 @@ def get_wrapped(func: Callable[P, R]) -> Callable[P, R]:
 
 
 @dataclass(kw_only=True)
-class SyncProviderInfo(Generic[R]):
+class SyncScopeParams(Generic[R]):
     provided_type: type[R]
     provider: SyncContextProvider[R]
 
 
 @dataclass(kw_only=True)
-class AsyncProviderInfo(Generic[R]):
+class AsyncScopeParams(Generic[R]):
     provided_type: type[R]
     provider: AsyncContextProvider[R]
 
 
-ProviderInfo = SyncProviderInfo[R] | AsyncProviderInfo[R]
+ScopeParams = SyncScopeParams[R] | AsyncScopeParams[R]
 
 
-def get_provider_info(provider: Callable, provides_type: Any | None = None) -> ProviderInfo:
+def get_scope_params(provider: Callable, provides_type: Any | None = None) -> ScopeParams:
     if provides_type is None:
-        return _infer_provider_info(provider)
+        return _infer_scope_params(provider)
     else:
-        return _get_provider_info(provider, provides_type)
+        return _get_scope_params(provider, provides_type)
 
 
-def _get_provider_info(provider: Callable, provides_type: Any) -> ProviderInfo:
+def _get_scope_params(provider: Callable, provides_type: Any) -> ScopeParams:
     if isinstance(provider, type):
         if issubclass(provider, AbstractContextManager):
-            return SyncProviderInfo(provided_type=provides_type, provider=provider)
+            return SyncScopeParams(provided_type=provides_type, provider=provider)
         elif issubclass(provider, AbstractAsyncContextManager):
-            return AsyncProviderInfo(provided_type=provides_type, provider=provider)
+            return AsyncScopeParams(provided_type=provides_type, provider=provider)
     elif iscoroutinefunction(provider):
-        return AsyncProviderInfo(
+        return AsyncScopeParams(
             provided_type=provides_type,
             provider=asyncfunctioncontextmanager(ninject.inject(provider)),
         )
     elif isasyncgenfunction(provider):
-        return AsyncProviderInfo(
+        return AsyncScopeParams(
             provided_type=provides_type,
             provider=asynccontextmanager(ninject.inject(provider)),
         )
     elif isgeneratorfunction(provider):
-        return SyncProviderInfo(
+        return SyncScopeParams(
             provided_type=provides_type,
             provider=contextmanager(ninject.inject(provider)),
         )
     elif isfunction(provider):
-        return SyncProviderInfo(
+        return SyncScopeParams(
             provided_type=provides_type,
             provider=syncfunctioncontextmanager(ninject.inject(provider)),
         )
@@ -111,10 +134,10 @@ def _get_provider_info(provider: Callable, provides_type: Any) -> ProviderInfo:
     raise TypeError(msg)
 
 
-def _infer_provider_info(provider: Any) -> ProviderInfo:
+def _infer_scope_params(provider: Any) -> ScopeParams:
     if isinstance(provider, type):
         if issubclass(provider, (AbstractContextManager, AbstractAsyncContextManager)):
-            return _get_provider_info(provider, _get_context_manager_type(provider))
+            return _get_scope_params(provider, _get_context_manager_type(provider))
         else:
             msg = f"Unsupported provider type {provider!r}  - expected a callable or context manager."
             raise TypeError(msg)
@@ -133,14 +156,14 @@ def _infer_provider_info(provider: Any) -> ProviderInfo:
         raise TypeError(msg)
 
     if return_type_origin is None:
-        return _get_provider_info(provider, return_type)
+        return _get_scope_params(provider, return_type)
     elif issubclass(return_type_origin, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-        return _get_provider_info(provider, get_args(return_type)[0])
+        return _get_scope_params(provider, get_args(return_type)[0])
     else:
-        return _get_provider_info(provider, return_type)
+        return _get_scope_params(provider, return_type)
 
 
 def _get_context_manager_type(cls: type[AbstractContextManager | AbstractAsyncContextManager]) -> Any:
     method_name = "__aenter__" if issubclass(cls, AbstractAsyncContextManager) else "__enter__"
-    provides_type = get_provider_info(getattr(cls, method_name)).provided_type
+    provides_type = get_scope_params(getattr(cls, method_name)).provided_type
     return provides_type

@@ -1,43 +1,30 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
+from collections.abc import Mapping
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, NewType, ParamSpec, TypeVar, get_args, get_origin, overload
+from typing import Any
+from typing import Callable
+from typing import Literal
+from typing import NewType
+from typing import ParamSpec
+from typing import Self
+from typing import TypeVar
+from typing import get_origin
+from typing import overload
 
-from ninject._dependency import (
-    AsyncDependencyContext,
-    DependencyContextProvider,
-    SyncDependencyContext,
-    add_dependency_type,
-    get_dependency_name,
-    get_dependency_value_var,
-    set_dependency_context_provider,
-)
-from ninject._inspect import (
-    INJECTED,
-    AsyncProviderInfo,
-    ProviderInfo,
-    get_caller_module_name,
-    get_injected_dependency_types_from_callable,
-    get_provider_info,
-)
-from ninject._provider import make_context_providers
-from ninject._wrapper import make_injection_wrapper
+from ninject._private.inspect import INJECTED
+from ninject._private.inspect import get_dependency_types_from_callable
+from ninject._private.inspect import get_scope_params
+from ninject._private.scope import ScopeProvider
+from ninject._private.scope import make_scope_providers
+from ninject._private.scope import set_scope_provider
+from ninject._private.wrapper import make_injection_wrapper
 from ninject.types import AnyProvider
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
-
-if TYPE_CHECKING:
-    Dependency = NewType
-else:
-
-    def Dependency(name, tp):  # noqa: N802
-        new_type = NewType(name, tp)
-        new_type.__module__ = get_caller_module_name()
-        add_dependency_type(name, new_type)
-        return new_type
+T = TypeVar("T")
 
 
 class Inject:
@@ -47,8 +34,16 @@ class Inject:
     """A sentinel value to indicate that a parameter should be injected."""
 
     def __call__(self, func: Callable[P, R], *, dependencies: Mapping[str, type] | None = None) -> Callable[P, R]:
-        """Inject values into a function."""
-        dependencies = get_injected_dependency_types_from_callable(func) if dependencies is None else dependencies
+        """Inject values into a function.
+
+        Args:
+            func:
+                The function to inject values into.
+            dependencies:
+                A mapping of parameter names to their types. If not provided, then inferred
+                from the function signature and type annotations.
+        """
+        dependencies = get_dependency_types_from_callable(func) if dependencies is None else dependencies
         return make_injection_wrapper(func, dependencies)
 
     def __repr__(self) -> str:
@@ -60,22 +55,77 @@ inject = Inject()
 del Inject
 
 
-@contextmanager
-def let(cls: type[R], value: R) -> Iterator[R]:
-    """Set the value of a dependency for the duration of the context."""
-    var = get_dependency_value_var(cls)  # Ensure the provider exists
-    reset_token = var.set(value)
+@overload
+def _let(value: R, /) -> Iterator[R]: ...
+
+
+@overload
+def _let(cls: Callable[[T], R], value: T, /) -> Iterator[R]: ...
+
+
+def _let(*args: Any) -> Iterator[R]:
+    if len(args) == 1:
+        value = args[0]
+        cls = type(value)
+    else:
+        cls, value = args
+        if get_origin(cls) is None and not isinstance(cls, (type, NewType)):
+            msg = f"Expected type, got {cls!r}"
+            raise TypeError(msg)
+
+    scope_providers = make_scope_providers(get_scope_params(lambda: value, cls), {})
+    reset_callbacks = [set_scope_provider(t, p) for t, p in scope_providers.items()]
     try:
         yield value
     finally:
-        var.reset(reset_token)
+        for reset in reset_callbacks:
+            reset()
+
+
+let = contextmanager(_let)
+"""Set the value of a dependency for the duration of the context.
+
+Examples:
+    For user-defined types:
+
+    ```python
+    from dataclasses import dataclass
+
+    @dataclass
+    class Config:
+        greeting: str
+        recipient: str
+
+    with let(Config("Hello", "World")):
+        ...
+    ```
+
+    When a type alias or `NewType` is used to define a dependency:
+
+    ```python
+    from typing import NewType
+
+    Greeting = NewType("Greeting", str)
+    Recipient = NewType("Recipient", str)
+
+    with (
+        let(Greeting, "Hello"),
+        let(Recipient, "World"),
+    ):
+        ...
+    ```
+"""
 
 
 class Context:
     """A context manager for setting provider functions."""
 
-    def __init__(self) -> None:
-        self._context_providers: dict[type, DependencyContextProvider] = {}
+    def __init__(self, other: Context | None = None) -> None:
+        self._context_providers: dict[type, ScopeProvider] = other._context_providers.copy() if other else {}
+
+    def copy(self) -> Self:
+        """Return a shallow copy of the context."""
+        return self.__class__(self)
 
     @overload
     def provides(
@@ -85,6 +135,7 @@ class Context:
         *,
         cls: type[R] | None = ...,
         dependencies: Mapping[str, type] | None = ...,
+        on_conflict: Literal["raise", "replace"] = ...,
     ) -> AnyProvider[R]: ...
 
     @overload
@@ -93,6 +144,7 @@ class Context:
         *,
         cls: type[R],
         dependencies: Mapping[str, type] | None = ...,
+        on_conflict: Literal["raise", "replace"] = ...,
     ) -> Callable[[AnyProvider[R]], AnyProvider[R]]: ...
 
     @overload
@@ -100,6 +152,7 @@ class Context:
         self,
         *,
         dependencies: Mapping[str, type] | None = ...,
+        on_conflict: Literal["raise", "replace"] = ...,
     ) -> Callable[[AnyProvider[R]], AnyProvider[R]]: ...
 
     def provides(
@@ -108,16 +161,34 @@ class Context:
         *,
         cls: type[R] | None = None,
         dependencies: Mapping[str, type] | None = None,
+        on_conflict: Literal["raise", "replace"] = "raise",
     ) -> AnyProvider[R] | Callable[[AnyProvider[R]], AnyProvider[R]]:
-        """Add a provider function."""
+        """Add a provider function.
+
+        Args:
+            provider:
+                The provider of a depdency. A function that returns the dependency,
+                a generator that yields the dependency, or a context manager that
+                does.
+            cls:
+                The type to provide. If not provided, then inferred from provider return
+                type annotation.
+            dependencies:
+                A mapping of required parameter names to their types. If not provided,
+                then inferred from provider signature and type annotations.
+            on_conflict:
+                The action to take when a provider function is already defined for the
+                `cls`. If "raise", then raise a `TypeError`. If "replace", then override
+                the existing provider function.
+        """
 
         def decorator(provider: AnyProvider[R]) -> AnyProvider[R]:
-            info = get_provider_info(provider, cls)
+            params = get_scope_params(provider, cls)
 
-            providers = make_context_providers(info, dependencies)
-            if conflicts := self._context_providers.keys() & providers.keys():
-                msg = f"Providers already defined for {conflicts}"
-                raise RuntimeError(msg)
+            providers = make_scope_providers(params, dependencies)
+            if on_conflict == "raise" and (conflicts := self._context_providers.keys() & providers.keys()):
+                msg = f"Providers already defined for {conflicts} in this context."
+                raise TypeError(msg)
             self._context_providers.update(providers)
 
             return provider
@@ -125,7 +196,7 @@ class Context:
         return decorator if provider is None else decorator(provider)
 
     def __enter__(self) -> None:
-        self._reset_callbacks = [set_dependency_context_provider(v, p) for v, p in self._context_providers.items()]
+        self._reset_callbacks = [set_scope_provider(t, p) for t, p in self._context_providers.items()]
 
     def __exit__(self, etype: Any, evalue: Any, atrace: Any, /) -> None:
         try:

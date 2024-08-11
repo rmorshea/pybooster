@@ -1,10 +1,15 @@
 import sys
-from collections.abc import Awaitable, Sequence
-from contextlib import AbstractAsyncContextManager, AbstractContextManager
+from collections.abc import Awaitable
+from collections.abc import Sequence
+from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractContextManager
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any
+from typing import Callable
+from typing import TypeVar
 
-from ninject.types import AsyncContextProvider, SyncContextProvider
+from ninject.types import AsyncContextProvider
+from ninject.types import SyncContextProvider
 
 T = TypeVar("T")
 
