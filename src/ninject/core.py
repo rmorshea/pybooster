@@ -63,7 +63,7 @@ def _let(value: R, /) -> Iterator[R]: ...
 def _let(cls: Callable[[T], R], value: T, /) -> Iterator[R]: ...
 
 
-def _let(*args: Any) -> Iterator[R]:
+def _let(*args: Any) -> Iterator[Any]:
     if len(args) == 1:
         value = args[0]
         cls = type(value)

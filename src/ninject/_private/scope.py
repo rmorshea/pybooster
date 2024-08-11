@@ -182,7 +182,7 @@ def _make_scope_providers_for_tuple(
     tuple_type = params.provided_type
     tuple_item_types = get_args(tuple_type)
 
-    add_dependency_type(tuple_type)
+    _add_dependency_type(tuple_type)
 
     providers = {tuple_type: _make_scope_providers_for_scalar(params, required_parameter_types)}
 
@@ -199,13 +199,18 @@ def _make_scope_providers_for_scalar(
     params: ScopeParams,
     required_parameter_types: Mapping[str, type] | None,
 ) -> ScopeProvider:
-    provider = params.provider
-    provided_var = get_dependency_var(params.provided_type)
     if required_parameter_types is None:
-        required_parameter_types = get_dependency_types_from_callable(provider)
-    dependency_context_type = AsyncScope if isinstance(params, AsyncScopeParams) else SyncScope
+        required_parameter_types = get_dependency_types_from_callable(params.provider)
+
     dependency_types = tuple(required_parameter_types.values())
-    return lambda: dependency_context_type(provider, provided_var, dependency_types)
+    if isinstance(params, AsyncScopeParams):
+        provider = params.provider
+        provided_var = _get_dependency_var(params.provided_type)
+        return lambda: AsyncScope(provider, provided_var, dependency_types)
+    else:
+        provider = params.provider
+        provided_var = _get_dependency_var(params.provided_type)
+        return lambda: SyncScope(provider, provided_var, dependency_types)
 
 
 def _make_item_provider(
@@ -253,14 +258,13 @@ def _make_item_provider(
         return async_provide_item_field
 
 
-def add_dependency_type(anno: type) -> None:
+def _add_dependency_type(anno: type) -> None:
     _VARS_BY_DEPENDENCY_TYPE[anno] = ContextVar(anno.__name__)
 
 
-def get_dependency_var(anno: type) -> ContextVar:
+def _get_dependency_var(anno: type) -> ContextVar:
     return _VARS_BY_DEPENDENCY_TYPE.setdefault(anno, ContextVar(anno.__name__))
 
 
 _SCOPE_PROVIDER_VARS_BY_DEPENDENCY_TYPE: dict[type, ContextVar[ScopeProvider]] = {}
-
 _VARS_BY_DEPENDENCY_TYPE: WeakKeyDictionary[type, ContextVar] = WeakKeyDictionary()

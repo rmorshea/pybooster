@@ -402,7 +402,8 @@ async def test_concurrently_provide_many_dependencies_from_tuple():
 
     @context.provides
     async def provide_message_content() -> MessageContent:
-        return tuple(await asyncio.gather(get_greeting(), get_recipient()))
+        greeting, recipient = await asyncio.gather(get_greeting(), get_recipient())
+        return greeting, recipient
 
     with context:
         assert await async_use_message_content_parts() == "Hello, World!"
@@ -456,5 +457,44 @@ def test_let_dependency_equal_value():
 
 
 def test_let_message_content_equal_value():
-    with let(MessageContent, ("Hello", "World")):
+    with let(MessageContent, (Greeting("Hello"), Recipient("World"))):
         assert sync_use_message_content_parts() == "Hello, World!"
+
+
+def test_on_conflict_replace():
+    ctx = Context()
+
+    @ctx.provides
+    def provide_greeting_hello() -> Greeting:
+        raise AssertionError()  # nocov
+
+    @ctx.provides(on_conflict="replace")
+    def provide_greeting_hi() -> Greeting:
+        return Greeting("Hi")
+
+    with ctx:
+        assert sync_use_greeting() == "Hi, World!"
+
+
+def test_context_copy():
+    context = Context()
+
+    @context.provides
+    def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    @context.provides
+    def provide_recipient_world() -> Recipient:
+        return Recipient("World")
+
+    copied_context = context.copy()
+
+    @copied_context.provides(on_conflict="replace")
+    def provide_recipient_universe() -> Recipient:
+        return Recipient("Universe")
+
+    with context:
+        assert sync_use_message_content_parts() == "Hello, World!"
+
+    with copied_context:
+        assert sync_use_message_content_parts() == "Hello, Universe!"

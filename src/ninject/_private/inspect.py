@@ -136,12 +136,14 @@ def _infer_scope_params(provider: Any) -> ScopeParams:
         msg = f"Unsupported provider type {provider!r}  - expected a callable or context manager."
         raise TypeError(msg) from error
 
-    return_type = unwrap_annotated(type_hints.get("return"))
-    return_type_origin = get_origin(return_type)
+    try:
+        return_type = type_hints["return"]
+    except KeyError:
+        msg = f"Cannot determine return type of {provider!r} - no return type annotation."
+        raise TypeError(msg) from None
 
-    if return_type is None:
-        msg = f"Cannot determine return type of {provider!r}"
-        raise TypeError(msg)
+    return_type = unwrap_annotated(return_type)
+    return_type_origin = get_origin(return_type)
 
     if return_type_origin is None:
         return _get_scope_params(provider, return_type)
