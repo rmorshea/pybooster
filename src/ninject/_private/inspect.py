@@ -12,7 +12,6 @@ from contextlib import asynccontextmanager
 from contextlib import contextmanager
 from dataclasses import dataclass
 from inspect import Parameter
-from inspect import currentframe
 from inspect import isasyncgenfunction
 from inspect import isfunction
 from inspect import isgeneratorfunction
@@ -59,17 +58,6 @@ def get_dependency_types_from_callable(func: Callable[..., Any]) -> Mapping[str,
             dependency_types[param.name] = anno
 
     return dependency_types
-
-
-def get_caller_module_name(depth: int = 1) -> str | None:
-    frame = currentframe()
-    for _ in range(depth + 1):
-        if frame is None:
-            return None  # nocov
-        frame = frame.f_back
-    if frame is None:
-        return None  # nocov
-    return frame.f_globals.get("__name__")
 
 
 def unwrap_annotated(anno: type) -> type:
