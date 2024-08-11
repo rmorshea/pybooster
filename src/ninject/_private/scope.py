@@ -10,10 +10,8 @@ from typing import Callable
 from typing import TypeVar
 from typing import get_args
 from typing import get_origin
+from weakref import WeakKeyDictionary
 
-from ninject._private.dependency import add_dependency_type
-from ninject._private.dependency import get_dependency_name
-from ninject._private.dependency import get_dependency_var
 from ninject._private.inspect import INJECTED
 from ninject._private.inspect import AsyncScopeParams
 from ninject._private.inspect import ScopeParams
@@ -184,8 +182,7 @@ def _make_scope_providers_for_tuple(
     tuple_type = params.provided_type
     tuple_item_types = get_args(tuple_type)
 
-    tuple_type_name = ",".join(get_dependency_name(tp) for tp in tuple_item_types)
-    add_dependency_type(tuple_type_name, tuple_type)
+    add_dependency_type(tuple_type)
 
     providers = {tuple_type: _make_scope_providers_for_scalar(params, required_parameter_types)}
 
@@ -256,4 +253,14 @@ def _make_item_provider(
         return async_provide_item_field
 
 
+def add_dependency_type(anno: type) -> None:
+    _VARS_BY_DEPENDENCY_TYPE[anno] = ContextVar(anno.__name__)
+
+
+def get_dependency_var(anno: type) -> ContextVar:
+    return _VARS_BY_DEPENDENCY_TYPE.setdefault(anno, ContextVar(anno.__name__))
+
+
 _SCOPE_PROVIDER_VARS_BY_DEPENDENCY_TYPE: dict[type, ContextVar[ScopeProvider]] = {}
+
+_VARS_BY_DEPENDENCY_TYPE: WeakKeyDictionary[type, ContextVar] = WeakKeyDictionary()
