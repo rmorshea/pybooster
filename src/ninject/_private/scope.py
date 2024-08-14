@@ -232,7 +232,7 @@ def _make_item_provider(
 
         else:
 
-            async def async_provide_attr_field(*, value=INJECTED) -> Any:
+            async def async_provide_attr_field(*, value=INJECTED) -> Any:  # noqa: RUF029
                 return getattr(value, item)
 
             async_provide_attr_field.__annotations__["value"] = value_type
@@ -250,7 +250,7 @@ def _make_item_provider(
 
     else:
 
-        async def async_provide_item_field(*, value=INJECTED) -> Any:
+        async def async_provide_item_field(*, value=INJECTED) -> Any:  # noqa: RUF029
             return value[item]
 
         async_provide_item_field.__annotations__["value"] = value_type
