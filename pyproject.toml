@@ -7,16 +7,16 @@ name = "ninject"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10,<4"
 license = "MIT"
 keywords = []
 authors = [{ name = "Ryan Morshead", email = "ryan.morshead@gmail.com" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
@@ -43,15 +43,11 @@ cov-report = ["- coverage combine", "coverage report"]
 cov = ["test-cov", "cov-report"]
 
 [tool.hatch.envs.lint]
-extra-dependencies = [
-  "black>=23.1.0,<24",
-  "pyright>=1.1.367,<2",
-  "ruff>=0.4.8,<1",
-]
+extra-dependencies = ["black==24.8.0", "pyright==1.1.375", "ruff==0.5.7"]
 [tool.hatch.envs.lint.scripts]
 typing = "pyright {args:src/ninject tests}"
 style = ["ruff check {args:.}", "black --check --diff {args:.}"]
-fmt = ["black {args:.}", "ruff check --fix {args:.}", "style"]
+fix = ["black {args:.}", "ruff check --fix {args:.}", "style"]
 all = ["style", "typing"]
 
 [tool.pytest.ini_options]
@@ -73,6 +69,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.ruff.lint]
+preview = true
 select = [
   "A",
   "ARG",
@@ -115,21 +112,25 @@ ignore = [
   "PLR0912",
   "PLR0913",
   "PLR0915",
-]
-unfixable = [
-  # Don't touch unused imports
-  "F401",
+  # Allow contextmanager dunder methods
+  "PLC2801",
+  # Allow shadowing builtin modules
+  "A005",
 ]
 
 [tool.ruff.lint.isort]
 known-first-party = ["ninject"]
+force-single-line = true
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
-# Tests can use magic values, assertions, and relative imports
-"tests/**/*" = ["PLC2701", "S101", "TID252", "RUF029", "PLC2801"]
+"tests/**/*" = [
+  "PLC2701", # Allow private imports
+  "RUF029",  # Allow async functions without await
+  "S101",    # Allow asserts in tests
+]
 
 [tool.coverage.run]
 source_pkgs = ["ninject", "tests"]

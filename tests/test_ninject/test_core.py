@@ -1,28 +1,20 @@
 import asyncio
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import NewType
 
 import pytest
 
-from ninject import Context, Dependency, inject
+from ninject import Context
+from ninject import inject
+from ninject import let
 
-Greeting = Dependency("Greeting", str)
-Recipient = Dependency("Recipient", str)
-Message = Dependency("Message", str)
+Greeting = NewType("Greeting", str)
+Recipient = NewType("Recipient", str)
+Message = NewType("Message", str)
 
-
-class MessageContent(TypedDict):
-    greeting: Greeting
-    recipient: Recipient
-    punctuation: str
-
-
-@dataclass
-class MessageContentObject:
-    greeting: Greeting
-    recipient: Recipient
-    punctuation: str
+MessageContent = tuple[Greeting, Recipient]
 
 
 @inject
@@ -46,23 +38,13 @@ async def async_use_message(*, message: Message = inject.ed):
 
 
 @inject
-def sync_use_message_content(*, message_content: MessageContent = inject.ed):
-    return f"{message_content['greeting']}, {message_content['recipient']}{message_content['punctuation']}"
+def sync_use_message_content_parts(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+    return f"{greeting}, {recipient}!"
 
 
 @inject
-async def async_use_message_content(*, message_content: MessageContent = inject.ed):
-    return f"{message_content['greeting']}, {message_content['recipient']}{message_content['punctuation']}"
-
-
-@inject
-def sync_use_message_content_object(*, message_content: MessageContentObject = inject.ed):
-    return f"{message_content.greeting}, {message_content.recipient}{message_content.punctuation}"
-
-
-@inject
-async def async_use_message_content_object(*, message_content: MessageContentObject = inject.ed):
-    return f"{message_content.greeting}, {message_content.recipient}{message_content.punctuation}"
+async def async_use_message_content_parts(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+    return f"{greeting}, {recipient}!"
 
 
 def test_inject_repr():
@@ -270,17 +252,6 @@ async def test_async_provider_with_sync_dependency_used_in_async_function():
         assert await async_use_message() == "Hello, World!"
 
 
-def test_provides_typed_dict():
-    context = Context()
-
-    @context.provides
-    def provide_my_dict() -> MessageContent:
-        return {"greeting": Greeting("Hello"), "recipient": Recipient("World"), "punctuation": "!"}
-
-    with context:
-        assert sync_use_message_content() == "Hello, World!"
-
-
 def test_reuse_sync_provider():
     context = Context()
 
@@ -327,7 +298,7 @@ def test_error_if_register_provider_for_same_dependency():
     @context.provides
     def provide_greeting() -> Greeting: ...
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError, match=r"Providers already defined for"):
 
         @context.provides
         def provide_greeting_again() -> Greeting:  # nocov
@@ -421,7 +392,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
     exit_called = False
 
 
-async def test_concurrently_provide_many_dependencies_from_dict():
+async def test_concurrently_provide_many_dependencies_from_tuple():
     context = Context()
 
     async def get_greeting():
@@ -433,53 +404,22 @@ async def test_concurrently_provide_many_dependencies_from_dict():
     @context.provides
     async def provide_message_content() -> MessageContent:
         greeting, recipient = await asyncio.gather(get_greeting(), get_recipient())
-        return {"greeting": greeting, "recipient": recipient, "punctuation": "!"}
+        return greeting, recipient
 
     with context:
-        assert await async_use_message_content() == "Hello, World!"
+        assert await async_use_message_content_parts() == "Hello, World!"
         assert await async_use_greeting() == "Hello, World!"
 
 
-def test_sync_provide_many_dependencies_from_dict():
+def test_sync_provide_many_dependencies_from_tuple():
     context = Context()
 
     @context.provides
     def provide_message_content() -> MessageContent:
-        return {"greeting": Greeting("Hello"), "recipient": Recipient("World"), "punctuation": "!"}
+        return Greeting("Hello"), Recipient("World")
 
     with context:
-        assert sync_use_message_content() == "Hello, World!"
-        assert sync_use_greeting() == "Hello, World!"
-
-
-async def test_concurrently_provide_many_dependencies_from_dataclass():
-    context = Context()
-
-    async def get_greeting():
-        return Greeting("Hello")
-
-    async def get_recipient():
-        return Recipient("World")
-
-    @context.provides
-    async def provide_message_content() -> MessageContentObject:
-        greeting, recipient = await asyncio.gather(get_greeting(), get_recipient())
-        return MessageContentObject(greeting, recipient, "!")
-
-    with context:
-        assert await async_use_message_content_object() == "Hello, World!"
-        assert await async_use_greeting() == "Hello, World!"
-
-
-def test_sync_provide_many_dependencies_from_dataclass():
-    context = Context()
-
-    @context.provides
-    def provide_message_content() -> MessageContentObject:
-        return MessageContentObject(Greeting("Hello"), Recipient("World"), "!")
-
-    with context:
-        assert sync_use_message_content_object() == "Hello, World!"
+        assert sync_use_message_content_parts() == "Hello, World!"
         assert sync_use_greeting() == "Hello, World!"
 
 
@@ -510,3 +450,93 @@ def test_cannot_inject_class():
         @inject
         class MyClass:
             def __init__(self, *, greeting: Greeting = inject.ed): ...
+
+
+def test_let_dependency_equal_value():
+    with let(Greeting, "Hello"):
+        assert sync_use_greeting() == "Hello, World!"
+
+
+def test_let_message_content_equal_value():
+    with let(MessageContent, (Greeting("Hello"), Recipient("World"))):
+        assert sync_use_message_content_parts() == "Hello, World!"
+
+
+def test_on_conflict_replace():
+    ctx = Context()
+
+    @ctx.provides
+    def provide_greeting_hello() -> Greeting:
+        raise AssertionError()  # nocov
+
+    @ctx.provides(on_conflict="replace")
+    def provide_greeting_hi() -> Greeting:
+        return Greeting("Hi")
+
+    with ctx:
+        assert sync_use_greeting() == "Hi, World!"
+
+
+def test_context_copy():
+    context = Context()
+
+    @context.provides
+    def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    @context.provides
+    def provide_recipient_world() -> Recipient:
+        return Recipient("World")
+
+    copied_context = context.copy()
+
+    @copied_context.provides(on_conflict="replace")
+    def provide_recipient_universe() -> Recipient:
+        return Recipient("Universe")
+
+    with context:
+        assert sync_use_message_content_parts() == "Hello, World!"
+
+    with copied_context:
+        assert sync_use_message_content_parts() == "Hello, Universe!"
+
+
+@dataclass(kw_only=True)
+class MessageData:
+    greeting: str
+    recipient: str
+
+
+def test_provide_user_defined_class_from_context():
+    context = Context()
+
+    @context.provides
+    def make_message_data() -> MessageData:
+        return MessageData(greeting="Hello", recipient="World")
+
+    @inject
+    def use_message_data(*, message_data: MessageData = inject.ed):
+        return f"{message_data.greeting}, {message_data.recipient}!"
+
+    with context:
+        assert use_message_data() == "Hello, World!"
+
+
+def test_provide_user_defined_class_with_let():
+    with let(MessageData(greeting="Hello", recipient="World")):
+
+        @inject
+        def use_message_data(*, message_data: MessageData = inject.ed):
+            return f"{message_data.greeting}, {message_data.recipient}!"
+
+        assert use_message_data() == "Hello, World!"
+
+
+def test_let_invalid_type_arg():
+    with pytest.raises(TypeError, match="Expected type"):
+
+        with let(
+            lambda _: None,  # nocov
+            "Hello",
+        ):
+            raise AssertionError()  # nocov

@@ -23,43 +23,42 @@ pip install ninject
 
 ## Basic Usage
 
-First declare a `Dependency` and `inject` it into a dependent function.
-
 ```python
-from ninject import Dependency, inject
+import ninject as n
+from dataclasses import dataclass
 
-Message = Dependency("Message", str)
+
+# Define a type to be used as a dependency
+
+@dataclass
+class Config:
+    greeting: str
+    recipient: str
 
 
-@inject
-def print_message(*, message: Message = inject.ed):
-    print(message)
-```
+# Create a context
 
-Next, define a `Context` with a function that `provides` the `Dependency`.
+context = n.Context()
 
-```python
-from ninject import Context
 
-context = Context()
-
+# Add a provider to the context
 
 @context.provides
-def provide_message() -> Message:
-    return Message("Hello, World!")
-```
+def provide_config() -> Config:
+    return Config("Hello", "World")
 
-Finally, establish the `context` and call the function with the `inject.ed` dependency:
 
-```python
+# Injec the dependency into a function
+
+@n.inject
+def make_message(*, config: Config = n.inject.ed) -> str:
+    return f"{config.greeting}, {config.recipient}!"
+
+
+# Run the function with the context
+
 with context:
-    print_message()
-```
-
-The output will be:
-
-```text
-Hello, World!
+    assert make_message() == "Hello, World!"
 ```
 
 ## Types of Providers
@@ -74,15 +73,6 @@ A provider is one of the following
 -   An async context manager class that yields a value
 
 ```python
-from ninject import Dependency, Context
-
-Message = Dependency("Message", str)
-
-context = Context()
-
-# --- Sync Providers -------------------------------------
-
-
 @context.provides
 def sync_function() -> Message:
     return Message("Hello, World!")
@@ -103,9 +93,6 @@ class SyncContextManager:
 
     def __exit__(self, *args) -> None:
         pass
-
-
-# --- Async Providers ------------------------------------
 
 
 @context.provides
@@ -130,24 +117,20 @@ class AsyncContextManager:
         pass
 ```
 
-## Providers with Dependencies
+## Providing Built-in Types
 
-Providers can have their own dependencies:
+The best way to provide a built-in type (e.g. `list`, `dict`, `str`, `int`, etc.) as a
+dependency is to declare a `NewType` to differentiate it from
 
 ```python
-from ninject import Context, Dependency, inject
+from typing import NewType
+import ninject as n
 
-Greeting = Dependency("Greeting", str)
-Recipient = Dependency("Recipient", str)
-Message = Dependency("Message", str)
-
-
-@inject
-def print_message(*, message: Message = inject.ed):
-    print(message)
+Greeting = NewType("Greeting", str)
+Recipient = NewType("Recipient", str)
 
 
-context = Context()
+contest = n.Context()
 
 
 @context.provides
@@ -156,15 +139,99 @@ def provide_greeting() -> Greeting:
 
 
 @context.provides
-def provide_recipient() -> Greeting:
-    return Greeting("World")
+def provide_recipient() -> Recipient:
+    return Recipient("World")
+```
+
+This way, you can use the built-in type as a dependency:
+
+```python
+@context.provides
+def provide_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> str:
+    return f"{greeting}, {recipient}!"
+```
+
+## Providing Static Values
+
+To do this you can use the `let` context:
+
+```python
+from dataclasses import dataclass
+import ninject as n
+
+
+@dataclass
+class Config:
+    greeting: str
+    recipient: str
+
+
+@n.inject
+def make_message(*, config: Config = n.inject.ed) -> str:
+    return f"{config.greeting}, {config.recipient}!"
+
+
+with n.let(Config(greeting="Hello", recipient="World")):
+    assert make_message() == "Hello, World!"
+```
+
+When a type alias or `NewType` is used to define a dependency, pass the type and the
+value separately:
+
+```python
+from typing import NewType
+import ninject as n
+
+Greeting = NewType("Greeting", str)
+Recipient = NewType("Recipient", str)
+
+
+@n.inject
+def make_message(*, config: Config = n.inject.ed) -> str:
+    return f"{config.greeting}, {config.recipient}!"
+
+
+with (
+    n.let(Greeting, "Hello"),
+    n.let(Recipient, "World"),
+):
+    assert make_message() == "Hello, World!"
+```
+
+## Providers with Dependencies
+
+Providers can have their own dependencies:
+
+```python
+from dataclasses import dataclass
+from typing import NewType
+import ninject as n
+
+
+@dataclass
+class Config:
+    greeting: str
+    recipient: str
+
+
+Message = Dependency("Message", str)
+
+context = n.Context()
 
 
 @context.provides
-def provide_message(
-    *, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed
-) -> Message:
+def provide_config() -> Greeting:
+    return Config("Hello", "World")
+
+
+@context.provides
+def provide_message(*, config: Config = n.inject.ed) -> Message:
     return Message(f"{greeting}, {recipient}!")
+
+
+@n.inject
+def print_message(*, message: Message = n.inject.ed):
+    print(message)
 
 
 if __name__ == "__main__":
@@ -180,7 +247,7 @@ Hello, World!
 
 ## Providing Multiple Dependencies
 
-A single provider can supply multiple dependencies:
+A single provider can supply multiple dependencies by returning a tuple:
 
 ```python
 from ninject import Context, Dependency, inject
@@ -208,7 +275,7 @@ if __name__ == "__main__":
         print_message()
 ```
 
-You may also depend on `MessageContent` directly:
+You may also depend on the tuple, in this case `MessageContent`, directly:
 
 ```python
 from ninject import Context, Dependency, inject
@@ -220,8 +287,7 @@ MessageContent = tuple[Greeting, Recipient]
 
 @inject
 def print_message(*, message_content: MessageContent = inject.ed):  # TypeError!
-    greeting = message_content["greeting"]
-    recipient = message_content["recipient"]
+    greeting, recipient = message_content
     print(f"{greeting}, {recipient}!")
 
 
@@ -253,13 +319,7 @@ from ninject import Context, Dependency, inject
 
 Greeting = Dependency("Greeting", str)
 Recipient = Dependency("Recipient", str)
-
-
-@dependencies
-class MessageContent(TypedDict):
-    greeting: Greeting
-    recipient: Recipient
-
+MessageContent = tuple[Greeting, Recipient]
 
 @inject
 async def print_message(
@@ -279,10 +339,8 @@ async def get_recipient() -> str:
     return "World"
 
 
-@context.provides(MessageContent)
-async def provide_message_content() -> dict:
-    greeting, recipient = await asyncio.gather(get_message(), get_recipient())
-    return {"greeting": greeting, "recipient": recipient}
+async def provide_message_content() -> MessageContent:
+    return tuple(await asyncio.gather(get_message(), get_recipient()))
 
 
 if __name__ == "__main__":

@@ -1,38 +1,29 @@
-from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
-from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
+from collections.abc import AsyncGenerator
+from collections.abc import AsyncIterator
+from collections.abc import Generator
+from collections.abc import Iterator
+from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractContextManager
+from contextlib import asynccontextmanager
+from contextlib import contextmanager
 from functools import wraps
-from typing import (
-    Callable,
-    Literal,
-    NewType,
-    TypedDict,
-)
+from typing import Callable
+from typing import Literal
+from typing import NewType
 
 import pytest
 
-from ninject._private import (
-    INJECTED,
-    AsyncProviderInfo,
-    ProviderInfo,
-    SyncProviderInfo,
-    SyncUniformContext,
-    _get_wrapped,
-    add_dependency,
-    async_exhaust_exits,
-    exhaust_exits,
-    get_context_provider,
-    get_injected_dependency_types_from_callable,
-    get_provider_info,
-    is_dependency,
-    set_context_provider,
-)
-from ninject.core import Context, Dependency
-
-
-def test_check_add_and_is_dependency():
-    nt = NewType("nt", int)
-    add_dependency(nt)
-    assert is_dependency(nt)
+from ninject._private.inspect import INJECTED
+from ninject._private.inspect import AsyncScopeParams
+from ninject._private.inspect import ScopeParams
+from ninject._private.inspect import SyncScopeParams
+from ninject._private.inspect import get_dependency_types_from_callable
+from ninject._private.inspect import get_scope_params
+from ninject._private.inspect import get_wrapped
+from ninject._private.scope import get_scope_provider
+from ninject._private.scope import make_scope_providers
+from ninject._private.utils import async_exhaust_exits
+from ninject._private.utils import exhaust_exits
 
 
 def test_exhaust_exits():
@@ -80,11 +71,11 @@ async def test_async_exhaust_exits():
 def test_get_injected_context_vars_from_callable():
     def func_1(*, _a: int = INJECTED, _b: str = INJECTED): ...
 
-    assert get_injected_dependency_types_from_callable(func_1) == {"_a": int, "_b": str}
+    assert get_dependency_types_from_callable(func_1) == {"_a": int, "_b": str}
 
     def func_2(*, _a: "int" = INJECTED, _b: "str" = INJECTED): ...
 
-    assert get_injected_dependency_types_from_callable(func_2) == {"_a": int, "_b": str}
+    assert get_dependency_types_from_callable(func_2) == {"_a": int, "_b": str}
 
 
 def test_get_injected_context_vars_from_callable_error_if_locals_when_annotation_is_str():
@@ -93,14 +84,14 @@ def test_get_injected_context_vars_from_callable_error_if_locals_when_annotation
     def func(*, _a: "Thing" = INJECTED): ...
 
     with pytest.raises(NameError, match=r"name .* is not defined - is it defined as a global"):
-        get_injected_dependency_types_from_callable(func)
+        get_dependency_types_from_callable(func)
 
 
 def test_injected_parameter_must_be_keyword_only():
     def func(_a: int = INJECTED): ...
 
     with pytest.raises(TypeError, match="Expected injected parameter .* to be keyword-only"):
-        get_injected_dependency_types_from_callable(func)
+        get_dependency_types_from_callable(func)
 
 
 def test_get_wrapped():
@@ -109,17 +100,17 @@ def test_get_wrapped():
     @wraps(func)
     def wrapper(): ...
 
-    assert _get_wrapped(func) == func
+    assert get_wrapped(func) == func
 
 
 def test_get_context_provider_error_if_missing():
     class Thing: ...
 
     with pytest.raises(RuntimeError, match="No provider declared for"):
-        get_context_provider(Thing)
+        get_scope_provider(Thing)
 
 
-PROVIDER_AND_EXPECTED_TYPE: list[tuple[ProviderInfo, type, Literal["sync", "async"]]] = []
+PROVIDER_AND_EXPECTED_TYPE: list[tuple[ScopeParams, type, Literal["sync", "async"]]] = []
 
 
 def add_provider_and_expected_type(
@@ -168,110 +159,33 @@ class AsyncContextManager(AbstractAsyncContextManager):
 
 @pytest.mark.parametrize("provider, expected_type, sync_or_async", PROVIDER_AND_EXPECTED_TYPE)
 def test_get_provider_info_provides_type(provider, expected_type, sync_or_async):
-    info = get_provider_info(provider)
-    assert info.type == expected_type
+    params = get_scope_params(provider)
+    assert params.provided_type == expected_type
     if sync_or_async == "sync":
-        assert isinstance(info, SyncProviderInfo)
+        assert isinstance(params, SyncScopeParams)
     else:
-        assert isinstance(info, AsyncProviderInfo)
+        assert isinstance(params, AsyncScopeParams)
 
 
 def test_provider_info_tuple_container_info():
-    nt1 = Dependency("nt1", int)
-    nt2 = Dependency("nt2", int)
+    nt1 = NewType("nt1", int)
+    nt2 = NewType("nt2", int)
 
     def fake_provider() -> tuple[nt1, nt2]: ...
 
-    provider_info = get_provider_info(fake_provider)
-
-    assert provider_info.container_info is not None
-    assert provider_info.container_info.kind == "map"
-    assert provider_info.container_info.dependencies == {0: nt1, 1: nt2}
-
-
-def test_provider_info_typed_dict_container_info():
-    nt1 = Dependency("nt1", int)
-    nt2 = Dependency("nt2", int)
-
-    class Thing(TypedDict):
-        a: nt1
-        b: nt2
-
-    def fake_provider() -> Thing: ...
-
-    provider_info = get_provider_info(fake_provider)
-
-    assert provider_info.container_info is not None
-    assert provider_info.container_info.kind == "map"
-    assert provider_info.container_info.dependencies == {"a": nt1, "b": nt2}
-
-
-def test_provider_info_obj_container_info():
-    nt1 = Dependency("nt1", int)
-    nt2 = Dependency("nt2", int)
-
-    class Thing:
-        a: nt1
-        b: nt2
-
-    def fake_provider() -> Thing: ...
-
-    provider_info = get_provider_info(fake_provider)
-
-    assert provider_info.container_info is not None
-    assert provider_info.container_info.kind == "obj"
-    assert provider_info.container_info.dependencies == {"a": nt1, "b": nt2}
-
-
-def test_cannot_provide_empty_container():
-    class Thing: ...
-
-    def fake_provider() -> Thing: ...
-
-    provider_info = get_provider_info(fake_provider)
-
-    with pytest.raises(TypeError, match="must contain at least one dependency"):
-        provider_info.container_info  # noqa: B018
-
-
-def test_uniform_context_repr():
-    nt = Dependency("nt", int)
-
-    context = Context()
-
-    @context.provides
-    def provider() -> nt: ...
-
-    uniform_context_provider = context._context_providers[nt]
-
-    assert repr(uniform_context_provider()).startswith("SyncUniformContext")
+    actual_types = set(make_scope_providers(get_scope_params(fake_provider), {}))
+    assert actual_types == {tuple[nt1, nt2], nt1, nt2}
 
 
 def test_provided_type_must_be_context_manager_if_not_callable():
     class NotContextManager: ...
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
-        get_provider_info(NotContextManager)
+        get_scope_params(NotContextManager)
 
 
 def test_explicit_type_must_be_context_manager_if_not_callable():
     class NotContextManager: ...
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
-        get_provider_info(NotContextManager, int)
-
-
-def test_errors_on_get_context_provider():
-    nt = NewType("nt", int)
-
-    def fake_context_provider() -> SyncUniformContext: ...
-
-    with pytest.raises(RuntimeError, match="No provider declared for"):
-        get_context_provider(nt)
-
-    reset = set_context_provider(nt, fake_context_provider)
-    assert get_context_provider(nt) is fake_context_provider
-
-    reset()
-    with pytest.raises(RuntimeError, match="No active provider for"):
-        get_context_provider(nt)
+        get_scope_params(NotContextManager, int)
