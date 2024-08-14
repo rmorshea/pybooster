@@ -8,10 +8,11 @@ from typing import Callable
 from typing import Literal
 from typing import NewType
 from typing import ParamSpec
-from typing import Self
 from typing import TypeVar
 from typing import get_origin
 from typing import overload
+
+from typing_extensions import Self
 
 from ninject._private.inspect import INJECTED
 from ninject._private.inspect import get_dependency_types_from_callable
