@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import NewType
 
 import pytest
@@ -498,3 +499,44 @@ def test_context_copy():
 
     with copied_context:
         assert sync_use_message_content_parts() == "Hello, Universe!"
+
+
+@dataclass(kw_only=True)
+class MessageData:
+    greeting: str
+    recipient: str
+
+
+def test_provide_user_defined_class_from_context():
+    context = Context()
+
+    @context.provides
+    def make_message_data() -> MessageData:
+        return MessageData(greeting="Hello", recipient="World")
+
+    @inject
+    def use_message_data(*, message_data: MessageData = inject.ed):
+        return f"{message_data.greeting}, {message_data.recipient}!"
+
+    with context:
+        assert use_message_data() == "Hello, World!"
+
+
+def test_provide_user_defined_class_with_let():
+    with let(MessageData(greeting="Hello", recipient="World")):
+
+        @inject
+        def use_message_data(*, message_data: MessageData = inject.ed):
+            return f"{message_data.greeting}, {message_data.recipient}!"
+
+        assert use_message_data() == "Hello, World!"
+
+
+def test_let_invalid_type_arg():
+    with pytest.raises(TypeError, match="Expected type"):
+
+        with let(
+            lambda _: None,  # nocov
+            "Hello",
+        ):
+            raise AssertionError()  # nocov

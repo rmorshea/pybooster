@@ -18,7 +18,6 @@ from ninject._private.inspect import ScopeParams
 from ninject._private.inspect import SyncScopeParams
 from ninject._private.inspect import get_dependency_types_from_callable
 from ninject._private.inspect import get_scope_params
-from ninject._private.inspect import get_wrapped
 from ninject._private.utils import async_exhaust_exits
 from ninject._private.utils import exhaust_exits
 from ninject.types import AsyncContextProvider
@@ -53,7 +52,7 @@ def get_scope_provider(cls: type[R]) -> ScopeProvider[R]:
         raise RuntimeError(msg) from None
     try:
         return var.get()
-    except LookupError:
+    except LookupError:  # nocov
         msg = f"No active provider for {cls}"
         raise RuntimeError(msg) from None
 
@@ -62,11 +61,6 @@ class Scope(AbstractContextManager[R], AbstractAsyncContextManager[R]):
 
     provider: Any
     provided_var: ContextVar
-
-    def __repr__(self) -> str:
-        wrapped = get_wrapped(self.provider)
-        provider_str = getattr(wrapped, "__qualname__", str(wrapped))
-        return f"{self.__class__.__name__}({self.provided_var.name}, {provider_str})"
 
 
 ScopeProvider = Callable[[], Scope[R]]
@@ -213,33 +207,9 @@ def _make_scope_providers_for_scalar(
         return lambda: SyncScope(provider, provided_var, dependency_types)
 
 
-def _make_item_provider(
-    item: int, value_type: type, *, is_sync: bool, from_obj: bool = False
-) -> SyncValueProvider | AsyncValueProvider:
-    if from_obj:
-        if not isinstance(item, str):  # nocov
-            msg = f"Expected field to be a string, got {item}"
-            raise TypeError(msg)
+def _make_item_provider(item: int, value_type: type, *, is_sync: bool) -> SyncValueProvider | AsyncValueProvider:
 
-        if is_sync:
-
-            def sync_provide_attr_field(*, value=INJECTED) -> Any:
-                return getattr(value, item)
-
-            sync_provide_attr_field.__annotations__["value"] = value_type
-
-            return sync_provide_attr_field
-
-        else:
-
-            async def async_provide_attr_field(*, value=INJECTED) -> Any:  # noqa: RUF029
-                return getattr(value, item)
-
-            async_provide_attr_field.__annotations__["value"] = value_type
-
-            return async_provide_attr_field
-
-    elif is_sync:
+    if is_sync:
 
         def sync_provide_item_field(*, value=INJECTED) -> Any:
             return value[item]
