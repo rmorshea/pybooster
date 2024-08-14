@@ -10,6 +10,8 @@ injection framework.
 -   [Installation](#installation)
 -   [Basic Usage](#basic-usage)
 -   [Types of Providers](#types-of-providers)
+-   [Providing Distinct Types](#providing-distinct-types)
+-   [Providing Static Values](#providing-static-values)
 -   [Providers with Dependencies](#providers-with-dependencies)
 -   [Providing Multiple Dependencies](#providing-multiple-dependencies)
 -   [Providing Dependencies Concurrently](#providing-dependencies-concurrently)
@@ -117,10 +119,11 @@ class AsyncContextManager:
         pass
 ```
 
-## Providing Built-in Types
+## Providing Distinct Types
 
-The best way to provide a built-in type (e.g. `list`, `dict`, `str`, `int`, etc.) as a
-dependency is to declare a `NewType` to differentiate it from
+It's important to provide easily distinguishable types. In the case of built-in types,
+you can use `NewType` to define a new subtype. In the example below, `Greeting` and
+`Recipient` are both distinct `str` subtypes recognized by Ninject:
 
 ```python
 from typing import NewType
