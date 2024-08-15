@@ -6,10 +6,12 @@ from typing import NewType
 
 import pytest
 
+from ninject import Current
+from ninject import default
 from ninject import inject
 from ninject import let
-from ninject.core import current
-from ninject.core import provider
+from ninject import provider
+from ninject import required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -19,41 +21,33 @@ MessageContent = tuple[Greeting, Recipient]
 
 
 @inject
-def sync_use_greeting(*, greeting: Greeting = inject.ed):
+def sync_use_greeting(*, greeting: Greeting = required):
     return f"{greeting}, World!"
 
 
 @inject
-async def async_use_greeting(*, greeting: Greeting = inject.ed):
+async def async_use_greeting(*, greeting: Greeting = required):
     return f"{greeting}, World!"
 
 
 @inject
-def sync_use_message(*, message: Message = inject.ed):
+def sync_use_message(*, message: Message = required):
     return message
 
 
 @inject
-async def async_use_message(*, message: Message = inject.ed):
+async def async_use_message(*, message: Message = required):
     return message
 
 
 @inject
-def sync_use_message_content_parts(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+def sync_use_message_content_parts(*, greeting: Greeting = required, recipient: Recipient = required):
     return f"{greeting}, {recipient}!"
 
 
 @inject
-async def async_use_message_content_parts(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+async def async_use_message_content_parts(*, greeting: Greeting = required, recipient: Recipient = required):
     return f"{greeting}, {recipient}!"
-
-
-def test_inject_repr():
-    assert repr(inject) == "inject()"
-
-
-def test_injected_repr():
-    assert repr(inject.ed) == "INJECTED"
 
 
 def test_inject_single_dependency_from_sync_function_provider():
@@ -186,7 +180,7 @@ def test_sync_provider_with_sync_dependency():
         return Greeting("Hello")
 
     @provider
-    def provide_message(*, greeting: Greeting = inject.ed) -> Message:
+    def provide_message(*, greeting: Greeting = required) -> Message:
         return Message(f"{greeting}, World!")
 
     with provide_greeting(), provide_message():
@@ -199,7 +193,7 @@ async def test_sync_provider_with_async_dependency_used_in_async_function():
         return Greeting("Hello")
 
     @provider
-    def provide_message(*, greeting: Greeting = inject.ed) -> Message:
+    def provide_message(*, greeting: Greeting = required) -> Message:
         return Message(f"{greeting}, World!")
 
     with provide_greeting(), provide_message():
@@ -211,7 +205,7 @@ def test_sync_provider_with_async_dependency_used_in_sync_function():
     async def provide_greeting() -> Greeting: ...
 
     @provider
-    def provide_message(*, _: Greeting = inject.ed) -> Message: ...
+    def provide_message(*, _: Greeting = required) -> Message: ...
 
     with provide_greeting(), provide_message():
         with pytest.raises(RuntimeError, match=r"Cannot use an async provider .* in a sync context"):
@@ -225,7 +219,7 @@ async def test_async_provider_with_sync_dependency_used_in_async_function():
         return Greeting("Hello")
 
     @provider
-    async def provide_message(*, greeting: Greeting = inject.ed) -> Message:
+    async def provide_message(*, greeting: Greeting = required) -> Message:
         return Message(f"{greeting}, World!")
 
     with provide_greeting(), provide_message():
@@ -239,11 +233,11 @@ def test_reuse_sync_provider():
         return Greeting("Hello")
 
     @inject
-    def use_greeting(*, greeting: Greeting = inject.ed):
+    def use_greeting(*, greeting: Greeting = required):
         return greeting
 
     @inject
-    def use_greeting_again(*, greeting: Greeting = inject.ed):
+    def use_greeting_again(*, greeting: Greeting = required):
         return f"{greeting} {use_greeting()}"
 
     with provide_greeting():
@@ -258,11 +252,11 @@ async def test_reuse_async_provider():
         return Greeting("Hello")
 
     @inject
-    async def use_greeting(*, greeting: Greeting = inject.ed):
+    async def use_greeting(*, greeting: Greeting = required):
         return greeting
 
     @inject
-    async def use_greeting_again(*, greeting: Greeting = inject.ed):
+    async def use_greeting_again(*, greeting: Greeting = required):
         return f"{greeting} {await use_greeting()}"
 
     with provide_greeting():
@@ -308,7 +302,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
             exit_called = True
 
     @inject
-    def sync_func_raises_expected_error(*, _: Greeting = inject.ed):
+    def sync_func_raises_expected_error(*, _: Greeting = required):
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
@@ -319,7 +313,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
     exit_called = False
 
     @inject
-    async def async_func_raises_expected_error(*, _: Greeting = inject.ed):
+    async def async_func_raises_expected_error(*, _: Greeting = required):
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
@@ -330,7 +324,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
     exit_called = False
 
     @inject
-    def sync_gen_raises_expected_error(*, _: Greeting = inject.ed):
+    def sync_gen_raises_expected_error(*, _: Greeting = required):
         yield
         raise RuntimeError(expected_error_message)
 
@@ -342,7 +336,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
     exit_called = False
 
     @inject
-    async def async_gen_raises_expected_error(*, _: Greeting = inject.ed):
+    async def async_gen_raises_expected_error(*, _: Greeting = required):
         yield
         raise RuntimeError(expected_error_message)
 
@@ -408,7 +402,7 @@ def test_cannot_inject_class():
 
         @inject
         class MyClass:
-            def __init__(self, *, greeting: Greeting = inject.ed): ...
+            def __init__(self, *, greeting: Greeting = required): ...
 
 
 def test_let_dependency_equal_value():
@@ -459,7 +453,7 @@ def test_provide_user_defined_class_from_context():
         return MessageData(greeting="Hello", recipient="World")
 
     @inject
-    def use_message_data(*, message_data: MessageData = inject.ed):
+    def use_message_data(*, message_data: MessageData = required):
         return f"{message_data.greeting}, {message_data.recipient}!"
 
     with make_message_data():
@@ -470,7 +464,7 @@ def test_provide_user_defined_class_with_let():
     with let(MessageData(greeting="Hello", recipient="World")):
 
         @inject
-        def use_message_data(*, message_data: MessageData = inject.ed):
+        def use_message_data(*, message_data: MessageData = required):
             return f"{message_data.greeting}, {message_data.recipient}!"
 
         assert use_message_data() == "Hello, World!"
@@ -493,7 +487,7 @@ def test_sync_access_current_value_from_sync_provider():
         return Greeting("Hello")
 
     with provide_greeting():
-        with current(Greeting) as value:
+        with Current(Greeting) as value:
             assert value == "Hello"
 
 
@@ -504,7 +498,7 @@ async def test_async_access_current_value_from_sync_provider():
         return Greeting("Hello")
 
     with provide_greeting():
-        async with current(Greeting) as value:
+        async with Current(Greeting) as value:
             assert value == "Hello"
 
 
@@ -512,11 +506,11 @@ def test_sync_access_current_value_from_async_provider():
 
     @provider
     async def provide_greeting() -> Greeting:
-        return Greeting("Hello")
+        raise AssertionError()  # nocov
 
     with provide_greeting():
         with pytest.raises(RuntimeError, match="Cannot use an async provider .* in a sync context"):
-            with current(Greeting):
+            with Current(Greeting):
                 raise AssertionError()  # nocov
 
 
@@ -527,5 +521,34 @@ async def test_async_access_current_value_from_async_provider():
         return Greeting("Hello")
 
     with provide_greeting():
-        async with current(Greeting) as value:
+        async with Current(Greeting) as value:
             assert value == "Hello"
+
+
+def test_sync_inject_with_default():
+
+    @inject
+    def use_greeting(*, greeting: Greeting = default["Hello"]):
+        return greeting
+
+    assert use_greeting() == "Hello"
+
+
+async def test_async_inject_with_default():
+
+    @inject
+    async def use_greeting(*, greeting: Greeting = default["Hello"]):
+        return greeting
+
+    assert await use_greeting() == "Hello"
+
+
+def test_sync_current_with_default():
+
+    with Current(Greeting, default="Hello") as value:
+        assert value == "Hello"
+
+
+async def test_async_current_with_default():
+    async with Current(Greeting, default="Hello") as value:
+        assert value == "Hello"

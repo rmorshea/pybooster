@@ -12,12 +12,12 @@ from typing import get_args
 from typing import get_origin
 from weakref import WeakKeyDictionary
 
-from ninject._private.inspect import INJECTED
 from ninject._private.inspect import AsyncScopeParams
 from ninject._private.inspect import ScopeParams
 from ninject._private.inspect import SyncScopeParams
 from ninject._private.inspect import get_dependency_types_from_callable
 from ninject._private.inspect import get_scope_params
+from ninject._private.inspect import required
 from ninject._private.utils import async_exhaust_exits
 from ninject._private.utils import exhaust_exits
 from ninject.types import AsyncContextProvider
@@ -211,7 +211,7 @@ def _make_item_provider(item: int, value_type: type, *, is_sync: bool) -> SyncVa
 
     if is_sync:
 
-        def sync_provide_item_field(*, value=INJECTED) -> Any:
+        def sync_provide_item_field(*, value=required) -> Any:
             return value[item]
 
         sync_provide_item_field.__annotations__["value"] = value_type
@@ -220,7 +220,7 @@ def _make_item_provider(item: int, value_type: type, *, is_sync: bool) -> SyncVa
 
     else:
 
-        async def async_provide_item_field(*, value=INJECTED) -> Any:  # noqa: RUF029
+        async def async_provide_item_field(*, value=required) -> Any:  # noqa: RUF029
             return value[item]
 
         async_provide_item_field.__annotations__["value"] = value_type

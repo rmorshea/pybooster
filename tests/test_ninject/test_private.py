@@ -13,13 +13,13 @@ from typing import NewType
 
 import pytest
 
-from ninject._private.inspect import INJECTED
 from ninject._private.inspect import AsyncScopeParams
 from ninject._private.inspect import ScopeParams
 from ninject._private.inspect import SyncScopeParams
 from ninject._private.inspect import get_dependency_types_from_callable
 from ninject._private.inspect import get_scope_params
 from ninject._private.inspect import get_wrapped
+from ninject._private.inspect import required
 from ninject._private.scope import get_scope_provider
 from ninject._private.scope import make_scope_providers
 from ninject._private.utils import async_exhaust_exits
@@ -69,11 +69,11 @@ async def test_async_exhaust_exits():
 
 
 def test_get_injected_context_vars_from_callable():
-    def func_1(*, _a: int = INJECTED, _b: str = INJECTED): ...
+    def func_1(*, _a: int = required, _b: str = required): ...
 
     assert get_dependency_types_from_callable(func_1) == {"_a": int, "_b": str}
 
-    def func_2(*, _a: "int" = INJECTED, _b: "str" = INJECTED): ...
+    def func_2(*, _a: "int" = required, _b: "str" = required): ...
 
     assert get_dependency_types_from_callable(func_2) == {"_a": int, "_b": str}
 
@@ -81,14 +81,14 @@ def test_get_injected_context_vars_from_callable():
 def test_get_injected_context_vars_from_callable_error_if_locals_when_annotation_is_str():
     class Thing: ...
 
-    def func(*, _a: "Thing" = INJECTED): ...
+    def func(*, _a: "Thing" = required): ...
 
     with pytest.raises(NameError, match=r"name .* is not defined - is it defined as a global"):
         get_dependency_types_from_callable(func)
 
 
 def test_injected_parameter_must_be_keyword_only():
-    def func(_a: int = INJECTED): ...
+    def func(_a: int = required): ...
 
     with pytest.raises(TypeError, match="Expected injected parameter .* to be keyword-only"):
         get_dependency_types_from_callable(func)

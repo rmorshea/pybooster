@@ -77,3 +77,8 @@ class SyncFunctionContextManager(AbstractContextManager[T]):
 
     def __exit__(self, etype: Any, evalue: Any, atrace: Any, /) -> None:
         pass
+
+
+def sentinel(name: str) -> Any:
+    """Create a sentinel object with the given name."""
+    return type(name, (), {"__repr__": lambda _: name})()

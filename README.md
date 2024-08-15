@@ -49,7 +49,7 @@ def provide_config() -> Config:
 # Injec the dependency into a function
 
 @n.inject
-def make_message(*, config: Config = n.inject.ed) -> str:
+def make_message(*, config: Config = n.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -120,6 +120,22 @@ class AsyncContextManager:
         pass
 ```
 
+## Dependencies with Default Values
+
+You allow a dependency to be optional by declaring a `default` instead of `required`:
+
+```python
+import ninject as n
+
+
+@n.inject
+def make_message(*, config: Config = n.default[Config("Hello", "World")]) -> str:
+    return f"{config.greeting}, {config.recipient}!"
+
+
+assert make_message() == "Hello, World!"
+```
+
 ## Composing Providers
 
 You compose providers with `|` so they can be activated together:
@@ -157,8 +173,8 @@ provide_all_configs = provide_greeting_config | provide_farewell_config
 @n.inject
 def make_message(
     *,
-    greeting_config: GreetingConfig = n.inject.ed,
-    farewell_config: FarewellConfig = n.inject.ed,
+    greeting_config: GreetingConfig = n.required,
+    farewell_config: FarewellConfig = n.required,
 ) -> str:
     greeting_str = f"{greeting_config.greeting}, {greeting_config.recipient}!"
     farewell_str = f"{farewell_config.farewell}, {farewell_config.recipient}!"
@@ -186,7 +202,7 @@ provide_greeting_config = provide_bob_greeting_config | provide_alice_greeting_c
 
 
 with provide_greeting_config:
-    with n.current(GreetingConfig) as config:
+    with n.Current(GreetingConfig) as config:
         assert config == GreetingConfig("Hi", "Alice")
 ```
 
@@ -241,7 +257,7 @@ class Config:
 
 
 @n.inject
-def make_message(*, config: Config = n.inject.ed) -> str:
+def make_message(*, config: Config = n.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -261,7 +277,7 @@ Recipient = NewType("Recipient", str)
 
 
 @n.inject
-def make_message(*, config: Config = n.inject.ed) -> str:
+def make_message(*, config: Config = n.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -297,12 +313,12 @@ def provide_config() -> Greeting:
 
 
 @n.provider
-def provide_message(*, config: Config = n.inject.ed) -> Message:
+def provide_message(*, config: Config = n.required) -> Message:
     return Message(f"{greeting}, {recipient}!")
 
 
 @n.inject
-def print_message(*, message: Message = n.inject.ed):
+def print_message(*, message: Message = n.required):
     print(message)
 
 

@@ -29,6 +29,7 @@ from typing import get_type_hints
 
 import ninject
 from ninject._private.utils import asyncfunctioncontextmanager
+from ninject._private.utils import sentinel
 from ninject._private.utils import syncfunctioncontextmanager
 from ninject.types import AsyncContextProvider
 from ninject.types import SyncContextProvider
@@ -37,14 +38,40 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-INJECTED = cast(Any, type("Injected", (), {"__repr__": lambda _: "INJECTED"})())
+required = sentinel("REQUIRED")
+"""Declare that an injected parameter is required."""
+
+
+class Default(Generic[R]):
+
+    def __init__(self, value: R) -> None:
+        self.value = value
+
+    def __getitem__(self, value: R) -> R:
+        return cast(R, Default(value))
+
+    def __call__(self, value: R) -> R:
+        return cast(R, Default(value))
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, Default) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+    def __repr__(self) -> str:
+        return f"DEFAULT({self.value!r})"
+
+
+default = object.__new__(Default)
+"""Declare a default value for an injected parameter."""
 
 
 def get_dependency_types_from_callable(func: Callable[..., Any]) -> Mapping[str, type]:
-    dependency_types: dict[str, type] = {}
+    dependency_types: dict[str, tuple[type, Any]] = {}
 
     for param in signature(get_wrapped(func)).parameters.values():
-        if param.default is INJECTED:
+        if param.default is required or isinstance(param.default, Default):
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected injected parameter {param.name!r} to be keyword-only"
                 raise TypeError(msg)
@@ -58,6 +85,16 @@ def get_dependency_types_from_callable(func: Callable[..., Any]) -> Mapping[str,
             dependency_types[param.name] = anno
 
     return dependency_types
+
+
+def get_dependency_defaults_from_callable(func: Callable[..., Any]) -> Mapping[str, Any]:
+    dependency_defaults: dict[str, Any] = {}
+
+    for param in signature(get_wrapped(func)).parameters.values():
+        if isinstance(param.default, Default):
+            dependency_defaults[param.name] = param.default.value
+
+    return dependency_defaults
 
 
 def unwrap_annotated(anno: type) -> type:
