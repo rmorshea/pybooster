@@ -14,30 +14,39 @@ from ninject.types import SyncContextProvider
 T = TypeVar("T")
 
 
+def exhaust_callbacks(callbacks: Sequence[Callable[[], Any]]) -> None:
+    cb, *rest = callbacks
+    try:
+        cb()
+    finally:
+        if rest:
+            exhaust_callbacks(rest)
+
+
 def exhaust_exits(ctxts: Sequence[AbstractContextManager]) -> None:
     if not ctxts:
         return
+    c, *rest = ctxts
     try:
-        c, *ctxts = ctxts
         c.__exit__(*sys.exc_info())
     except Exception:
-        exhaust_exits(ctxts)
+        exhaust_exits(rest)
         raise
     else:
-        exhaust_exits(ctxts)
+        exhaust_exits(rest)
 
 
 async def async_exhaust_exits(ctxts: Sequence[AbstractAsyncContextManager[Any]]) -> None:
     if not ctxts:
         return
+    c, *rest = ctxts
     try:
-        c, *ctxts = ctxts
         await c.__aexit__(*sys.exc_info())
     except Exception:
-        await async_exhaust_exits(ctxts)
+        await async_exhaust_exits(rest)
         raise
     else:
-        await async_exhaust_exits(ctxts)
+        await async_exhaust_exits(rest)
 
 
 def asyncfunctioncontextmanager(func: Callable[[], Awaitable[T]]) -> AsyncContextProvider[T]:

@@ -6,9 +6,10 @@ from typing import NewType
 
 import pytest
 
-from ninject import Context
 from ninject import inject
 from ninject import let
+from ninject.core import current
+from ninject.core import provider
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -56,33 +57,30 @@ def test_injected_repr():
 
 
 def test_inject_single_dependency_from_sync_function_provider():
-    context = Context()
 
-    @context.provides
+    @provider
     def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
-    with context:
+    with provide_greeting():
         assert sync_use_greeting() == "Hello, World!"
 
 
 async def test_inject_single_dependency_from_async_function_provider():
-    context = Context()
 
-    @context.provides
+    @provider
     async def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
-    with context:
+    with provide_greeting():
         assert await async_use_greeting() == "Hello, World!"
 
 
 def test_inject_single_dependency_from_sync_generator_provider():
-    context = Context()
 
     did_cleanup = False
 
-    @context.provides
+    @provider
     def provide_greeting() -> Iterator[Greeting]:
         try:
             yield Greeting("Hello")
@@ -90,18 +88,16 @@ def test_inject_single_dependency_from_sync_generator_provider():
             nonlocal did_cleanup
             did_cleanup = True
 
-    with context:
+    with provide_greeting():
         assert not did_cleanup
         assert sync_use_greeting() == "Hello, World!"
         assert did_cleanup
 
 
 async def test_inject_single_dependency_from_async_generator_provider():
-    context = Context()
-
     did_cleanup = False
 
-    @context.provides
+    @provider
     async def provide_greeting() -> AsyncIterator[Greeting]:
         try:
             yield Greeting("Hello")
@@ -109,18 +105,17 @@ async def test_inject_single_dependency_from_async_generator_provider():
             nonlocal did_cleanup
             did_cleanup = True
 
-    with context:
+    with provide_greeting():
         assert not did_cleanup
         assert await async_use_greeting() == "Hello, World!"
         assert did_cleanup
 
 
 def test_inject_single_dependency_from_sync_context_manager_provider():
-    context = Context()
 
     did_cleanup = False
 
-    @context.provides
+    @provider
     class ProvideGreeting:
         def __enter__(self) -> Greeting:
             return Greeting("Hello")
@@ -129,18 +124,16 @@ def test_inject_single_dependency_from_sync_context_manager_provider():
             nonlocal did_cleanup
             did_cleanup = True
 
-    with context:
+    with ProvideGreeting():
         assert not did_cleanup
         assert sync_use_greeting() == "Hello, World!"
         assert did_cleanup
 
 
 async def test_inject_single_dependency_from_async_context_manager_provider():
-    context = Context()
-
     did_cleanup = False
 
-    @context.provides
+    @provider
     class ProvideGreeting:
         async def __aenter__(self) -> Greeting:
             return Greeting("Hello")
@@ -149,113 +142,99 @@ async def test_inject_single_dependency_from_async_context_manager_provider():
             nonlocal did_cleanup
             did_cleanup = True
 
-    with context:
+    with ProvideGreeting():
         assert not did_cleanup
         assert await async_use_greeting() == "Hello, World!"
         assert did_cleanup
 
 
 def test_nesting_sync_providers_contexts():
-    hello_context = Context()
-    good_morning_context = Context()
-
-    @hello_context.provides
+    @provider
     def provide_hello_greeting() -> Greeting:
         return Greeting("Hello")
 
-    @good_morning_context.provides
+    @provider
     def provide_good_morning_greeting() -> Greeting:
         return Greeting("Good morning")
 
-    with hello_context:
+    with provide_hello_greeting():
         assert sync_use_greeting() == "Hello, World!"
-        with good_morning_context:
+        with provide_good_morning_greeting():
             assert sync_use_greeting() == "Good morning, World!"
         assert sync_use_greeting() == "Hello, World!"
 
 
 async def test_nesting_async_providers_contexts():
-    hello_context = Context()
-    good_morning_context = Context()
-
-    @hello_context.provides
+    @provider
     async def provide_hello_greeting() -> Greeting:
         return Greeting("Hello")
 
-    @good_morning_context.provides
+    @provider
     async def provide_good_morning_greeting() -> Greeting:
         return Greeting("Good morning")
 
-    with hello_context:
+    with provide_hello_greeting():
         assert await async_use_greeting() == "Hello, World!"
-        with good_morning_context:
+        with provide_good_morning_greeting():
             assert await async_use_greeting() == "Good morning, World!"
         assert await async_use_greeting() == "Hello, World!"
 
 
 def test_sync_provider_with_sync_dependency():
-    context = Context()
-
-    @context.provides
+    @provider
     def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
-    @context.provides
+    @provider
     def provide_message(*, greeting: Greeting = inject.ed) -> Message:
         return Message(f"{greeting}, World!")
 
-    with context:
+    with provide_greeting(), provide_message():
         assert sync_use_message() == "Hello, World!"
 
 
 async def test_sync_provider_with_async_dependency_used_in_async_function():
-    context = Context()
-
-    @context.provides
+    @provider
     async def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
-    @context.provides
+    @provider
     def provide_message(*, greeting: Greeting = inject.ed) -> Message:
         return Message(f"{greeting}, World!")
 
-    with context:
+    with provide_greeting(), provide_message():
         assert await async_use_message() == "Hello, World!"
 
 
 def test_sync_provider_with_async_dependency_used_in_sync_function():
-    context = Context()
-
-    @context.provides
+    @provider
     async def provide_greeting() -> Greeting: ...
 
-    @context.provides
+    @provider
     def provide_message(*, _: Greeting = inject.ed) -> Message: ...
 
-    with context:
+    with provide_greeting(), provide_message():
         with pytest.raises(RuntimeError, match=r"Cannot use an async provider .* in a sync context"):
             sync_use_message()
 
 
 async def test_async_provider_with_sync_dependency_used_in_async_function():
-    context = Context()
 
-    @context.provides
+    @provider
     def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
-    @context.provides
+    @provider
     async def provide_message(*, greeting: Greeting = inject.ed) -> Message:
         return Message(f"{greeting}, World!")
 
-    with context:
+    with provide_greeting(), provide_message():
         assert await async_use_message() == "Hello, World!"
 
 
 def test_reuse_sync_provider():
-    context = Context()
 
-    @context.provides
+    @provider
     def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
@@ -267,15 +246,14 @@ def test_reuse_sync_provider():
     def use_greeting_again(*, greeting: Greeting = inject.ed):
         return f"{greeting} {use_greeting()}"
 
-    with context:
+    with provide_greeting():
         assert use_greeting_again() == "Hello Hello"
         assert use_greeting() == Greeting("Hello")
 
 
 async def test_reuse_async_provider():
-    context = Context()
 
-    @context.provides
+    @provider
     async def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
@@ -287,30 +265,16 @@ async def test_reuse_async_provider():
     async def use_greeting_again(*, greeting: Greeting = inject.ed):
         return f"{greeting} {await use_greeting()}"
 
-    with context:
+    with provide_greeting():
         assert await use_greeting_again() == "Hello Hello"
         assert await use_greeting() == Greeting("Hello")
 
 
-def test_error_if_register_provider_for_same_dependency():
-    context = Context()
-
-    @context.provides
-    def provide_greeting() -> Greeting: ...
-
-    with pytest.raises(TypeError, match=r"Providers already defined for"):
-
-        @context.provides
-        def provide_greeting_again() -> Greeting:  # nocov
-            ...
-
-
 def test_unsupported_provider_type():
-    context = Context()
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
 
-        @context.provides
+        @provider
         class NotContextManager:
             pass
 
@@ -318,25 +282,24 @@ def test_unsupported_provider_type():
         def __call__(self): ...
 
     with pytest.raises(TypeError, match="Unsupported provider type"):
-        context.provides(cls=Greeting)(NotValidProvider())  # type: ignore[reportArgumentType]
+        provider(NotValidProvider, cls=Greeting)  # type: ignore[reportArgumentType]
 
 
 def test_provider_not_called_if_dependency_provided_explicitely():
-    context = Context()
 
-    @context.provides
+    @provider
     def not_implemented() -> Greeting: ...
 
-    with context:
+    with not_implemented():
         assert sync_use_greeting(greeting=Greeting("Hello")) == "Hello, World!"
 
 
 async def test_inject_handles_exits_if_error_in_provider_for_each_injected_function_type():
-    context = Context()
+
     exit_called = False
     expected_error_message = "An expected error"
 
-    @context.provides
+    @provider
     def provide_greeting() -> Iterator[Greeting]:
         try:
             yield Greeting("Hello")
@@ -349,7 +312,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
-        with context:
+        with provide_greeting():
             sync_func_raises_expected_error()
 
     assert exit_called
@@ -360,7 +323,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
-        with context:
+        with provide_greeting():
             await async_func_raises_expected_error()
 
     assert exit_called
@@ -372,7 +335,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
-        with context:
+        with provide_greeting():
             list(sync_gen_raises_expected_error())
 
     assert exit_called
@@ -384,7 +347,7 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
         raise RuntimeError(expected_error_message)
 
     with pytest.raises(RuntimeError, match=expected_error_message):
-        with context:
+        with provide_greeting():
             async for _ in async_gen_raises_expected_error():
                 pass
 
@@ -393,7 +356,6 @@ async def test_inject_handles_exits_if_error_in_provider_for_each_injected_funct
 
 
 async def test_concurrently_provide_many_dependencies_from_tuple():
-    context = Context()
 
     async def get_greeting():
         return Greeting("Hello")
@@ -401,46 +363,43 @@ async def test_concurrently_provide_many_dependencies_from_tuple():
     async def get_recipient():
         return Recipient("World")
 
-    @context.provides
+    @provider
     async def provide_message_content() -> MessageContent:
         greeting, recipient = await asyncio.gather(get_greeting(), get_recipient())
         return greeting, recipient
 
-    with context:
+    with provide_message_content():
         assert await async_use_message_content_parts() == "Hello, World!"
         assert await async_use_greeting() == "Hello, World!"
 
 
 def test_sync_provide_many_dependencies_from_tuple():
-    context = Context()
 
-    @context.provides
+    @provider
     def provide_message_content() -> MessageContent:
         return Greeting("Hello"), Recipient("World")
 
-    with context:
+    with provide_message_content():
         assert sync_use_message_content_parts() == "Hello, World!"
         assert sync_use_greeting() == "Hello, World!"
 
 
 def test_context_repr():
-    context = Context()
 
-    @context.provides
+    @provider
     def provide_greeting() -> Greeting: ...
 
-    @context.provides
+    @provider
     def provide_recipient() -> Recipient: ...
 
-    assert repr(context) == f"Context({Greeting!r}, {Recipient!r})"
+    assert repr(provide_greeting | provide_recipient) == "Provider(Greeting, Recipient)"
 
 
 def test_error_if_no_return_type_annotation():
-    context = Context()
 
     with pytest.raises(TypeError, match="Cannot determine return type"):
 
-        @context.provides
+        @provider
         def provide_greeting(): ...
 
 
@@ -462,42 +421,28 @@ def test_let_message_content_equal_value():
         assert sync_use_message_content_parts() == "Hello, World!"
 
 
-def test_on_conflict_replace():
-    ctx = Context()
+def test_merge_providers():
 
-    @ctx.provides
+    @provider
     def provide_greeting_hello() -> Greeting:
-        raise AssertionError()  # nocov
-
-    @ctx.provides(on_conflict="replace")
-    def provide_greeting_hi() -> Greeting:
-        return Greeting("Hi")
-
-    with ctx:
-        assert sync_use_greeting() == "Hi, World!"
-
-
-def test_context_copy():
-    context = Context()
-
-    @context.provides
-    def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
-    @context.provides
+    @provider
     def provide_recipient_world() -> Recipient:
         return Recipient("World")
 
-    copied_context = context.copy()
+    hello_world = provide_greeting_hello | provide_recipient_world
 
-    @copied_context.provides(on_conflict="replace")
+    @provider
     def provide_recipient_universe() -> Recipient:
         return Recipient("Universe")
 
-    with context:
+    hello_universe = hello_world | provide_recipient_universe
+
+    with hello_world():
         assert sync_use_message_content_parts() == "Hello, World!"
 
-    with copied_context:
+    with hello_universe():
         assert sync_use_message_content_parts() == "Hello, Universe!"
 
 
@@ -508,9 +453,8 @@ class MessageData:
 
 
 def test_provide_user_defined_class_from_context():
-    context = Context()
 
-    @context.provides
+    @provider
     def make_message_data() -> MessageData:
         return MessageData(greeting="Hello", recipient="World")
 
@@ -518,7 +462,7 @@ def test_provide_user_defined_class_from_context():
     def use_message_data(*, message_data: MessageData = inject.ed):
         return f"{message_data.greeting}, {message_data.recipient}!"
 
-    with context:
+    with make_message_data():
         assert use_message_data() == "Hello, World!"
 
 
@@ -540,3 +484,48 @@ def test_let_invalid_type_arg():
             "Hello",
         ):
             raise AssertionError()  # nocov
+
+
+def test_sync_access_current_value_from_sync_provider():
+
+    @provider
+    def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    with provide_greeting():
+        with current(Greeting) as value:
+            assert value == "Hello"
+
+
+async def test_async_access_current_value_from_sync_provider():
+
+    @provider
+    def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    with provide_greeting():
+        async with current(Greeting) as value:
+            assert value == "Hello"
+
+
+def test_sync_access_current_value_from_async_provider():
+
+    @provider
+    async def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    with provide_greeting():
+        with pytest.raises(RuntimeError, match="Cannot use an async provider .* in a sync context"):
+            with current(Greeting):
+                raise AssertionError()  # nocov
+
+
+async def test_async_access_current_value_from_async_provider():
+
+    @provider
+    async def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    with provide_greeting():
+        async with current(Greeting) as value:
+            assert value == "Hello"
