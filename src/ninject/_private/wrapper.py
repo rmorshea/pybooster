@@ -27,67 +27,67 @@ def make_injection_wrapper(func: Callable[P, R], dependencies: Mapping[str, type
     if isasyncgenfunction(func):
 
         async def async_gen_wrapper(*args: Any, **kwargs: Any) -> Any:
-            contexts: list[Scope] = []
+            scopes: list[Scope] = []
 
             try:
                 for name in dependencies.keys() - kwargs.keys():
                     cls = dependencies[name]
-                    context = get_scope_provider(cls)()
-                    kwargs[name] = await context.__aenter__()
-                    contexts.append(context)
+                    scope = get_scope_provider(cls)()
+                    kwargs[name] = await scope.__aenter__()
+                    scopes.append(scope)
                 async for value in func(*args, **kwargs):
                     yield value
             finally:
-                await async_exhaust_exits(contexts)
+                await async_exhaust_exits(scopes)
 
         wrapper = async_gen_wrapper
 
     elif isgeneratorfunction(func):
 
         def sync_gen_wrapper(*args: Any, **kwargs: Any) -> Any:
-            contexts: list[Scope] = []
+            scopes: list[Scope] = []
             try:
                 for name in dependencies.keys() - kwargs.keys():
                     cls = dependencies[name]
-                    context = get_scope_provider(cls)()
-                    kwargs[name] = context.__enter__()
-                    contexts.append(context)
+                    scope = get_scope_provider(cls)()
+                    kwargs[name] = scope.__enter__()
+                    scopes.append(scope)
                 yield from func(*args, **kwargs)
             finally:
-                exhaust_exits(contexts)
+                exhaust_exits(scopes)
 
         wrapper = sync_gen_wrapper
 
     elif iscoroutinefunction(func):
 
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            contexts: list[Scope] = []
+            scopes: list[Scope] = []
 
             try:
                 for name in dependencies.keys() - kwargs.keys():
                     cls = dependencies[name]
-                    context = get_scope_provider(cls)()
-                    kwargs[name] = await context.__aenter__()
-                    contexts.append(context)
+                    scope = get_scope_provider(cls)()
+                    kwargs[name] = await scope.__aenter__()
+                    scopes.append(scope)
                 return await func(*args, **kwargs)
             finally:
-                await async_exhaust_exits(contexts)
+                await async_exhaust_exits(scopes)
 
         wrapper = async_wrapper
 
     elif isfunction(func):
 
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            contexts: list[Scope] = []
+            scopes: list[Scope] = []
             try:
                 for name in dependencies.keys() - kwargs.keys():
                     cls = dependencies[name]
-                    context = get_scope_provider(cls)()
-                    kwargs[name] = context.__enter__()
-                    contexts.append(context)
+                    scope = get_scope_provider(cls)()
+                    kwargs[name] = scope.__enter__()
+                    scopes.append(scope)
                 return func(*args, **kwargs)
             finally:
-                exhaust_exits(contexts)
+                exhaust_exits(scopes)
 
         wrapper = sync_wrapper
 
