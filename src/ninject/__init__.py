@@ -1,4 +1,4 @@
-__version__ = "0.0.4"
+__version__ = "0.0.5b1"
 
 from ninject._private.inspect import default
 from ninject._private.inspect import required
