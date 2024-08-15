@@ -173,7 +173,7 @@ def test_provider_info_tuple_container_info():
 
     def fake_provider() -> tuple[nt1, nt2]: ...
 
-    actual_types = set(make_scope_providers(get_scope_params(fake_provider), {}))
+    actual_types = set(make_scope_providers(get_scope_params(fake_provider)))
     assert actual_types == {tuple[nt1, nt2], nt1, nt2}
 
 

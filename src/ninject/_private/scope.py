@@ -15,7 +15,6 @@ from weakref import WeakKeyDictionary
 from ninject._private.inspect import AsyncScopeParams
 from ninject._private.inspect import ScopeParams
 from ninject._private.inspect import SyncScopeParams
-from ninject._private.inspect import get_dependency_types_from_callable
 from ninject._private.inspect import get_scope_params
 from ninject._private.inspect import required
 from ninject._private.utils import async_exhaust_exits
@@ -28,13 +27,11 @@ from ninject.types import SyncValueProvider
 R = TypeVar("R")
 
 
-def make_scope_providers(
-    params: ScopeParams, required_parameters: Mapping[str, type] | None
-) -> Mapping[type, ScopeProvider]:
+def make_scope_providers(params: ScopeParams) -> Mapping[type, ScopeProvider]:
     if get_origin(params.provided_type) is tuple:
-        return _make_scope_providers_for_tuple(params, required_parameters)
+        return _make_scope_providers_for_tuple(params)
     else:
-        return {params.provided_type: _make_scope_providers_for_scalar(params, required_parameters)}
+        return {params.provided_type: _make_scope_providers_for_scalar(params)}
 
 
 def set_scope_provider(cls: type[R], provider: ScopeProvider[R]) -> Callable[[], None]:
@@ -167,10 +164,7 @@ class AsyncScope(Scope[R]):
                     await async_exhaust_exits(self.required_contexts)
 
 
-def _make_scope_providers_for_tuple(
-    params: ScopeParams,
-    required_parameter_types: Mapping[str, type] | None,
-) -> dict[type, ScopeProvider]:
+def _make_scope_providers_for_tuple(params: ScopeParams) -> dict[type, ScopeProvider]:
     is_sync = isinstance(params, SyncScopeParams)
 
     tuple_type = params.provided_type
@@ -178,25 +172,18 @@ def _make_scope_providers_for_tuple(
 
     _add_dependency_type(tuple_type)
 
-    providers = {tuple_type: _make_scope_providers_for_scalar(params, required_parameter_types)}
+    providers = {tuple_type: _make_scope_providers_for_scalar(params)}
 
     for index, item_type in enumerate(tuple_item_types):
-        item_dependencies = {"value": tuple_type}
         item_function_provider = _make_item_provider(index, tuple_type, is_sync=is_sync)
-        item_params = get_scope_params(item_function_provider, provides_type=item_type)
-        providers[item_type] = _make_scope_providers_for_scalar(item_params, required_parameter_types=item_dependencies)
+        item_params = get_scope_params(item_function_provider, item_type, {"value": tuple_type})
+        providers[item_type] = _make_scope_providers_for_scalar(item_params)
 
     return providers
 
 
-def _make_scope_providers_for_scalar(
-    params: ScopeParams,
-    required_parameter_types: Mapping[str, type] | None,
-) -> ScopeProvider:
-    if required_parameter_types is None:
-        required_parameter_types = get_dependency_types_from_callable(params.provider)
-
-    dependency_types = tuple(required_parameter_types.values())
+def _make_scope_providers_for_scalar(params: ScopeParams) -> ScopeProvider:
+    dependency_types = tuple(params.required_types.values())
     if isinstance(params, AsyncScopeParams):
         provider = params.provider
         provided_var = _get_dependency_var(params.provided_type)

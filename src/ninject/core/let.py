@@ -35,7 +35,7 @@ def _let(*args: Any) -> Iterator[Any]:
             msg = f"Expected type, got {cls!r}"
             raise TypeError(msg)
 
-    scope_providers = make_scope_providers(get_scope_params(lambda: value, cls), {})
+    scope_providers = make_scope_providers(get_scope_params(lambda: value, cls, {}))
     reset_callbacks = [set_scope_provider(t, p) for t, p in scope_providers.items()]
     try:
         yield value

@@ -22,7 +22,11 @@ def inject(func: Callable[P, R], /, *, dependencies: Mapping[str, type] | None =
 def inject(*, dependencies: Mapping[str, type] | None = ...) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 
-def inject(func: Callable[P, R] | None, *, dependencies: Mapping[str, type] | None = None) -> Callable[P, R]:
+def inject(
+    func: Callable[P, R] | None = None,
+    *,
+    dependencies: Mapping[str, type] | None = None,
+) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
     """Inject values into a function.
 
     Args:

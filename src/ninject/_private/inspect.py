@@ -68,7 +68,7 @@ default = object.__new__(Default)
 
 
 def get_dependency_types_from_callable(func: Callable[..., Any]) -> Mapping[str, type]:
-    dependency_types: dict[str, tuple[type, Any]] = {}
+    dependency_types: dict[str, type] = {}
 
     for param in signature(get_wrapped(func)).parameters.values():
         if param.default is required or isinstance(param.default, Default):
@@ -110,59 +110,78 @@ def get_wrapped(func: Callable[P, R]) -> Callable[P, R]:
 @dataclass(kw_only=True)
 class SyncScopeParams(Generic[R]):
     provided_type: type[R]
+    required_types: Mapping[str, type]
     provider: SyncContextProvider[R]
 
 
 @dataclass(kw_only=True)
 class AsyncScopeParams(Generic[R]):
     provided_type: type[R]
+    required_types: Mapping[str, type]
     provider: AsyncContextProvider[R]
 
 
 ScopeParams = SyncScopeParams[R] | AsyncScopeParams[R]
 
 
-def get_scope_params(provider: Callable, provides_type: Any | None = None) -> ScopeParams:
+def get_scope_params(
+    provider: Callable,
+    provides_type: Any | None = None,
+    required_types: Mapping[str, type] | None = None,
+) -> ScopeParams:
+    required_types = required_types or get_dependency_types_from_callable(provider)
     if provides_type is None:
-        return _infer_scope_params(provider)
+        return _infer_scope_params(provider, required_types)
     else:
-        return _get_scope_params(provider, provides_type)
+        return _get_scope_params(provider, provides_type, required_types)
 
 
-def _get_scope_params(provider: Callable, provides_type: Any) -> ScopeParams:
+def _get_scope_params(provider: Callable, provides_type: Any, required_types: Mapping[str, type]) -> ScopeParams:
     if isinstance(provider, type):
         if issubclass(provider, AbstractContextManager):
-            return SyncScopeParams(provided_type=provides_type, provider=provider)
+            return SyncScopeParams(
+                provided_type=provides_type,
+                provider=provider,
+                required_types=required_types,
+            )
         elif issubclass(provider, AbstractAsyncContextManager):
-            return AsyncScopeParams(provided_type=provides_type, provider=provider)
+            return AsyncScopeParams(
+                provided_type=provides_type,
+                provider=provider,
+                required_types=required_types,
+            )
     elif iscoroutinefunction(provider):
         return AsyncScopeParams(
             provided_type=provides_type,
             provider=asyncfunctioncontextmanager(ninject.inject(provider)),
+            required_types=required_types,
         )
     elif isasyncgenfunction(provider):
         return AsyncScopeParams(
             provided_type=provides_type,
             provider=asynccontextmanager(ninject.inject(provider)),
+            required_types=required_types,
         )
     elif isgeneratorfunction(provider):
         return SyncScopeParams(
             provided_type=provides_type,
             provider=contextmanager(ninject.inject(provider)),
+            required_types=required_types,
         )
     elif isfunction(provider):
         return SyncScopeParams(
             provided_type=provides_type,
             provider=syncfunctioncontextmanager(ninject.inject(provider)),
+            required_types=required_types,
         )
     msg = f"Unsupported provider type {provides_type!r} - expected a callable or context manager."
     raise TypeError(msg)
 
 
-def _infer_scope_params(provider: Any) -> ScopeParams:
+def _infer_scope_params(provider: Any, required_types: Mapping[str, type]) -> ScopeParams:
     if isinstance(provider, type):
         if issubclass(provider, (AbstractContextManager, AbstractAsyncContextManager)):
-            return _get_scope_params(provider, _get_context_manager_type(provider))
+            return _get_scope_params(provider, _get_context_manager_type(provider), required_types)
         else:
             msg = f"Unsupported provider type {provider!r}  - expected a callable or context manager."
             raise TypeError(msg)
@@ -183,11 +202,11 @@ def _infer_scope_params(provider: Any) -> ScopeParams:
     return_type_origin = get_origin(return_type)
 
     if return_type_origin is None:
-        return _get_scope_params(provider, return_type)
+        return _get_scope_params(provider, return_type, required_types)
     elif issubclass(return_type_origin, (AsyncIterator, AsyncGenerator, Iterator, Generator)):
-        return _get_scope_params(provider, get_args(return_type)[0])
+        return _get_scope_params(provider, get_args(return_type)[0], required_types)
     else:
-        return _get_scope_params(provider, return_type)
+        return _get_scope_params(provider, return_type, required_types)
 
 
 def _get_context_manager_type(cls: type[AbstractContextManager | AbstractAsyncContextManager]) -> Any:

@@ -67,8 +67,7 @@ def provider(
     """
 
     def decorator(provider: AnyProvider[R]) -> Provider:
-        scope_providers = make_scope_providers(get_scope_params(provider, cls), dependencies)
-        return Provider(scope_providers)
+        return Provider(make_scope_providers(get_scope_params(provider, cls, dependencies)))
 
     return decorator(provider) if provider is not None else decorator
 
