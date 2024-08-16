@@ -87,13 +87,6 @@ def test_get_injected_context_vars_from_callable_error_if_locals_when_annotation
         get_dependency_types_from_callable(func)
 
 
-def test_injected_parameter_must_be_keyword_only():
-    def func(_a: int = required): ...
-
-    with pytest.raises(TypeError, match="Expected injected parameter .* to be keyword-only"):
-        get_dependency_types_from_callable(func)
-
-
 def test_get_wrapped():
     def func(): ...
 

@@ -11,7 +11,6 @@ from contextlib import AbstractContextManager
 from contextlib import asynccontextmanager
 from contextlib import contextmanager
 from dataclasses import dataclass
-from inspect import Parameter
 from inspect import isasyncgenfunction
 from inspect import isfunction
 from inspect import isgeneratorfunction
@@ -72,9 +71,6 @@ def get_dependency_types_from_callable(func: Callable[..., Any]) -> Mapping[str,
 
     for param in signature(get_wrapped(func)).parameters.values():
         if param.default is required or isinstance(param.default, Default):
-            if param.kind is not Parameter.KEYWORD_ONLY:
-                msg = f"Expected injected parameter {param.name!r} to be keyword-only"
-                raise TypeError(msg)
             anno = param.annotation
             if isinstance(anno, str):
                 try:

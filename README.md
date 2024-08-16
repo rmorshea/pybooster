@@ -49,7 +49,7 @@ def provide_config() -> Config:
 # Injec the dependency into a function
 
 @n.inject
-def make_message(*, config: Config = n.required) -> str:
+def make_message(config: Config = n.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -129,7 +129,7 @@ import ninject as n
 
 
 @n.inject
-def make_message(*, config: Config = n.default[Config("Hello", "World")]) -> str:
+def make_message(config: Config = n.default[Config("Hello", "World")]) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -172,7 +172,6 @@ provide_all_configs = provide_greeting_config | provide_farewell_config
 
 @n.inject
 def make_message(
-    *,
     greeting_config: GreetingConfig = n.required,
     farewell_config: FarewellConfig = n.required,
 ) -> str:
@@ -237,7 +236,7 @@ This way, you can use the built-in type as a dependency:
 
 ```python
 @n.provider
-def provide_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> str:
+def provide_message(greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> str:
     return f"{greeting}, {recipient}!"
 ```
 
@@ -257,7 +256,7 @@ class Config:
 
 
 @n.inject
-def make_message(*, config: Config = n.required) -> str:
+def make_message(config: Config = n.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -277,7 +276,7 @@ Recipient = NewType("Recipient", str)
 
 
 @n.inject
-def make_message(*, config: Config = n.required) -> str:
+def make_message(config: Config = n.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -313,12 +312,12 @@ def provide_config() -> Greeting:
 
 
 @n.provider
-def provide_message(*, config: Config = n.required) -> Message:
+def provide_message(config: Config = n.required) -> Message:
     return Message(f"{greeting}, {recipient}!")
 
 
 @n.inject
-def print_message(*, message: Message = n.required):
+def print_message(message: Message = n.required):
     print(message)
 
 
@@ -352,7 +351,7 @@ def provide_message_content() -> MessageContent:
 
 
 @n.inject
-def print_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+def print_message(greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
     print(f"{greeting}, {recipient}!")
 
 
@@ -378,7 +377,7 @@ def provide_message_content() -> dict:
 
 
 @n.inject
-def print_message(*, message_content: MessageContent = inject.ed):  # TypeError!
+def print_message(message_content: MessageContent = inject.ed):  # TypeError!
     greeting, recipient = message_content
     print(f"{greeting}, {recipient}!")
 
@@ -424,7 +423,7 @@ async def provide_message_content() -> MessageContent:
 
 
 @n.inject
-async def print_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
+async def print_message(greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
     print(f"{greeting}, {recipient}!")
 
 
@@ -452,12 +451,12 @@ async def provide_recipient() -> Recipient:
 
 
 @n.provider
-def provide_message(*, recipient: Recipient = inject.ed) -> Message:
+def provide_message(recipient: Recipient = inject.ed) -> Message:
     return Message(f"Hello, {recipient}!")
 
 
 @n.inject
-async def print_message(*, message: Message = inject.ed):
+async def print_message(message: Message = inject.ed):
     print(message)
 
 
