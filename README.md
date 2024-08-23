@@ -60,7 +60,7 @@ with provide_config():
 
     # Or access the dependency directly
 
-    with n.Current(Config) as config:
+    with n.current(Config) as config:
         assert config == Config("Hello", "World")
 ```
 
@@ -201,9 +201,11 @@ provide_greeting_config = provide_bob_greeting_config | provide_alice_greeting_c
 
 
 with provide_greeting_config:
-    with n.Current(GreetingConfig) as config:
+    with n.current(GreetingConfig) as config:
         assert config == GreetingConfig("Hi", "Alice")
 ```
+
+However, by
 
 You can also activate them separately in the same `with` statement, but order matters if
 your [providers have dependencies](#providers-with-dependencies):

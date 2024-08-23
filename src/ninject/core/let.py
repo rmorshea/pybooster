@@ -10,8 +10,7 @@ from typing import get_origin
 from typing import overload
 
 from ninject._private.inspect import get_scope_params
-from ninject._private.scope import make_scope_providers
-from ninject._private.scope import set_scope_provider
+from ninject._private.scope import make_scope_setter
 
 R = TypeVar("R")
 T = TypeVar("T")
@@ -35,13 +34,11 @@ def _let(*args: Any) -> Iterator[Any]:
             msg = f"Expected type, got {cls!r}"
             raise TypeError(msg)
 
-    scope_providers = make_scope_providers(get_scope_params(lambda: value, cls, {}))
-    reset_callbacks = [set_scope_provider(t, p) for t, p in scope_providers.items()]
+    reset = make_scope_setter(get_scope_params(lambda: value, cls, {}))()
     try:
         yield value
     finally:
-        for reset in reset_callbacks:
-            reset()
+        reset()
 
 
 let = contextmanager(_let)

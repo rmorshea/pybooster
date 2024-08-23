@@ -26,31 +26,37 @@ from ninject.types import SyncValueProvider
 
 R = TypeVar("R")
 
+Unsetter = Callable[[], Any]
+Setter = Callable[[], Unsetter]
 
-def make_scope_providers(params: ScopeParams) -> Mapping[type, ScopeProvider]:
+
+def make_scope_setter(params: ScopeParams) -> Setter:
     if get_origin(params.provided_type) is tuple:
-        return _make_scope_providers_for_tuple(params)
+        partial_constructors = _make_partial_scope_constructors_for_tuple(params)
     else:
-        return {params.provided_type: _make_scope_providers_for_scalar(params)}
+        partial_constructors = _make_partial_scope_constructor_for_scalar(params)
+
+    def setter() -> Unsetter:
+        new_scope_constructors = _SCOPE_CONSTRUCTOR_MAP_VAR.get()
+
+        for cls, partial in partial_constructors.items():
+            new_scope_constructors = {
+                **new_scope_constructors,
+                cls: lambda part=partial, old=new_scope_constructors: part(old),
+            }
+
+        reset_token = _SCOPE_CONSTRUCTOR_MAP_VAR.set(new_scope_constructors)
+
+        return lambda: _SCOPE_CONSTRUCTOR_MAP_VAR.reset(reset_token)
+
+    return setter
 
 
-def set_scope_provider(cls: type[R], provider: ScopeProvider[R]) -> Callable[[], None]:
-    if not (var := _SCOPE_PROVIDER_VARS_BY_DEPENDENCY_TYPE.get(cls)):
-        var = _SCOPE_PROVIDER_VARS_BY_DEPENDENCY_TYPE[cls] = ContextVar(f"Provider:{cls.__name__}")
-    token = var.set(provider)
-    return lambda: var.reset(token)
-
-
-def get_scope_provider(cls: type[R]) -> ScopeProvider[R]:
+def get_scope_constructor(cls: type) -> ScopeConstructor:
     try:
-        var = _SCOPE_PROVIDER_VARS_BY_DEPENDENCY_TYPE[cls]
+        return _SCOPE_CONSTRUCTOR_MAP_VAR.get()[cls]
     except KeyError:
         msg = f"No provider declared for {cls}"
-        raise RuntimeError(msg) from None
-    try:
-        return var.get()
-    except LookupError:  # nocov
-        msg = f"No active provider for {cls}"
         raise RuntimeError(msg) from None
 
 
@@ -59,8 +65,13 @@ class Scope(AbstractContextManager[R], AbstractAsyncContextManager[R]):
     provider: Any
     provided_var: ContextVar
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.provided_var.name})"
 
-ScopeProvider = Callable[[], Scope[R]]
+
+ScopeConstructor = Callable[[], Scope]
+ScopeConstructorMap = Mapping[type, ScopeConstructor]
+PartialScopeConstructor = Callable[[ScopeConstructorMap], Scope]
 
 
 class SyncScope(Scope[R]):
@@ -68,21 +79,19 @@ class SyncScope(Scope[R]):
         self,
         provider: SyncContextProvider[R],
         provided_var: ContextVar[R],
-        required_types: Sequence[type],
+        required_scopes: Sequence[ScopeConstructor],
     ):
         self.reset_token = None
         self.provider = provider
         self.provided_var = provided_var
-        self.required_types = required_types
-        self.required_contexts: list[Scope] = []
+        self.required_scopes = [s() for s in required_scopes]
 
     def __enter__(self) -> R:
         try:
             return self.provided_var.get()
         except LookupError:
-            for dep_type in self.required_types:
-                (dependency_context := get_scope_provider(dep_type)()).__enter__()
-                self.required_contexts.append(dependency_context)
+            for scope in self.required_scopes:
+                scope.__enter__()
             self.context = context = self.provider()
             self.reset_token = self.provided_var.set(context.__enter__())
             return self.provided_var.get()
@@ -95,15 +104,14 @@ class SyncScope(Scope[R]):
                 try:
                     self.context.__exit__(etype, evalue, atrace)
                 finally:
-                    exhaust_exits(self.required_contexts)
+                    exhaust_exits(self.required_scopes)
 
     async def __aenter__(self) -> R:
         try:
             return self.provided_var.get()
         except LookupError:
-            for req_type in self.required_types:
-                await (dependency_context := get_scope_provider(req_type)()).__aenter__()
-                self.required_contexts.append(dependency_context)
+            for scope in self.required_scopes:
+                await scope.__aenter__()
             self.context = context = self.provider()
             self.reset_token = self.provided_var.set(context.__enter__())
             return self.provided_var.get()
@@ -116,7 +124,7 @@ class SyncScope(Scope[R]):
                 try:
                     self.context.__exit__(etype, evalue, atrace)
                 finally:
-                    await async_exhaust_exits(self.required_contexts)
+                    await async_exhaust_exits(self.required_scopes)
 
 
 class AsyncScope(Scope[R]):
@@ -124,13 +132,12 @@ class AsyncScope(Scope[R]):
         self,
         context_provider: AsyncContextProvider[R],
         provided_var: ContextVar[R],
-        required_types: Sequence[type],
+        required_scopes: Sequence[ScopeConstructor],
     ):
         self.reset_token = None
         self.provider = context_provider
         self.provided_var = provided_var
-        self.required_types = required_types
-        self.required_contexts: list[Scope[Any]] = []
+        self.required_scopes = [s() for s in required_scopes]
 
     def __enter__(self) -> R:
         try:
@@ -146,9 +153,8 @@ class AsyncScope(Scope[R]):
         try:
             return self.provided_var.get()
         except LookupError:
-            for req_type in self.required_types:
-                await (dependency_context := get_scope_provider(req_type)()).__aenter__()
-                self.required_contexts.append(dependency_context)
+            for scope in self.required_scopes:
+                await scope.__aenter__()
             self.context = context = self.provider()
             self.reset_token = self.provided_var.set(await context.__aenter__())
             return self.provided_var.get()
@@ -161,10 +167,10 @@ class AsyncScope(Scope[R]):
                 try:
                     await self.context.__aexit__(etype, evalue, atrace)
                 finally:
-                    await async_exhaust_exits(self.required_contexts)
+                    await async_exhaust_exits(self.required_scopes)
 
 
-def _make_scope_providers_for_tuple(params: ScopeParams) -> dict[type, ScopeProvider]:
+def _make_partial_scope_constructors_for_tuple(params: ScopeParams) -> Mapping[type, PartialScopeConstructor]:
     is_sync = isinstance(params, SyncScopeParams)
 
     tuple_type = params.provided_type
@@ -172,26 +178,26 @@ def _make_scope_providers_for_tuple(params: ScopeParams) -> dict[type, ScopeProv
 
     _add_dependency_type(tuple_type)
 
-    providers = {tuple_type: _make_scope_providers_for_scalar(params)}
+    partial_constructors = dict(_make_partial_scope_constructor_for_scalar(params))
 
     for index, item_type in enumerate(tuple_item_types):
         item_function_provider = _make_item_provider(index, tuple_type, is_sync=is_sync)
         item_params = get_scope_params(item_function_provider, item_type, {"value": tuple_type})
-        providers[item_type] = _make_scope_providers_for_scalar(item_params)
+        partial_constructors.update(_make_partial_scope_constructor_for_scalar(item_params))
 
-    return providers
+    return partial_constructors
 
 
-def _make_scope_providers_for_scalar(params: ScopeParams) -> ScopeProvider:
+def _make_partial_scope_constructor_for_scalar(params: ScopeParams) -> Mapping[type, PartialScopeConstructor]:
     dependency_types = tuple(params.required_types.values())
     if isinstance(params, AsyncScopeParams):
         provider = params.provider
         provided_var = _get_dependency_var(params.provided_type)
-        return lambda: AsyncScope(provider, provided_var, dependency_types)
+        return {params.provided_type: lambda m: AsyncScope(provider, provided_var, [m[t] for t in dependency_types])}
     else:
         provider = params.provider
         provided_var = _get_dependency_var(params.provided_type)
-        return lambda: SyncScope(provider, provided_var, dependency_types)
+        return {params.provided_type: lambda m: SyncScope(provider, provided_var, [m[t] for t in dependency_types])}
 
 
 def _make_item_provider(item: int, value_type: type, *, is_sync: bool) -> SyncValueProvider | AsyncValueProvider:
@@ -223,5 +229,5 @@ def _get_dependency_var(anno: type) -> ContextVar:
     return _VARS_BY_DEPENDENCY_TYPE.setdefault(anno, ContextVar(anno.__name__))
 
 
-_SCOPE_PROVIDER_VARS_BY_DEPENDENCY_TYPE: dict[type, ContextVar[ScopeProvider]] = {}
+_SCOPE_CONSTRUCTOR_MAP_VAR = ContextVar[ScopeConstructorMap]("SCOPE_CONSTRUCTOR_MAP_VAR", default={})
 _VARS_BY_DEPENDENCY_TYPE: WeakKeyDictionary[type, ContextVar] = WeakKeyDictionary()

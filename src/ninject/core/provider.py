@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from collections.abc import Mapping
+from collections.abc import Sequence
 from contextlib import contextmanager
 from typing import Callable
 from typing import ParamSpec
@@ -9,9 +10,8 @@ from typing import TypeVar
 from typing import overload
 
 from ninject._private.inspect import get_scope_params
-from ninject._private.scope import ScopeProvider
-from ninject._private.scope import make_scope_providers
-from ninject._private.scope import set_scope_provider
+from ninject._private.scope import Setter
+from ninject._private.scope import make_scope_setter
 from ninject._private.utils import exhaust_callbacks
 from ninject.types import AnyProvider
 
@@ -67,7 +67,8 @@ def provider(
     """
 
     def decorator(provider: AnyProvider[R]) -> Provider:
-        return Provider(make_scope_providers(get_scope_params(provider, cls, dependencies)))
+        params = get_scope_params(provider, cls, dependencies)
+        return Provider([make_scope_setter(params)], name=str(params.provided_type))
 
     return decorator(provider) if provider is not None else decorator
 
@@ -75,20 +76,20 @@ def provider(
 class Provider:
     """A provider of one or more dependencies."""
 
-    def __init__(self, scope_providers: Mapping[type, ScopeProvider]) -> None:
-        self._scope_providers = scope_providers
+    def __init__(self, setters: Sequence[Setter], *, name: str) -> None:
+        self._setters = setters
+        self.name = name
 
     def __or__(self, other: Provider) -> Provider:
-        return Provider({**self._scope_providers, **other._scope_providers})
+        return Provider([*self._setters, *other._setters], name=f"{self.name}, {other.name}")
 
     @contextmanager
     def __call__(self) -> Iterator[None]:
-        reset_callbacks = [set_scope_provider(t, p) for t, p in self._scope_providers.items()]
+        reset_callbacks = [setter() for setter in self._setters]
         try:
             yield
         finally:
             exhaust_callbacks(reset_callbacks)
 
     def __repr__(self) -> str:
-        body = ", ".join([t.__qualname__ for t in self._scope_providers])
-        return f"{self.__class__.__name__}({body})"
+        return f"{type(self).__name__}({self.name})"

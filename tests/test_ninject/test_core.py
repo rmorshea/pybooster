@@ -6,7 +6,7 @@ from typing import NewType
 
 import pytest
 
-from ninject import Current
+from ninject import current
 from ninject import default
 from ninject import inject
 from ninject import let
@@ -386,7 +386,7 @@ def test_context_repr():
     @provider
     def provide_recipient() -> Recipient: ...
 
-    assert repr(provide_greeting | provide_recipient) == "Provider(Greeting, Recipient)"
+    assert repr(provide_greeting | provide_recipient) == f"Provider({Greeting}, {Recipient})"
 
 
 def test_error_if_no_return_type_annotation():
@@ -487,7 +487,7 @@ def test_sync_access_current_value_from_sync_provider():
         return Greeting("Hello")
 
     with provide_greeting():
-        with Current(Greeting) as value:
+        with current(Greeting) as value:
             assert value == "Hello"
 
 
@@ -498,7 +498,7 @@ async def test_async_access_current_value_from_sync_provider():
         return Greeting("Hello")
 
     with provide_greeting():
-        async with Current(Greeting) as value:
+        async with current(Greeting) as value:
             assert value == "Hello"
 
 
@@ -510,7 +510,7 @@ def test_sync_access_current_value_from_async_provider():
 
     with provide_greeting():
         with pytest.raises(RuntimeError, match="Cannot use an async provider .* in a sync context"):
-            with Current(Greeting):
+            with current(Greeting):
                 raise AssertionError()  # nocov
 
 
@@ -521,7 +521,7 @@ async def test_async_access_current_value_from_async_provider():
         return Greeting("Hello")
 
     with provide_greeting():
-        async with Current(Greeting) as value:
+        async with current(Greeting) as value:
             assert value == "Hello"
 
 
@@ -545,10 +545,10 @@ async def test_async_inject_with_default():
 
 def test_sync_current_with_default():
 
-    with Current(Greeting, default="Hello") as value:
+    with current(Greeting, default="Hello") as value:
         assert value == "Hello"
 
 
 async def test_async_current_with_default():
-    async with Current(Greeting, default="Hello") as value:
+    async with current(Greeting, default="Hello") as value:
         assert value == "Hello"

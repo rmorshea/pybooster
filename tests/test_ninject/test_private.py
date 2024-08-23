@@ -9,7 +9,6 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Callable
 from typing import Literal
-from typing import NewType
 
 import pytest
 
@@ -20,8 +19,7 @@ from ninject._private.inspect import get_dependency_types_from_callable
 from ninject._private.inspect import get_scope_params
 from ninject._private.inspect import get_wrapped
 from ninject._private.inspect import required
-from ninject._private.scope import get_scope_provider
-from ninject._private.scope import make_scope_providers
+from ninject._private.scope import get_scope_constructor
 from ninject._private.utils import async_exhaust_exits
 from ninject._private.utils import exhaust_exits
 
@@ -100,7 +98,7 @@ def test_get_context_provider_error_if_missing():
     class Thing: ...
 
     with pytest.raises(RuntimeError, match="No provider declared for"):
-        get_scope_provider(Thing)
+        get_scope_constructor(Thing)
 
 
 PROVIDER_AND_EXPECTED_TYPE: list[tuple[ScopeParams, type, Literal["sync", "async"]]] = []
@@ -158,16 +156,6 @@ def test_get_provider_info_provides_type(provider, expected_type, sync_or_async)
         assert isinstance(params, SyncScopeParams)
     else:
         assert isinstance(params, AsyncScopeParams)
-
-
-def test_provider_info_tuple_container_info():
-    nt1 = NewType("nt1", int)
-    nt2 = NewType("nt2", int)
-
-    def fake_provider() -> tuple[nt1, nt2]: ...
-
-    actual_types = set(make_scope_providers(get_scope_params(fake_provider)))
-    assert actual_types == {tuple[nt1, nt2], nt1, nt2}
 
 
 def test_provided_type_must_be_context_manager_if_not_callable():

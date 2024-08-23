@@ -11,7 +11,7 @@ from typing import TypeVar
 from typing import cast
 
 from ninject._private.scope import Scope
-from ninject._private.scope import get_scope_provider
+from ninject._private.scope import get_scope_constructor
 from ninject._private.utils import async_exhaust_exits
 from ninject._private.utils import exhaust_exits
 
@@ -93,7 +93,7 @@ def _sync_init_scopes(
     for name in dependencies.keys() - kwargs.keys():
         cls = dependencies[name]
         try:
-            scope_provider = get_scope_provider(cls)
+            scope_provider = get_scope_constructor(cls)
         except RuntimeError:
             if name not in defaults:
                 raise
@@ -114,7 +114,7 @@ async def _async_init_scopes(
     for name in dependencies.keys() - kwargs.keys():
         cls = dependencies[name]
         try:
-            scope_provider = get_scope_provider(cls)
+            scope_provider = get_scope_constructor(cls)
         except RuntimeError:
             if name not in defaults:
                 raise

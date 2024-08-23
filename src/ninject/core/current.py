@@ -6,17 +6,17 @@ from types import TracebackType
 from typing import TypeVar
 
 from ninject._private.inspect import required
-from ninject._private.scope import get_scope_provider
+from ninject._private.scope import get_scope_constructor
 
 T = TypeVar("T")
 
 
-class Current(AbstractContextManager[T], AbstractAsyncContextManager[T]):
+class current(AbstractContextManager[T], AbstractAsyncContextManager[T]):  # noqa: N801
     """A context manager to provide the current value of a dependency."""
 
     def __init__(self, cls: type[T], default: T = required) -> None:
         try:
-            self._scope_provider = get_scope_provider(cls)
+            self._scope_provider = get_scope_constructor(cls)
         except RuntimeError:
             if default is required:
                 raise
