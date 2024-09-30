@@ -27,7 +27,7 @@ pip install ninject
 ## Basic Usage
 
 ```python
-import ninject as n
+import ninject as nj
 from dataclasses import dataclass
 
 
@@ -41,15 +41,15 @@ class Config:
 
 # Define a provider for the dependency
 
-@n.provider
+@nj.provider
 def provide_config() -> Config:
     return Config("Hello", "World")
 
 
 # Injec the dependency into a function
 
-@n.inject
-def make_message(config: Config = n.required) -> str:
+@nj.inject
+def make_message(*, config: Config = nj.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -60,7 +60,7 @@ with provide_config():
 
     # Or access the dependency directly
 
-    with n.current(Config) as config:
+    with nj.current(Config) as config:
         assert config == Config("Hello", "World")
 ```
 
@@ -76,12 +76,12 @@ A provider is one of the following
 -   An async context manager class that yields a value
 
 ```python
-@n.provider
+@nj.provider
 def sync_function() -> ...:
     return ...
 
 
-@n.provider
+@nj.provider
 def sync_generator() -> ...:
     try:
         yield ...
@@ -89,7 +89,7 @@ def sync_generator() -> ...:
         pass
 
 
-@n.provider
+@nj.provider
 class SyncContextManager:
     def __enter__(self) -> ...:
         return ...
@@ -98,12 +98,12 @@ class SyncContextManager:
         pass
 
 
-@n.provider
+@nj.provider
 async def async_function() -> ...:
     return ...
 
 
-@n.provider
+@nj.provider
 async def async_generator() -> ...:
     try:
         yield ...
@@ -111,7 +111,7 @@ async def async_generator() -> ...:
         pass
 
 
-@n.provider
+@nj.provider
 class AsyncContextManager:
     async def __aenter__(self) -> ...:
         return ...
@@ -125,11 +125,11 @@ class AsyncContextManager:
 You allow a dependency to be optional by declaring a `default` instead of `required`:
 
 ```python
-import ninject as n
+import ninject as nj
 
 
-@n.inject
-def make_message(config: Config = n.default[Config("Hello", "World")]) -> str:
+@nj.inject
+def make_message(*, config: Config = nj.default[Config("Hello", "World")]) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
@@ -142,7 +142,7 @@ You compose providers with `|` so they can be activated together:
 
 ```python
 from dataclasses import dataclass
-import ninject as n
+import ninject as nj
 
 
 @dataclass
@@ -157,12 +157,12 @@ class FarewellConfig:
     recipient: str
 
 
-@n.provider
+@nj.provider
 def provide_greeting_config() -> GreetingConfig:
     return GreetingConfig("Hello", "Bob")
 
 
-@n.provider
+@nj.provider
 def provide_farewell_config() -> FarewellConfig:
     return FarewellConfig("Goodbye", "Bob")
 
@@ -170,10 +170,11 @@ def provide_farewell_config() -> FarewellConfig:
 provide_all_configs = provide_greeting_config | provide_farewell_config
 
 
-@n.inject
+@nj.inject
 def make_message(
-    greeting_config: GreetingConfig = n.required,
-    farewell_config: FarewellConfig = n.required,
+    *,
+    greeting_config: GreetingConfig = nj.required,
+    farewell_config: FarewellConfig = nj.required,
 ) -> str:
     greeting_str = f"{greeting_config.greeting}, {greeting_config.recipient}!"
     farewell_str = f"{farewell_config.farewell}, {farewell_config.recipient}!"
@@ -187,12 +188,12 @@ with provide_all_configs():
 The last provider in the chain will override any previous providers with the same type.
 
 ```python
-@n.provider
+@nj.provider
 def provide_bob_greeting_config() -> GreetingConfig:
     return GreetingConfig("Hello", "Bob")
 
 
-@n.provider
+@nj.provider
 def provide_alice_greeting_config() -> GreetingConfig:
     return GreetingConfig("Hi", "Alice")
 
@@ -201,7 +202,7 @@ provide_greeting_config = provide_bob_greeting_config | provide_alice_greeting_c
 
 
 with provide_greeting_config:
-    with n.current(GreetingConfig) as config:
+    with nj.current(GreetingConfig) as config:
         assert config == GreetingConfig("Hi", "Alice")
 ```
 
@@ -218,18 +219,18 @@ you can use `NewType` to define a new subtype. In the example below, `Greeting` 
 
 ```python
 from typing import NewType
-import ninject as n
+import ninject as nj
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
 
 
-@n.provider
+@nj.provider
 def provide_greeting() -> Greeting:
     return Greeting("Hello")
 
 
-@n.provider
+@nj.provider
 def provide_recipient() -> Recipient:
     return Recipient("World")
 ```
@@ -237,8 +238,8 @@ def provide_recipient() -> Recipient:
 This way, you can use the built-in type as a dependency:
 
 ```python
-@n.provider
-def provide_message(greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> str:
+@nj.provider
+def provide_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> str:
     return f"{greeting}, {recipient}!"
 ```
 
@@ -248,7 +249,7 @@ To do this you can use the `let` context:
 
 ```python
 from dataclasses import dataclass
-import ninject as n
+import ninject as nj
 
 
 @dataclass
@@ -257,12 +258,12 @@ class Config:
     recipient: str
 
 
-@n.inject
-def make_message(config: Config = n.required) -> str:
+@nj.inject
+def make_message(*, config: Config = nj.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
-with n.let(Config(greeting="Hello", recipient="World")):
+with nj.context(Config(greeting="Hello", recipient="World")):
     assert make_message() == "Hello, World!"
 ```
 
@@ -271,20 +272,20 @@ value separately:
 
 ```python
 from typing import NewType
-import ninject as n
+import ninject as nj
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
 
 
-@n.inject
-def make_message(config: Config = n.required) -> str:
+@nj.inject
+def make_message(config: Config = nj.required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
 with (
-    n.let(Greeting, "Hello"),
-    n.let(Recipient, "World"),
+    nj.context(Greeting, "Hello"),
+    nj.context(Recipient, "World"),
 ):
     assert make_message() == "Hello, World!"
 ```
@@ -296,7 +297,7 @@ Providers can have their own dependencies:
 ```python
 from dataclasses import dataclass
 from typing import NewType
-import ninject as n
+import ninject as nj
 
 
 @dataclass
@@ -308,18 +309,18 @@ class Config:
 Message = Dependency("Message", str)
 
 
-@n.provider
+@nj.provider
 def provide_config() -> Greeting:
     return Config("Hello", "World")
 
 
-@n.provider
-def provide_message(config: Config = n.required) -> Message:
+@nj.provider
+def provide_message(config: Config = nj.required) -> Message:
     return Message(f"{greeting}, {recipient}!")
 
 
-@n.inject
-def print_message(message: Message = n.required):
+@nj.inject
+def print_message(message: Message = nj.required):
     print(message)
 
 
@@ -340,19 +341,19 @@ A single provider can supply multiple dependencies by returning a tuple:
 
 ```python
 from typing import NewType
-import ninject as n
+import ninject as nj
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
 MessageContent = tuple[Greeting, Recipient]
 
 
-@n.provider
+@nj.provider
 def provide_message_content() -> MessageContent:
     return "Hello", "World"
 
 
-@n.inject
+@nj.inject
 def print_message(greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
     print(f"{greeting}, {recipient}!")
 
@@ -366,19 +367,19 @@ You may also depend on the tuple, in this case `MessageContent`, directly:
 
 ```python
 from typing import NewType
-import ninject as n
+import ninject as nj
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
 MessageContent = tuple[Greeting, Recipient]
 
 
-@n.provider(MessageContent)
+@nj.provider(MessageContent)
 def provide_message_content() -> dict:
     return {"greeting": "Hello", "recipient": "World"}
 
 
-@n.inject
+@nj.inject
 def print_message(message_content: MessageContent = inject.ed):  # TypeError!
     greeting, recipient = message_content
     print(f"{greeting}, {recipient}!")
@@ -402,7 +403,7 @@ returning the dependencies:
 ```python
 import asyncio
 from typing import NewType
-import ninject as n
+import ninject as nj
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -419,12 +420,12 @@ async def get_recipient() -> str:
     return "World"
 
 
-@n.provider
+@nj.provider
 async def provide_message_content() -> MessageContent:
     return tuple(await asyncio.gather(get_message(), get_recipient()))
 
 
-@n.inject
+@nj.inject
 async def print_message(greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
     print(f"{greeting}, {recipient}!")
 
@@ -441,23 +442,23 @@ Mixing sync and async providers is allowed so long as they are used in an async 
 ```python
 import asyncio
 from typing import NewType
-import ninject as n
+import ninject as nj
 
 Recipient = NewType("Recipient", str)
 Message = NewType("Message", str)
 
 
-@n.provider
+@nj.provider
 async def provide_recipient() -> Recipient:
     return Recipient("World")
 
 
-@n.provider
+@nj.provider
 def provide_message(recipient: Recipient = inject.ed) -> Message:
     return Message(f"Hello, {recipient}!")
 
 
-@n.inject
+@nj.inject
 async def print_message(message: Message = inject.ed):
     print(message)
 

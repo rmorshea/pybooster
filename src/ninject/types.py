@@ -1,29 +1,32 @@
-from __future__ import annotations
-
 from collections.abc import AsyncIterator
-from collections.abc import Awaitable
 from collections.abc import Iterator
-from contextlib import AbstractAsyncContextManager
 from contextlib import AbstractContextManager
+from typing import Annotated
 from typing import Callable
-from typing import TypeAlias
+from typing import ParamSpec
 from typing import TypeVar
 
-T = TypeVar("T")
+from ninject._private.utils import make_sentinel_value
+from ninject._private.utils import transient
 
-SyncContextProvider: TypeAlias = Callable[[], AbstractContextManager[T]]
-AsyncContextProvider: TypeAlias = Callable[[], AbstractAsyncContextManager[T]]
-SyncGeneratorProvider: TypeAlias = Callable[[], Iterator[T]]
-AsyncGeneratorProvider: TypeAlias = Callable[[], AsyncIterator[T]]
-SyncValueProvider: TypeAlias = Callable[[], T]
-AsyncValueProvider: TypeAlias = Callable[[], Awaitable[T]]
+P = ParamSpec("P")
+R = TypeVar("R")
 
-AnyProvider: TypeAlias = (
-    SyncContextProvider[T]
-    | AsyncContextProvider[T]
-    | SyncGeneratorProvider[T]
-    | AsyncGeneratorProvider[T]
-    | SyncValueProvider[T]
-    | AsyncValueProvider[T]
-)
-"""Any type of provider that can be passed to `Provider.provides`"""
+New = Annotated[R, transient]
+"""Annotate a dependency so that it will be re-initialized each time it is requested."""
+
+IteratorCallable = Callable[P, Iterator[R]]
+"""A callable that returns an iterator."""
+AsyncIteratorCallable = Callable[P, AsyncIterator[R]]
+"""A callable that returns an async iterator."""
+ContextManagerCallable = Callable[P, AbstractContextManager[R]]
+"""A callable that returns a context manager."""
+AsyncContextManagerCallable = Callable[P, AbstractContextManager[R]]
+"""A callable that returns an async context manager."""
+
+required = make_sentinel_value(__name__, "required")
+"""A sentinel object used to indicate that a dependency is required."""
+
+
+class ProviderMissingError(RuntimeError):
+    """An error raised when a provider is missing."""
