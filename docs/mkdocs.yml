@@ -1,0 +1,34 @@
+site_author: Ryan Morshead
+site_description: A modern dependency injection framework for Python.
+site_name: Ninject
+docs_dir: src
+
+repo_url: https://github.com/rmorshea/ninject
+
+nav:
+    - Home: index.md
+    - Providers: providers.md
+
+theme:
+    name: material
+    icon:
+        repo: fontawesome/brands/git-alt
+        logo: material/shuriken
+    features:
+        - toc.integrate
+
+plugins:
+    - search
+    - open-in-new-tab
+
+markdown_extensions:
+    - pymdownx.highlight:
+          anchor_linenums: true
+          line_spans: __span
+          pygments_lang_class: true
+    - pymdownx.inlinehilite
+    - pymdownx.snippets
+    - pymdownx.superfences
+    - admonition
+    - pymdownx.details
+    - pymdownx.superfences

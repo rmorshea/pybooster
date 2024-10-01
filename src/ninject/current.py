@@ -7,10 +7,9 @@ from typing import Any
 from typing import Literal
 from typing import TypeVar
 
-from ninject._private.context import async_update_arguments_by_initializing_dependencies
-from ninject._private.context import set_dependency
-from ninject._private.context import setdefault_arguments_with_initialized_dependencies
-from ninject._private.context import sync_update_arguments_by_initializing_dependencies
+from ninject._private.injector import async_update_arguments_by_initializing_dependencies
+from ninject._private.injector import setdefault_arguments_with_initialized_dependencies
+from ninject._private.injector import sync_update_arguments_by_initializing_dependencies
 from ninject.types import required
 
 T = TypeVar("T")
@@ -24,7 +23,7 @@ def current(cls: type[T], *, provide: T = required) -> Current[T]:
 class Current(AbstractContextManager[T], AbstractAsyncContextManager[T]):
     """A context manager to provide the current value of a dependency."""
 
-    def __init__(self, cls: type[T], provide: T) -> None:
+    def __init__(self, cls: type[T]) -> None:
         """Initialize the context manager.
 
         Args:
@@ -32,23 +31,17 @@ class Current(AbstractContextManager[T], AbstractAsyncContextManager[T]):
             provide: The value to set as the current value.
         """
         self.cls = cls
-        self.provide = provide
 
     def __enter__(self) -> T:
         if hasattr(self, "_sync_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
 
-        stack = self._sync_stack = ExitStack()
-
-        if self.provide is not required:
-            set_dependency(stack, self.cls, self.provide)
-
         values: dict[Literal["dependency"], T] = {}
-        if not (
-            missing := setdefault_arguments_with_initialized_dependencies(stack, values, {}, {"dependency": self.cls})
-        ):
+        if not (missing := setdefault_arguments_with_initialized_dependencies(values, {"dependency": self.cls})):
             return values["dependency"]
+
+        stack = self._sync_stack = ExitStack()
 
         sync_update_arguments_by_initializing_dependencies(stack, values, missing)
         return values["dependency"]
@@ -58,22 +51,25 @@ class Current(AbstractContextManager[T], AbstractAsyncContextManager[T]):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
 
-        stack = self._async_stack = ExitStack()
-
-        if self.provide is not required:
-            set_dependency(stack, self.cls, self.provide)
-
         values: dict[Literal["dependency"], T] = {}
-        if not (
-            missing := setdefault_arguments_with_initialized_dependencies(stack, values, {}, {"dependency": self.cls})
-        ):
+        if not (missing := setdefault_arguments_with_initialized_dependencies(values, {"dependency": self.cls})):
             return values["dependency"]
+
+        stack = self._async_stack = ExitStack()
 
         await async_update_arguments_by_initializing_dependencies(stack, values, missing)
         return values["dependency"]
 
     def __exit__(self, *exc: Any) -> None:
-        self._sync_stack.__exit__(*exc)
+        if hasattr(self, "_sync_stack"):
+            try:
+                self._sync_stack.__exit__(*exc)
+            finally:
+                del self._sync_stack
 
     async def __aexit__(self, *exc: Any) -> None:
-        await self._async_stack.__aexit__(*exc)
+        if hasattr(self, "_async_stack"):
+            try:
+                await self._async_stack.__aexit__(*exc)
+            finally:
+                del self._async_stack

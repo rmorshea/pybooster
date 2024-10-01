@@ -20,7 +20,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ["typing_extensions"]
+dependencies = ["typing_extensions", "paramorator"]
 
 [project.urls]
 Documentation = "https://github.com/rmorshea/ninject#readme"
@@ -49,6 +49,16 @@ typing = "pyright {args:src/ninject tests}"
 style = ["ruff check {args:.}", "black --check --diff {args:.}"]
 fix = ["black {args:.}", "ruff check --fix {args:.}", "style"]
 all = ["style", "typing"]
+
+[tool.hatch.envs.docs]
+extra-dependencies = [
+  "mkdocs==1.6.1",
+  "mkdocs-material==9.5.39",
+  "mkdocs-open-in-new-tab==1.0.5",
+]
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build"
+serve = "mkdocs serve"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -10,13 +10,12 @@ injection framework.
 -   [Installation](#installation)
 -   [Basic Usage](#basic-usage)
 -   [Types of Providers](#types-of-providers)
--   [Composing Providers](#composing-providers)
--   [Providing Distinct Types](#providing-distinct-types)
--   [Providing Static Values](#providing-static-values)
+-   [Providing Built-in Types](#providing-built-in-types)
 -   [Providers with Dependencies](#providers-with-dependencies)
 -   [Providing Multiple Dependencies](#providing-multiple-dependencies)
 -   [Providing Dependencies Concurrently](#providing-dependencies-concurrently)
--   [Mixing Async and Sync Providers](#mixing-async-and-sync-providers)
+-   [Async and Sync Providers](#async-and-sync-providers)
+-   [Overwriting Providers](#overwriting-providers)
 
 ## Installation
 
@@ -27,8 +26,9 @@ pip install ninject
 ## Basic Usage
 
 ```python
-import ninject as nj
 from dataclasses import dataclass
+
+from ninject import injector, provider, required
 
 
 # Define a type to be used as a dependency
@@ -41,47 +41,40 @@ class Config:
 
 # Define a provider for the dependency
 
-@nj.provider
-def provide_config() -> Config:
+@provider.function
+def hello_world_config() -> Config:
     return Config("Hello", "World")
 
 
-# Injec the dependency into a function
+# Inject the dependency into a function as keyword-only arguments
 
-@nj.inject
-def make_message(*, config: Config = nj.required) -> str:
+@injector.function
+def make_message(*, config: Config = required) -> str:
     return f"{config.greeting}, {config.recipient}!"
 
 
-# Run the function with in the context of the provider
+# Run the function within the context of the provider
 
-with provide_config():
+with hello_world_config.provide():
     assert make_message() == "Hello, World!"
-
-    # Or access the dependency directly
-
-    with nj.current(Config) as config:
-        assert config == Config("Hello", "World")
 ```
 
 ## Types of Providers
 
-A provider is one of the following
+A typical provider function is one of the following
 
 -   A function that returns a value
 -   A generator that yields a single value
--   A context manager class that yields a value
 -   An async function that returns a value
 -   An async generator that yields a single value
--   An async context manager class that yields a value
 
 ```python
-@nj.provider
+@provider.function
 def sync_function() -> ...:
     return ...
 
 
-@nj.provider
+@provider.iterator
 def sync_generator() -> ...:
     try:
         yield ...
@@ -89,204 +82,103 @@ def sync_generator() -> ...:
         pass
 
 
-@nj.provider
-class SyncContextManager:
-    def __enter__(self) -> ...:
-        return ...
-
-    def __exit__(self, *args) -> None:
-        pass
-
-
-@nj.provider
+@provider.asyncfunction
 async def async_function() -> ...:
     return ...
 
 
-@nj.provider
+@provider.asynciterator
 async def async_generator() -> ...:
     try:
         yield ...
     finally:
         pass
-
-
-@nj.provider
-class AsyncContextManager:
-    async def __aenter__(self) -> ...:
-        return ...
-
-    async def __aexit__(self, *args) -> None:
-        pass
 ```
 
-## Dependencies with Default Values
+# Singleton Providers
 
-You allow a dependency to be optional by declaring a `default` instead of `required`:
-
-```python
-import ninject as nj
-
-
-@nj.inject
-def make_message(*, config: Config = nj.default[Config("Hello", "World")]) -> str:
-    return f"{config.greeting}, {config.recipient}!"
-
-
-assert make_message() == "Hello, World!"
-```
-
-## Composing Providers
-
-You compose providers with `|` so they can be activated together:
-
-```python
-from dataclasses import dataclass
-import ninject as nj
-
-
-@dataclass
-class GreetingConfig:
-    greeting: str
-    recipient: str
-
-
-@dataclass
-class FarewellConfig:
-    farewell: str
-    recipient: str
-
-
-@nj.provider
-def provide_greeting_config() -> GreetingConfig:
-    return GreetingConfig("Hello", "Bob")
-
-
-@nj.provider
-def provide_farewell_config() -> FarewellConfig:
-    return FarewellConfig("Goodbye", "Bob")
-
-
-provide_all_configs = provide_greeting_config | provide_farewell_config
-
-
-@nj.inject
-def make_message(
-    *,
-    greeting_config: GreetingConfig = nj.required,
-    farewell_config: FarewellConfig = nj.required,
-) -> str:
-    greeting_str = f"{greeting_config.greeting}, {greeting_config.recipient}!"
-    farewell_str = f"{farewell_config.farewell}, {farewell_config.recipient}!"
-    return f"{greeting_str} ... {farewell_str}"
-
-
-with provide_all_configs():
-    assert make_message() == "Hello, Bob! ... Goodbye, Bob!"
-```
-
-The last provider in the chain will override any previous providers with the same type.
-
-```python
-@nj.provider
-def provide_bob_greeting_config() -> GreetingConfig:
-    return GreetingConfig("Hello", "Bob")
-
-
-@nj.provider
-def provide_alice_greeting_config() -> GreetingConfig:
-    return GreetingConfig("Hi", "Alice")
-
-
-provide_greeting_config = provide_bob_greeting_config | provide_alice_greeting_config
-
-
-with provide_greeting_config:
-    with nj.current(GreetingConfig) as config:
-        assert config == GreetingConfig("Hi", "Alice")
-```
-
-However, by
-
-You can also activate them separately in the same `with` statement, but order matters if
-your [providers have dependencies](#providers-with-dependencies):
-
-## Providing Built-in Types
-
-It's important to provide easily distinguishable types. In the case of built-in types,
-you can use `NewType` to define a new subtype. In the example below, `Greeting` and
-`Recipient` are both distinct `str` subtypes recognized by Ninject:
+By default, providers are re-evaluated each time a value is injected into a function. To
+avoid this you need to make the provider with the `singleton=True` flag **and** ensure
+that you use an `entrypoint` to initialize your singleton providers at the start of your
+program:
 
 ```python
 from typing import NewType
-import ninject as nj
+
+from ninject import injector, provider, required, entrypoint
 
 Greeting = NewType("Greeting", str)
-Recipient = NewType("Recipient", str)
 
 
-@nj.provider
-def provide_greeting() -> Greeting:
-    return Greeting("Hello")
+COUNT = 0
+
+@provider.function(singleton=True)
+def single_greeting() -> Greeting:
+    global COUNT
+    COUNT += 1
+    hellos = ["Hello"] * COUNT
+    return Greeting(f"{', '.join(hellos)}!")
 
 
-@nj.provider
-def provide_recipient() -> Recipient:
-    return Recipient("World")
+@injector.function
+def make_message(*, greeting: Greeting = required) -> str:
+    return f"{greeting} World!"
+
+
+@entrypoint.function
+def main():
+    assert make_message() == "Hello, World!"
+    assert make_message() == "Hello, World!"
+
+
+with single_greeting.provide():
+    main()
 ```
 
-This way, you can use the built-in type as a dependency:
+Entrpoints can be declared via a decorator or by creating an `entrypoint.context()`:
 
 ```python
-@nj.provider
-def provide_message(*, greeting: Greeting = inject.ed, recipient: Recipient = inject.ed) -> str:
-    return f"{greeting}, {recipient}!"
-```
-
-## Providing Static Values
-
-To do this you can use the `let` context:
-
-```python
-from dataclasses import dataclass
-import ninject as nj
-
-
-@dataclass
-class Config:
-    greeting: str
-    recipient: str
-
-
-@nj.inject
-def make_message(*, config: Config = nj.required) -> str:
-    return f"{config.greeting}, {config.recipient}!"
-
-
-with nj.context(Config(greeting="Hello", recipient="World")):
+with single_greeting.provide(), entrypoint.context():
+    assert make_message() == "Hello, World!"
     assert make_message() == "Hello, World!"
 ```
 
-When a type alias or `NewType` is used to define a dependency, pass the type and the
-value separately:
+For async code, you can use the `entrypoint.asyncfunction` or
+`async with entrypoint.context()` counterparts. These will both initialize async as well
+as sync singleton providers.
+
+## Providing Built-in Types
+
+It's important to provide easily distinguishable types. In the case of built-in objects,
+you can leverage `NewType` to define a new class that can serve as a dependency. In the
+example below, `Greeting` and `Recipient` are both `str` subtypes that Ninject
+recognizes as being distinct:
 
 ```python
 from typing import NewType
-import ninject as nj
+
+from ninject import injector, provider, required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
 
 
-@nj.inject
-def make_message(config: Config = nj.required) -> str:
-    return f"{config.greeting}, {config.recipient}!"
+@provider.function
+def hello_greeting() -> Greeting:
+    return Greeting("Hello")
 
 
-with (
-    nj.context(Greeting, "Hello"),
-    nj.context(Recipient, "World"),
-):
+@provider.function
+def world_recipient() -> Recipient:
+    return Recipient("World")
+
+
+@injector.function
+def make_message(*, greeting: Greeting = required, recipient: Recipient = required) -> str:
+    return f"{greeting}, {recipient}!"
+
+
+with hello_greeting.provide(), world_recipient.provide():
     assert make_message() == "Hello, World!"
 ```
 
@@ -295,9 +187,10 @@ with (
 Providers can have their own dependencies:
 
 ```python
-from dataclasses import dataclass
 from typing import NewType
-import ninject as nj
+from dataclasses import dataclass
+
+from ninject import injector, provider, required
 
 
 @dataclass
@@ -306,33 +199,26 @@ class Config:
     recipient: str
 
 
-Message = Dependency("Message", str)
+Message = NewType("Message", str)
 
 
-@nj.provider
-def provide_config() -> Greeting:
+@provider.function
+def hello_world_config() -> Config:
     return Config("Hello", "World")
 
 
-@nj.provider
-def provide_message(config: Config = nj.required) -> Message:
-    return Message(f"{greeting}, {recipient}!")
+@provider.function
+def message_from_config(*, config: Config = required) -> Message:
+    return Message(f"{config.greeting}, {config.recipient}!")
 
 
-@nj.inject
-def print_message(message: Message = nj.required):
-    print(message)
+@injector.function
+def make_long_message(*, message: Message = required) -> str:
+    return f"{message} How are you doing today?"
 
 
-if __name__ == "__main__":
-    with provide_config(), provide_message():
-        print_message()
-```
-
-The output will be:
-
-```text
-Hello, World!
+with hello_world_config.provide(), message_from_config.provide():
+    assert make_long_message() == "Hello, World! How are you doing today?"
 ```
 
 ## Providing Multiple Dependencies
@@ -341,61 +227,61 @@ A single provider can supply multiple dependencies by returning a tuple:
 
 ```python
 from typing import NewType
-import ninject as nj
+
+from ninject import injector, provider, required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
 MessageContent = tuple[Greeting, Recipient]
 
 
-@nj.provider
-def provide_message_content() -> MessageContent:
+@provider.function
+def hello_world_message_content() -> MessageContent:
     return "Hello", "World"
 
 
-@nj.inject
-def print_message(greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
-    print(f"{greeting}, {recipient}!")
+@injector.function
+def make_message(*, greeting: Greeting = required, recipient: Recipient = required):
+    return f"{greeting}, {recipient}!"
 
 
-if __name__ == "__main__":
-    with provide_message_content():
-        print_message()
+with hello_world_message_content.provide():
+    assert make_message() == "Hello, World!"
 ```
 
 You may also depend on the tuple, in this case `MessageContent`, directly:
 
 ```python
 from typing import NewType
-import ninject as nj
+
+from ninject import injector, provider, required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
 MessageContent = tuple[Greeting, Recipient]
 
 
-@nj.provider(MessageContent)
-def provide_message_content() -> dict:
-    return {"greeting": "Hello", "recipient": "World"}
+@provider.function
+def hello_world_message_content() -> MessageContent:
+    return "Hello", "World"
 
 
-@nj.inject
-def print_message(message_content: MessageContent = inject.ed):  # TypeError!
+@injector.function
+def make_message(*, message_content: MessageContent = required):  # TypeError!
     greeting, recipient = message_content
-    print(f"{greeting}, {recipient}!")
-
+    return f"{greeting}, {recipient}!"
 
 
 if __name__ == "__main__":
-    with provide_message_content():
-        print_message()
+    with hello_world_message_content.provide():
+        make_message()
 ```
 
 ## Providing Dependencies Concurrently
 
-Ninject does not execute async providers concurrently since doing so can add a
-substantial amount of overhead to async function calls if it's unnecessary. If you want
-to satisfy dependencies concurrently you can leverage the ability to provide
+Ninject does not execute async providers concurrently since doing so can add overhead to
+async function calls if it's unnecessary. If you want to satisfy dependencies
+concurrently you can leverage the ability to provide
 [multiple dependencies](#providing-multiple-dependencies) at once. With that in mind,
 you can use `asyncio.gather` to run several async functions concurrently before
 returning the dependencies:
@@ -403,7 +289,7 @@ returning the dependencies:
 ```python
 import asyncio
 from typing import NewType
-import ninject as nj
+from ninject import injector, provider, required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -420,56 +306,180 @@ async def get_recipient() -> str:
     return "World"
 
 
-@nj.provider
-async def provide_message_content() -> MessageContent:
+@provider.asyncfunction
+async def message_content() -> MessageContent:
     return tuple(await asyncio.gather(get_message(), get_recipient()))
 
 
-@nj.inject
-async def print_message(greeting: Greeting = inject.ed, recipient: Recipient = inject.ed):
-    print(f"{greeting}, {recipient}!")
+@injector.asyncfunction
+async def make_message(*, greeting: Greeting = required, recipient: Recipient = required):
+    return f"{greeting}, {recipient}!"
 
 
-if __name__ == "__main__":
-    with provide_message_content():
-        asyncio.run(print_message())
+with message_content.provide():
+    assert asyncio.run(print_message()) == "Hello, World!"
 ```
 
-## Mixing Async and Sync Providers
+## Async and Sync Providers
 
-Mixing sync and async providers is allowed so long as they are used in an async context:
+Sync and async providers cannot be used together. However you can declare both sync and
+async providers for the same dependency which will not overwrite eachother if activated
+together:
 
 ```python
 import asyncio
 from typing import NewType
-import ninject as nj
 
-Recipient = NewType("Recipient", str)
+from ninject import injector, provider, required
+
+
+Greeting = NewType("Greeting", str)
+
+
+@provider.function
+def sync_provider() -> Greeting:
+    return Greeting("Synchronous hello")
+
+
+@provider.asyncfunction
+async def async_provider() -> Greeting:
+    return Greeting("Asynchronous hello")
+
+
+@injector.function
+def make_sync_message(*, greeting: Greeting = required):
+    return f"{greeting} to you!"
+
+
+@injector.asyncfunction
+async def make_async_message(*, greeting: Greeting = required):
+    return f"{greeting} to you!"
+
+
+with sync_provider.provide(), async_provider.provide():
+    assert make_sync_message() == "Synchronous hello to you!"
+    assert asyncio.run(make_async_message()) == "Asynchronous hello to you!"
+```
+
+## Overwriting Providers
+
+You can overwrite providers by activating more than one for the same dependency.
+
+```python
+from typing import NewType, Sequence
+
+MessageParts = NewType("MessageParts", Sequence[str])
+
+
+@provider.function
+def init_message_parts() -> MessageParts:
+    return MessageParts([])
+
+@provider.function
+def add_hello_message_part(*, message_parts: MessageParts = required) -> MessageParts:
+    return MessageParts([*message_parts, "Hello"])
+
+
+@provider.function
+def add_world_message_part(*, message_parts: MessageParts = required) -> MessageParts:
+    return MessageParts([*message_parts, "World"])
+
+
+@injector.function
+def make_message(*, message_parts: MessageParts = required) -> str:
+    return f"{' '.join(message_parts)}!"
+
+
+with (
+    init_message_parts.provide(),
+    add_hello_message_part.provide(),
+    add_world_message_part.provide(),
+):
+    assert make_message() == "Hello World!"
+```
+
+The order in which providers are activated matters. If you activate
+`add_world_message_part` before `add_hello_message_part`, the message will be
+`"World Hello!"`. Additionally, if you activated `init_message_parts` after
+`add_hello_message_part` and `add_world_message_part`, you would get an error since the
+latter two providers depend on `MessageParts` existing already.
+
+## Lower-level Usage
+
+If necessary you can access the current value of a dependency without injecting it into
+a function by using the `current` context manager:
+
+```python
+from typing import NewType
+
+from ninject import provider, current
+
+
 Message = NewType("Message", str)
 
 
-@nj.provider
-async def provide_recipient() -> Recipient:
-    return Recipient("World")
+@provider.function
+def hello_world_message() -> Message:
+    return Message("Hello, World!")
 
 
-@nj.provider
-def provide_message(recipient: Recipient = inject.ed) -> Message:
-    return Message(f"Hello, {recipient}!")
-
-
-@nj.inject
-async def print_message(message: Message = inject.ed):
-    print(message)
-
-
-if __name__ == "__main__":
-    with provide_recipient(), provide_message():
-        asyncio.run(print_message())
+with hello_world_message.provide():
+    with current(Message) as message:
+        assert message == "Hello, World!"
 ```
 
-If `print_message` were sync, then the following error would be raised:
+You can also use `current` to set the value of a dependency:
 
+```python
+from typing import NewType
+
+from ninject import provider, current
+
+Message = NewType("Message", str)
+
+
+with current(Message, provide="Hello, World!"):
+    with current(Message) as message:
+        assert message == "Hello, World!"
 ```
-RuntimeError: Cannot use an async context manager in a sync context
+
+This can be used to support dependency innjection into class-based context managers
+since that cannot be easily done with the built-in `injector` decorators:
+
+```python
+from typing import NewType
+
+from ninject import provider, current
+
+
+Message = NewType("Message", str)
+
+
+@provider.function
+def hello_world_message() -> Message:
+    return Message("Hello, World!")
+
+
+class UseMessage:
+
+    def __init__(self, *, message: Message | None = None):
+        self._given_message = message
+
+    def __enter__(self):
+        if self._given_message is not None:
+            return self._given_message
+        self._current_message = current(Message)
+        return self._current_message.__enter__()
+
+    def __exit__(self, *args):
+        if hasattr(self, "_current_message"):
+            try:
+                return self._current_message.__exit__(*args)
+            finally:
+                del self._current_message
+
+
+with hello_world_message.provide():
+    with UseMessage() as message:
+        assert message == "Hello, World!"
 ```
