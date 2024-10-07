@@ -5,11 +5,9 @@ from typing import Any
 from typing import ParamSpec
 from typing import TypeVar
 
-from ninject._private._provider import SYNC_OR_ASYNC_PROVIDER_INFOS
-from ninject._private._provider import SYNC_PROVIDER_INFOS
 from ninject._private._provider import ProviderInfo
 from ninject._private._provider import SyncProviderInfo
-from ninject._private._provider import raise_missing_provider
+from ninject._private._provider import iter_provider_infos
 from ninject._private._singleton import SINGLETONS
 from ninject._private._utils import NormDependencies
 from ninject._private._utils import undefined
@@ -45,18 +43,10 @@ def sync_update_arguments_by_initializing_dependencies(
     stack: ExitStack | AsyncExitStack,
     arguments: dict[str, Any],
     dependencies: NormDependencies,
-    *,
-    sync_context: bool = True,
 ) -> None:
-    sync_provider_infos = SYNC_PROVIDER_INFOS.get()
-    for name, types in dependencies.items():
-        for cls in types:
-            if (provider_info := sync_provider_infos.get(cls)) is not None:
-                break
-        else:
-            raise_missing_provider(types, sync_context=sync_context)
+    for name, cls, info in iter_provider_infos(dependencies, sync=True):
         if (value := SINGLETONS.get().get(cls, undefined)) is undefined:
-            arguments[name] = sync_enter_provider_context(stack, provider_info)
+            arguments[name] = sync_enter_provider_context(stack, info)
         else:
             arguments[name] = value
 
@@ -66,18 +56,12 @@ async def async_update_arguments_by_initializing_dependencies(
     arguments: dict[str, Any],
     dependencies: NormDependencies,
 ) -> None:
-    async_provider_infos = SYNC_OR_ASYNC_PROVIDER_INFOS.get()
-    for name, types in dependencies.items():
-        for cls in types:
-            if (provider_info := async_provider_infos.get(cls)) is not None:
-                break
-        else:
-            raise_missing_provider(types, sync_context=False)
+    for name, cls, info in iter_provider_infos(dependencies, sync=False):
         if (value := SINGLETONS.get().get(cls, undefined)) is undefined:
-            if provider_info["sync"]:
-                arguments[name] = sync_enter_provider_context(stack, provider_info)
+            if info["sync"] is True:
+                arguments[name] = sync_enter_provider_context(stack, info)
             else:
-                arguments[name] = await async_enter_provider_context(stack, provider_info)
+                arguments[name] = await async_enter_provider_context(stack, info)
         else:
             arguments[name] = value
 

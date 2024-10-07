@@ -8,11 +8,11 @@ from typing import Any
 from typing import ParamSpec
 from typing import TypeVar
 
-from ninject._private._provider import SYNC_OR_ASYNC_PROVIDER_INFOS
-from ninject._private._provider import SYNC_PROVIDER_INFOS
-from ninject._private._provider import raise_missing_provider
+from ninject._private._provider import get_provider_info
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+    from collections.abc import Iterator
     from collections.abc import Mapping
     from collections.abc import Sequence
 
@@ -22,14 +22,9 @@ R = TypeVar("R")
 
 
 @contextmanager
-def sync_singleton(types: Sequence[type[R]]) -> R:
-    for cls in types:
-        if (provider_info := SYNC_PROVIDER_INFOS.get().get(cls)) is not None:
-            break
-    else:
-        raise_missing_provider(types, sync_context=True)
-    with provider_info["manager"]() as value:
-        token = SINGLETONS.set({**SINGLETONS.get(), cls: value})
+def sync_singleton(types: Sequence[type[R]]) -> Iterator[R]:
+    with get_provider_info(types, sync=True)["manager"]() as value:
+        token = SINGLETONS.set({**SINGLETONS.get(), **dict.fromkeys(types, value)})
         try:
             yield value
         finally:
@@ -37,14 +32,9 @@ def sync_singleton(types: Sequence[type[R]]) -> R:
 
 
 @asynccontextmanager
-async def async_singleton(types: Sequence[type[R]]) -> R:
-    for cls in types:
-        if (provider_info := SYNC_OR_ASYNC_PROVIDER_INFOS.get().get(cls)) is not None:
-            break
-    else:
-        raise_missing_provider(types, sync_context=False)
-    async with provider_info["manager"]() as value:
-        token = SINGLETONS.set({**SINGLETONS.get(), cls: value})
+async def async_singleton(types: Sequence[type[R]]) -> AsyncIterator[R]:
+    async with get_provider_info(types, sync=False)["manager"]() as value:
+        token = SINGLETONS.set({**SINGLETONS.get(), **dict.fromkeys(types, value)})
         try:
             yield value
         finally:

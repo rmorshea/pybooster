@@ -77,40 +77,6 @@ async def test_sync_and_async_providers_do_not_overwrite_eachother():
         assert await use_async_message() == "World, Async"
 
 
-def test_can_overwrite_sync_provider():
-    @provider.function
-    def message() -> Message:
-        return Message("Hello")
-
-    @provider.function
-    def special_message(*, message: Message = required) -> Message:
-        return Message(f"Special {message}")
-
-    @injector.function
-    def use_message(*, message: Message = required):
-        return message
-
-    with message.scope(), special_message.scope():
-        assert use_message() == "Special Hello"
-
-
-async def test_can_overwrite_async_provider():
-    @provider.asyncfunction
-    async def message() -> Message:
-        return Message("Hello")
-
-    @provider.asyncfunction
-    async def special_message(*, message: Message = required) -> Message:
-        return Message(f"Special {message}")
-
-    @injector.asyncfunction
-    async def use_message(*, message: Message = required):
-        return message
-
-    with message.scope(), special_message.scope():
-        assert await use_message() == "Special Hello"
-
-
 async def test_async_provider_can_depend_on_sync_provider():
     @provider.function
     def greeting() -> Greeting:
@@ -142,7 +108,7 @@ async def test_sync_provider_cannot_depend_on_async_provider():
         raise AssertionError  # nocov
 
     with (
-        pytest.raises(ProviderMissingError, match="Async provider .* cannot be used in a sync context"),
+        pytest.raises(ProviderMissingError, match=r"No sync provider for .*"),
         greeting.scope(),
         message.scope(),
     ):

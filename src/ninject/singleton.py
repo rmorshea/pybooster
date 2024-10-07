@@ -15,12 +15,12 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-def singleton(cls: type[T] | Sequence) -> SingletonContext[T]:
+def singleton(cls: type[T] | Sequence) -> _SingletonContext[T]:
     """Declare that a dependency should be a singleton for the duration of the context."""
-    return SingletonContext(normalize_dependency(cls))
+    return _SingletonContext(normalize_dependency(cls))
 
 
-class SingletonContext(AbstractContextManager[T], AbstractAsyncContextManager[T]):
+class _SingletonContext(AbstractContextManager[T], AbstractAsyncContextManager[T]):
     """A context manager to declare a singleton instance of a dependency."""
 
     def __init__(self, types: Sequence[type[T]]) -> None:

@@ -2,61 +2,75 @@
 
 This page contains examples of how to use Ninject to provide and inject dependencies.
 
-## SQLite
-
-This example demonstrates how to use Ninject to provide and inject a
-`sqlite3.Connection` object:
+## [SQLite](https://docs.python.org/3/library/sqlite3.html)
 
 ```python
 from sqlite3 import Connection
-```
 
-First, define a [provider](/concepts#providers) function for the dependency. In this
-case, since the connection object is a context manager, we can use the
-`@provider.iterator` decorator to create a generator that yields the connection object.
-This allows Ninject to automatically close the connection when the scope is exited:
-
-```python
-from sqlite3 import connect
-from typing import Iterator
-
-from ninject import provider
+from ninject import provider, injector, required
 
 
 @provider.iterator
 def sqlite_connection(database: str) -> Iterator[Connection]:
     with connect(database) as conn:
         yield conn
-```
-
-!!! note
-
-    Take care to annotate the return type of the provider function appropriately since
-    this is how Ninject will determine the type of the dependency it provides. If for
-    some reason you cannot annotate the return type or Ninject incorrectly infers the
-    type you can pass the dependency type as via the `provides` argument to the decorator.
-
-    ```python
-    @provider.iterator(provides=Connection)
-    ```
-
-Now define a function that you want to inject the dependency into. To do this, first add
-the appropriate `injector` decorator to the function and second, add a keyword-only
-parameter that is marked for injection using `required` as its default value:
-
-```python
-from ninject import injector, required
 
 
 @injector.function
 def query_database(query: str, *, conn: Connection = required) -> None:
     with conn.cursor() as cursor:
         cursor.execute(query)
-```
 
-Finally, activate the provider's scope and call the function:
 
-```python
 with sqlite_connection.scope('example.db'):
     query_database('CREATE TABLE example (id INTEGER PRIMARY KEY)')
+```
+
+## [SQLAlchemy](https://www.sqlalchemy.org/)
+
+```python
+from collections.abc import Iterator
+
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session
+
+from ninject import injector, provider, required, singleton
+
+
+class User(DeclarativeBase):
+    __tablename__ = "users"
+    id: Mapped[int]
+    name: Mapped[str]
+
+
+@provider.iterator
+def sqlalchemy_engine(url: str) -> Iterator[Engine]:
+    engine = create_engine(url)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+@provider.iterator
+def sqlalchemy_session(engine: Engine) -> Iterator[Session]:
+    with Session(bind=engine).begin() as session:
+        yield session
+
+
+@injector.function
+def test(*, session: Session = required):
+    user = User(name="John")
+    session.add(user)
+    session.commit()
+    assert session.query(User).filter(User.name == "John").one().name == "John"
+
+
+url = "sqlite:///:memory:"
+with (
+    sqlalchemy_engine.scope(url),
+    sqlalchemy_session.scope(),
+    singleton(Engine),
+):
+    test()
 ```

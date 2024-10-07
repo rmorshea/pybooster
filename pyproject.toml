@@ -101,6 +101,7 @@ ignore = [
   "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
   "PL",     # PyLint
   "PYI",    # Stub files
+  "RET503", # Explicit return
   "RET505", # Unnecessary return statement after return
   "S105",   # Ignore checks for possible passwords
 ]

@@ -18,8 +18,11 @@ from ninject.types import ProviderMissingError
 
 if TYPE_CHECKING:
     from collections.abc import Collection
+    from collections.abc import Iterator
     from collections.abc import Mapping
+    from collections.abc import Sequence
 
+    from ninject._private._utils import NormDependencies
     from ninject.types import AsyncContextManagerCallable
     from ninject.types import ContextManagerCallable
 
@@ -27,18 +30,59 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def raise_missing_provider(types: Collection[type], *, sync_context: bool) -> NoReturn:
-    sync_msg = "sync" if sync_context else "sync or async"
-    type_msg = f"any of {types}" if len(types) > 1 else f"{types[0]}"
+def raise_missing_provider(types: Collection[type], *, sync: bool) -> NoReturn:
+    sync_msg = "sync" if sync else "sync or async"
+    type_msg = f"any of {types}" if len(types) > 1 else f"{next(iter(types))}"
     msg = f"No {sync_msg} provider for {type_msg}"
-    raise ProviderMissingError(msg) from None
+    raise ProviderMissingError(msg)
+
+
+@overload
+def iter_provider_infos(
+    dependencies: NormDependencies, *, sync: Literal[True]
+) -> Iterator[tuple[str, type, SyncProviderInfo]]: ...
+
+
+@overload
+def iter_provider_infos(dependencies: NormDependencies, *, sync: bool) -> Iterator[tuple[str, type, ProviderInfo]]: ...
+
+
+def iter_provider_infos(dependencies: NormDependencies, *, sync: bool) -> Iterator[tuple[str, type, ProviderInfo]]:
+    provider_infos = get_all_provider_infos(sync=sync)
+    for name, types in dependencies.items():
+        for cls in types:
+            if (info := provider_infos.get(cls)) is not None:
+                break
+        else:
+            raise_missing_provider(types, sync=sync)
+        yield name, cls, info
+
+
+@overload
+def get_provider_info(types: Sequence[type], *, sync: Literal[True]) -> SyncProviderInfo: ...
+
+
+@overload
+def get_provider_info(types: Sequence[type], *, sync: Literal[False]) -> AsyncProviderInfo: ...
+
+
+def get_provider_info(types: Sequence[type], *, sync: bool) -> ProviderInfo:
+    provider_infos = get_all_provider_infos(sync=sync)
+    for cls in types:
+        if (info := provider_infos.get(cls)) is not None:
+            return info
+    raise_missing_provider(types, sync=sync)
+
+
+def get_all_provider_infos(*, sync: bool) -> Mapping[type, ProviderInfo]:
+    return _SYNC_PROVIDER_INFOS.get() if sync else _SYNC_PROVIDER_INFOS.get() | _ASYNC_PROVIDER_INFOS.get()
 
 
 @overload
 def set_provider(
     provides: type[R],
     provider: ContextManagerCallable[[], R],
-    dependencies: set[type],
+    dependency_set: set[Sequence[type]],
     *,
     sync: Literal[True],
 ) -> Callable[[], None]: ...
@@ -48,7 +92,7 @@ def set_provider(
 def set_provider(
     provides: type[R],
     provider: AsyncContextManagerCallable[[], R],
-    dependencies: set[type],
+    dependency_set: set[Sequence[type]],
     *,
     sync: Literal[False],
 ) -> Callable[[], None]: ...
@@ -57,14 +101,14 @@ def set_provider(
 def set_provider(
     provides: type[R],
     manager: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
-    dependencies: set[type],
+    dependency_set: set[Sequence[type]],
     *,
     sync: bool,
 ) -> Callable[[], None]:
-    provider_infos_var = SYNC_PROVIDER_INFOS if sync else SYNC_OR_ASYNC_PROVIDER_INFOS
+    _check_missing_dependencies(dependency_set, sync=sync)
+
+    provider_infos_var = _SYNC_PROVIDER_INFOS if sync else _ASYNC_PROVIDER_INFOS
     prior_provider_infos = provider_infos_var.get()
-    if missing := dependencies.difference(prior_provider_infos):
-        raise_missing_provider(missing, sync_context=sync)
 
     if get_origin(provides) is tuple:
         new_provider_infos = _make_tuple_provider_infos(provides, manager, sync=sync)
@@ -83,20 +127,25 @@ def set_provider(
     return lambda: provider_infos_var.reset(token)
 
 
-class _BaseProviderInfo(TypedDict):
-    manager: ContextManagerCallable[[], Any] | AsyncContextManagerCallable[[], Any]
-    getter: Callable[[Any], Any]
-    sync: bool
+def _check_missing_dependencies(dependency_set: set[Sequence[type]], *, sync: bool) -> None:
+    provider_infos = get_all_provider_infos(sync=sync)
+    missing: set[type] = set()
+    for types in dependency_set:
+        missing.update(set(types) - provider_infos.keys())
+    if missing:
+        raise_missing_provider(missing, sync=sync)
 
 
-class SyncProviderInfo(_BaseProviderInfo):
-    manager: ContextManagerCallable[[], Any]
+class SyncProviderInfo(TypedDict):
     sync: Literal[True]
+    manager: ContextManagerCallable[[], Any]
+    getter: Callable[[Any], Any]
 
 
-class AsyncProviderInfo(_BaseProviderInfo):
-    manager: AsyncContextManagerCallable[[], Any]
+class AsyncProviderInfo(TypedDict):
     sync: Literal[False]
+    manager: AsyncContextManagerCallable[[], Any]
+    getter: Callable[[Any], Any]
 
 
 ProviderInfo = SyncProviderInfo | AsyncProviderInfo
@@ -135,5 +184,5 @@ def _make_scalar_provider_infos(
     return {provides: {"manager": manager, "getter": getter, "sync": sync}}
 
 
-SYNC_PROVIDER_INFOS: ContextVar[Mapping[type, SyncProviderInfo]] = ContextVar("PROVIDER_INFOS", default={})
-SYNC_OR_ASYNC_PROVIDER_INFOS: ContextVar[Mapping[type, ProviderInfo]] = ContextVar("PROVIDER_INFOS", default={})
+_SYNC_PROVIDER_INFOS: ContextVar[Mapping[type, SyncProviderInfo]] = ContextVar("SYNC_PROVIDER_INFOS", default={})
+_ASYNC_PROVIDER_INFOS: ContextVar[Mapping[type, AsyncProviderInfo]] = ContextVar("ASYNC_PROVIDER_INFOS", default={})

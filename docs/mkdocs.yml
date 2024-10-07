@@ -6,7 +6,7 @@ docs_dir: src
 repo_url: https://github.com/rmorshea/ninject
 
 nav:
-    - Basics: index.md
+    - Home: index.md
     - Concepts: concepts.md
     - Examples: examples.md
 
@@ -15,6 +15,8 @@ theme:
     icon:
         repo: fontawesome/brands/git-alt
         logo: material/shuriken
+    features:
+        - toc.integrate
 
 plugins:
     - search

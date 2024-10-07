@@ -1,12 +1,98 @@
 # Concepts
 
+This section cover's Ninjects core features and how to use them.
+
+## Injectors
+
+An injection takes place whenenever Ninject executes a [provider](#providers) while
+resolving a [dependency](#dependencies). I
+
+### Decorator Injectors
+
+Ninject supplies a set of decorators that can be added to functions in order to inject
+[dependencies](#dependencies). Dependencies for a decorated function are declared as
+keyword-only arguments with a type annotation and a default value of `required`.
+
+```python
+from typing import NewType
+
+from ninject import injector, required
+
+
+Recipient = NewType('Recipient', str)
+
+
+@injector.function
+def hello_greeting(*, recipient: Recipient = required) -> str:
+    return f'Hello, {recipient}!'
+```
+
+!!! note
+
+    Don't forget to add the `required` default value. Without it, Ninject will not
+    know that the argument is a dependency that needs to be injected.
+
+In order for a value to be injected you'll need to declare a [provider](#providers) and
+activate it:
+
+```python
+from ninject import provider
+
+
+@provider.function
+def alice() -> Recipient:
+    return Recipient('Alice')
+
+
+with alice.scope():
+    assert hello_greeting() == 'Hello, Alice!'
+```
+
+Ninject supports decorators for the following types of functions:
+
+-   `injector.function`
+-   `injector.asyncfunction`
+-   `injector.generator`
+-   `injector.asyncgenerator`
+-   `injector.contextmanager`
+-   `injector.asynccontextmanager`
+
+You can use all of these decorators on methods of a class as well.
+
+### Inline Injector
+
+If you need to access the current value of a dependency outside of a function, you can
+use `injector.current` by activating it either as a synchronous or asynchronous context
+manager.
+
+```python
+from typing import NewType
+
+from ninject import injector, provider, required
+
+Recipient = NewType('Recipient', str)
+
+
+@provider.function
+def alice() -> Recipient:
+    return Recipient('Alice')
+
+
+with alice.scope():
+    with injector.current(Recipient) as recipient:
+        assert recipient == 'Alice'
+```
+
 ## Providers
 
-A provider is a synchronous or asynchronous function that creates or yields a
-[dependency](#dependencies). Providers are used to define how dependencies are created
-and managed by Ninject
+A provider is a function that creates or yields a [dependency](#dependencies). Providers
+are used to define how dependencies resolved when they are [injected](#injectors) into a
+function or context. What providers are available depends on what scopes are active when
+a dependency is resolved.
 
 ### Defining Sync Providers
+
+Sync providers can either be functions the return a dependency's value:
 
 ```python
 from ninject import provider
@@ -21,6 +107,9 @@ class Config:
 def config() -> Config:
     return Config(username='alice', password='EGwVEo3y9E')
 ```
+
+Or iterators that yield the dependency's value. Iterators are useful when you have
+resources that need to be cleaned up when the dependency's value is no longer in use.
 
 ```python
 from typing import Iterator
@@ -37,6 +126,8 @@ def sqlite_connection() -> Iterator[Connection]:
 
 ### Defining Async Providers
 
+Async providers can either be a coroutine function that returns a dependency's value:
+
 ```python
 from asyncio import sleep
 from ninject import provider
@@ -47,6 +138,10 @@ async def async_config() -> Config:
     await sleep(1)  # Do some async work here...
     return Config(username='alice', password='EGwVEo3y9E')
 ```
+
+Or async iterators that yield the dependency's value. Async iterators are useful when
+you have resources that need to be cleaned up when the dependency's value is no longer
+in use.
 
 ```python
 from asyncio import open_connection, StreamReader
@@ -108,30 +203,127 @@ async def get_async_config(*, config: Config = required) -> str:
 with config.scope(), async_config.scope():
     assert get_config() == 'sync-user:sync-pass'
     assert asyncio.run(get_async_config()) == 'async-user:async-pass
+
+with config.scope():
+    assert asyncio.run(get_async_config()) == 'sync-user:sync-pass'
 ```
 
 ### Parameterizing Providers
 
-Providers can take parameters to customize the dependency they provide. These parameters
+You can add parameters to a provider by adding them to the provider function signature.
+
+```python
+import sqlite3
+
+from ninject import provider
+
+
+@provider.iterator
+def sqlite_connection(database: str) -> Iterator[sqlite3.Connection]:
+    with sqlite3.connect(database) as conn:
+        yield conn
+```
+
+These parameters can be passed to the provider when activating the scope.
+
+```python
+with sqlite_connection.scope('example.db'):
+    ...
+```
+
+You can also declare these parameters as dependencies by making them keyword-only,
+annotating them with the desired type, and setting the default value to `required`.
+
+```python
+import os
+import sqlite3
+
+from ninject import provider
+
+
+Database = NewType('DatabasePath', str)
+
+
+@provider.function
+def sqlite_database() -> Database:
+    return Database(os.environ.get('SQLITE_DATABASE', 'example.db'))
+
+
+@provider.iterator
+def sqlite_connection(*, database: Database = required) -> Iterator[sqlite3.Connection]:
+    with sqlite3.connect(database) as conn:
+        yield conn
+```
 
 ### Scoping Providers
 
-Providers can be be made available within a scope using the `scope` method. This method
-takes
+What providers are available to inject dependencies is determined by what scopes are
+active when the dependency is resolved. Scopes can be activated using the `scope` method
+of a provider.
 
-## Injections
+```python
+from typing import NewType
 
-...
+from ninject import provider
+
+Recipient = NewType('Recipient', str)
+
+
+@provider.function
+def alice() -> Recipient:
+    return Recipient('Alice')
+
+
+with alice.scope():
+    ...  # alice is available to inject
+```
+
+You can override a dependency's provider by activating a new scope for the same
+dependency.
+
+```python
+from typing import NewType
+
+from ninject import provider, injector
+
+
+Recipient = NewType('Recipient', str)
+
+
+@provider.function
+def alice() -> Recipient:
+    return Recipient('Alice')
+
+
+@provider.function
+def bob() -> Recipient:
+    return Recipient('Bob')
+
+
+@injector.function
+def get_recipient(*, recipient: Recipient = required) -> str:
+    return recipient
+
+
+with alice.scope():
+    assert get_recipient() == 'Alice'
+    with bob.scope():
+        assert get_recipient() == 'Bob'
+    assert get_recipient() == 'Alice'
+```
+
+!!! note
+
+    The exact behavior of scopes can depend on whether the requested dependency is
+    a [union](#union-types) or has [subclasses](#subclassed-types).
 
 ## Dependencies
 
-A dependency is any Python type or class in Python. This includes types that are
-built-in to Python, types from the standard library, types from third-party packages,
-and types you'd use for annotations in your own code.
+A dependency is (almost) any Python type or class.
 
 ### Built-In Types
 
-Ninject does not allow you to use built-in types directly. Instead you must use
+Ninject does not allow you to use built-in types directly. Instead you should use
 [`NewType`](https://docs.python.org/3/library/typing.html#newtype) to define a distinct
 subtype so that it is easily identifiable. For example, instead of using `str` to
 represent a username, you might define a `Username` new type like this:
@@ -193,12 +385,24 @@ with auth.scope():
     assert login_message() == 'Logged in as alice'
 ```
 
+### Subclassed Types
+
 Providers of subclasses will be automatically injected into functions that require the
 base class. So an `AdminAuth` class that extends `Auth` will be injected into functions
 that require `Auth`.
 
 ```python
+from dataclasses import dataclass
 from typing import Literal
+
+from ninject import injector, provider, required
+
+
+@dataclass
+class Auth:
+    role: str
+    username: str
+    password: str
 
 
 @dataclass
@@ -209,6 +413,11 @@ class AdminAuth(Auth):
 @provider.function
 def admin_auth() -> AdminAuth:
     return AdminAuth(role='admin', username='admin', password='admin')
+
+
+@injector.function
+def login_message(*, auth: Auth = required) -> str:
+    return f'Logged in as {auth.username}'
 
 
 with admin_auth.scope():
@@ -255,8 +464,10 @@ def greet(*, person: Union[Employee, Contractor] = required) -> str:
 
 with employee.scope():
     assert greet() == 'Hello, Alice!'
+
 with contractor.scope():
     assert greet() == 'Hello, Bob!'
+
 with employee.scope(), contractor.scope():
     assert greet() == 'Hello, Bob!'
 ```
@@ -293,3 +504,43 @@ def login_message(*, username: Username = required) -> str:
 with username_and_password.scope():
     assert login_message() == 'Logged in as alice'
 ```
+
+## Singletons
+
+By default, Ninject will create a new instance of a dependency each time it is injected.
+To change this, using the `singleton` context manager to declare that a dependency
+should be shared across all injections for the duration of a context. This will
+immediately execute the provider and store the result for future injections.
+
+```python
+from dataclasses import dataclass
+from ninject import provider, injector, required, singleton
+
+
+@dataclass
+class Auth:
+    username: str
+    password: str
+
+
+@provider.function
+def auth() -> Auth:
+    return Auth(username='alice', password='EGwVEo3y9E')
+
+
+@injector.function
+def get_auth(*, auth: Auth = required) -> Auth:
+    return auth
+
+
+with auth.scope():
+
+    assert get_auth() is not get_auth()
+
+    with singleton(Auth):
+        assert get_auth() is get_auth()
+```
+
+If the dependency's provider might be asynchronous, enter the `singleton()` context
+manager using `async with` instead. If you in an async context you should default to
+using `async with` to ensure that async providers can be executed successfully.
