@@ -7,20 +7,19 @@ from typing import Any
 from typing import Literal
 from typing import TypeVar
 
-from ninject._private.injector import async_update_arguments_by_initializing_dependencies
-from ninject._private.injector import setdefault_arguments_with_initialized_dependencies
-from ninject._private.injector import sync_update_arguments_by_initializing_dependencies
-from ninject.types import required
+from ninject._private._injector import async_update_arguments_by_initializing_dependencies
+from ninject._private._injector import setdefault_arguments_with_initialized_dependencies
+from ninject._private._injector import sync_update_arguments_by_initializing_dependencies
 
 T = TypeVar("T")
 
 
-def current(cls: type[T], *, provide: T = required) -> Current[T]:
+def current(cls: type[T]) -> CurrentContext[T]:
     """Get the current value of a dependency."""
-    return Current(cls, provide)
+    return CurrentContext(cls)
 
 
-class Current(AbstractContextManager[T], AbstractAsyncContextManager[T]):
+class CurrentContext(AbstractContextManager[T], AbstractAsyncContextManager[T]):
     """A context manager to provide the current value of a dependency."""
 
     def __init__(self, cls: type[T]) -> None:

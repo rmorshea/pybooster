@@ -3,6 +3,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from collections.abc import Coroutine
 from collections.abc import Iterator
+from collections.abc import Mapping
+from collections.abc import Sequence
+from ctypes import Union
 from inspect import Parameter
 from inspect import signature
 from typing import TYPE_CHECKING
@@ -18,7 +21,7 @@ from typing import get_type_hints
 import ninject
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from ninject.types import Dependencies
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -33,23 +36,33 @@ def make_sentinel_value(module: str, name: str) -> Any:
 undefined = make_sentinel_value(__name__, "undefined")
 """Represents an undefined default."""
 
+NormDependencies = Mapping[str, Sequence[type]]
+"""Dependencies normalized to a mapping of parameter names to their possible types."""
 
-def get_callable_dependencies(func: Callable, dependencies: Mapping[str, type] | None = None) -> Mapping[str, type]:
+
+def get_callable_dependencies(func: Callable, dependencies: Dependencies | None = None) -> NormDependencies:
     if dependencies is not None:
-        return dependencies
+        return {name: cls if isinstance(cls, Sequence) else (cls,) for name, cls in dependencies.items()}
     return _get_callable_dependencies(func)
 
 
-def _get_callable_dependencies(func: Callable[P, R]) -> dict[str, type]:
-    dependencies: dict[str, type] = {}
+def _get_callable_dependencies(func: Callable[P, R]) -> NormDependencies:
+    dependencies: dict[str, Sequence[type]] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in signature(func).parameters.values():
         if param.default is ninject.required:
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected dependant parameter {param!r} to be keyword-only."
                 raise TypeError(msg)
-            dependencies[param.name] = hints[param.name]
+            dependencies[param.name] = normalize_dependency(hints[param.name])
     return dependencies
+
+
+def normalize_dependency(types: type[R] | Sequence[type[R]]) -> Sequence[type[R]]:
+    if isinstance(types, Sequence):
+        return [normalize_dependency(cls) for cls in types]
+    else:
+        return get_args(types) if get_origin(types) is Union else (types,)
 
 
 class DependencyInfo(TypedDict):

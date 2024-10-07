@@ -13,6 +13,7 @@ Message = NewType("Message", str)
 
 
 def test_sync_injection():
+
     @provider.function
     def greeting() -> Greeting:
         return Greeting("Hello")
@@ -29,7 +30,7 @@ def test_sync_injection():
     def use_message(*, message: Message = required):
         return message
 
-    with greeting.provide(), recipient.provide(), message.provide():
+    with greeting.scope(), recipient.scope(), message.scope():
         assert use_message() == "Hello World"
 
 
@@ -50,7 +51,7 @@ async def test_async_injection():
     async def use_message(*, message: Message = required):
         return message
 
-    with greeting.provide(), recipient.provide(), message.provide():
+    with greeting.scope(), recipient.scope(), message.scope():
         assert await use_message() == "Hello World"
 
 
@@ -71,7 +72,7 @@ async def test_sync_and_async_providers_do_not_overwrite_eachother():
     async def use_async_message(*, message: Message = required):
         return message
 
-    with sync_message.provide(), async_message.provide():
+    with sync_message.scope(), async_message.scope():
         assert use_sync_message() == "Hello, Sync"
         assert await use_async_message() == "World, Async"
 
@@ -89,7 +90,7 @@ def test_can_overwrite_sync_provider():
     def use_message(*, message: Message = required):
         return message
 
-    with message.provide(), special_message.provide():
+    with message.scope(), special_message.scope():
         assert use_message() == "Special Hello"
 
 
@@ -106,7 +107,7 @@ async def test_can_overwrite_async_provider():
     async def use_message(*, message: Message = required):
         return message
 
-    with message.provide(), special_message.provide():
+    with message.scope(), special_message.scope():
         assert await use_message() == "Special Hello"
 
 
@@ -123,7 +124,7 @@ async def test_async_provider_can_depend_on_sync_provider():
     async def use_message(*, message: Message = required):
         return message
 
-    with greeting.provide(), message.provide():
+    with greeting.scope(), message.scope():
         assert await use_message() == "Hello World"
 
 
@@ -142,7 +143,7 @@ async def test_sync_provider_cannot_depend_on_async_provider():
 
     with (
         pytest.raises(ProviderMissingError, match="Async provider .* cannot be used in a sync context"),
-        greeting.provide(),
-        message.provide(),
+        greeting.scope(),
+        message.scope(),
     ):
         await use_message()

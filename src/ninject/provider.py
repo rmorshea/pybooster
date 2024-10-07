@@ -15,11 +15,11 @@ from typing import TypeVar
 from paramorator import paramorator
 
 from ninject import injector
-from ninject._private.provider import set_provider
-from ninject._private.utils import get_callable_dependencies
-from ninject._private.utils import get_callable_return_type
-from ninject._private.utils import get_coroutine_return_type
-from ninject._private.utils import get_iterator_yield_type
+from ninject._private._provider import set_provider
+from ninject._private._utils import get_callable_dependencies
+from ninject._private._utils import get_callable_return_type
+from ninject._private._utils import get_coroutine_return_type
+from ninject._private._utils import get_iterator_yield_type
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -41,7 +41,6 @@ def function(
     *,
     dependencies: Mapping[str, type] | None = None,
     provides: type[R] | None = None,
-    singleton: bool = False,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given function.
 
@@ -49,7 +48,6 @@ def function(
         func: The function to create a provider from.
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
-        singleton: Whether the provider is a singleton.
     """
     provides = provides or get_callable_return_type(func)
 
@@ -57,7 +55,7 @@ def function(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
         yield func(*args, **kwargs)
 
-    return iterator(wrapper, provides=provides, dependencies=dependencies, singleton=singleton)
+    return iterator(wrapper, provides=provides, dependencies=dependencies)
 
 
 @paramorator
@@ -66,7 +64,6 @@ def asyncfunction(
     *,
     dependencies: Mapping[str, type] | None = None,
     provides: type[R] | None = None,
-    singleton: bool = False,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given coroutine.
 
@@ -74,7 +71,6 @@ def asyncfunction(
         func: The function to create a provider from.
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
-        singleton: Whether the provider is a singleton.
     """
     provides = provides or get_coroutine_return_type(func)
 
@@ -82,7 +78,7 @@ def asyncfunction(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         yield await func(*args, **kwargs)
 
-    return asynciterator(wrapper, provides=provides, dependencies=dependencies, singleton=singleton)
+    return asynciterator(wrapper, provides=provides, dependencies=dependencies)
 
 
 @paramorator
@@ -91,7 +87,6 @@ def iterator(
     *,
     dependencies: Mapping[str, type] | None = None,
     provides: type[R] | None = None,
-    singleton: bool = False,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given iterator function.
 
@@ -99,12 +94,11 @@ def iterator(
         func: The function to create a provider from.
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
-        singleton: Whether the provider is a singleton.
     """
     provides = provides or get_iterator_yield_type(func, sync=True)
     if dependencies := get_callable_dependencies(func, dependencies):
         func = injector.iterator(func, dependencies=dependencies)
-    return SyncProvider(_contextmanager(func), provides, set(dependencies.values()), singleton=singleton)
+    return SyncProvider(_contextmanager(func), provides, set(dependencies.values()))
 
 
 @paramorator
@@ -113,7 +107,6 @@ def asynciterator(
     *,
     dependencies: Mapping[str, type] | None = None,
     provides: type[R] | None = None,
-    singleton: bool = False,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given async iterator function.
 
@@ -121,12 +114,11 @@ def asynciterator(
         func: The function to create a provider from.
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
-        singleton: Whether the provider is a singleton.
     """
     provides = provides or get_iterator_yield_type(func, sync=False)
     if dependencies := get_callable_dependencies(func, dependencies):
         func = injector.asynciterator(func, dependencies=dependencies)
-    return AsyncProvider(_asynccontextmanager(func), provides, set(dependencies.values()), singleton=singleton)
+    return AsyncProvider(_asynccontextmanager(func), provides, set(dependencies.values()))
 
 
 class _Provider(Generic[P, R]):
@@ -134,22 +126,23 @@ class _Provider(Generic[P, R]):
 
     provides: type[R]
     """The dependency that this provider produces."""
-    singleton: bool
-    """Whether this provider is a singleton."""
+    value: ContextManagerCallable[P, R] | AsyncContextManagerCallable[P, R]
+    """The function that produces the dependency."""
 
-    _manager: ContextManagerCallable[P, R] | AsyncContextManagerCallable[P, R]
     _dependencies: set[type]
     _sync: bool
 
     @_contextmanager
-    def provide(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[None]:
-        """Activate this provider."""
+    def scope(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[None]:
+        """Declare this as the provider for the dependency within the context.
+
+        Noteable this does not actually create the dependency until the context is entered.
+        """
         reset = set_provider(
             self.provides,
-            wraps(self._manager)(lambda: self._manager(*args, **kwargs)),
+            wraps(self.value)(lambda: self.value(*args, **kwargs)),
             self._dependencies,
             sync=self._sync,
-            singleton=self.singleton,
         )
         try:
             yield None
@@ -165,17 +158,11 @@ class SyncProvider(_Provider[P, R]):
         manager: ContextManagerCallable[P, R],
         provides: type[R],
         dependencies: set[type],
-        *,
-        singleton: bool,
     ) -> None:
         self.provides = provides
-        self.singleton = singleton
-        self._manager = manager
+        self.value: Callable[P, AbstractContextManager[R]] = manager
         self._dependencies = dependencies
         self._sync: Literal[True] = True
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractContextManager[R]:  # noqa: D102
-        return self._manager(*args, **kwargs)
 
 
 class AsyncProvider(_Provider[P, R]):
@@ -186,17 +173,8 @@ class AsyncProvider(_Provider[P, R]):
         manager: AsyncContextManagerCallable[P, R],
         provides: type[R],
         dependencies: set[type],
-        *,
-        singleton: bool,
     ) -> None:
         self.provides = provides
-        self.singleton = singleton
-        self._manager = manager
+        self.value: Callable[P, AbstractAsyncContextManager[R]] = manager
         self._dependencies = dependencies
         self._sync: Literal[False] = False
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractAsyncContextManager[R]:  # noqa: D102
-        return self._manager(*args, **kwargs)
-
-
-Provider = SyncProvider[P, R] | AsyncProvider[P, R]

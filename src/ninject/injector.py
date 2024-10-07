@@ -11,10 +11,10 @@ from typing import TypeVar
 
 from paramorator import paramorator
 
-from ninject._private.injector import async_update_arguments_by_initializing_dependencies
-from ninject._private.injector import setdefault_arguments_with_initialized_dependencies
-from ninject._private.injector import sync_update_arguments_by_initializing_dependencies
-from ninject._private.utils import get_callable_dependencies
+from ninject._private._injector import async_update_arguments_by_initializing_dependencies
+from ninject._private._injector import setdefault_arguments_with_initialized_dependencies
+from ninject._private._injector import sync_update_arguments_by_initializing_dependencies
+from ninject._private._utils import get_callable_dependencies
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

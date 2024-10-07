@@ -20,7 +20,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ["typing_extensions", "paramorator"]
+dependencies = ["typing_extensions", "paramorator>=1.0.2,<2"]
 
 [project.urls]
 Documentation = "https://github.com/rmorshea/ninject#readme"
@@ -58,7 +58,7 @@ extra-dependencies = [
 ]
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build"
-serve = "mkdocs serve"
+serve = "mkdocs serve -f docs/mkdocs.yml"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -97,6 +97,7 @@ ignore = [
   "D407",   # Docstring dashes under section names
   "D413",   # Docstring blank line after last section
   "DOC201", # Return type documentation
+  "DOC402", # Yield type documentation
   "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
   "PL",     # PyLint
   "PYI",    # Stub files
