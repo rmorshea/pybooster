@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ninject"
+name = "pybooster"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
@@ -23,12 +23,12 @@ classifiers = [
 dependencies = ["typing_extensions", "paramorator>=1.0.2,<2"]
 
 [project.urls]
-Documentation = "https://github.com/rmorshea/ninject#readme"
-Issues = "https://github.com/rmorshea/ninject/issues"
-Source = "https://github.com/rmorshea/ninject"
+Documentation = "https://github.com/rmorshea/pybooster#readme"
+Issues = "https://github.com/rmorshea/pybooster/issues"
+Source = "https://github.com/rmorshea/pybooster"
 
 [tool.hatch.version]
-path = "src/ninject/__init__.py"
+path = "src/pybooster/__init__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -57,7 +57,7 @@ docs-fix = "pytest tests/test_docs.py --update-examples"
 [tool.hatch.envs.lint]
 extra-dependencies = ["black==24.8.0", "pyright==1.1.377", "ruff==0.5.7"]
 [tool.hatch.envs.lint.scripts]
-typing = "pyright {args:src/ninject tests}"
+typing = "pyright {args:src/pybooster tests}"
 style = ["ruff check {args:.}", "black --check --diff {args:.}"]
 fix = ["black {args:.}", "ruff check --fix {args:.}", "style"]
 all = ["style", "typing"]
@@ -113,7 +113,7 @@ unfixable = [
 extend-safe-fixes = ["TCH"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ninject"]
+known-first-party = ["pybooster"]
 force-single-line = true
 
 [tool.ruff.lint.flake8-tidy-imports]
@@ -141,13 +141,13 @@ ban-relative-imports = "all"
 ]
 
 [tool.coverage.run]
-source_pkgs = ["ninject", "tests"]
+source_pkgs = ["pybooster", "tests"]
 branch = true
 parallel = true
 omit = []
 
 [tool.coverage.paths]
-ninject = ["src/ninject"]
+pybooster = ["src/pybooster"]
 tests = ["tests"]
 
 [tool.coverage.report]

@@ -14,7 +14,7 @@ from typing import get_args
 from typing import get_origin
 from typing import overload
 
-from ninject.types import ProviderMissingError
+from pybooster.types import ProviderMissingError
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -22,9 +22,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from collections.abc import Sequence
 
-    from ninject._private._utils import NormDependencies
-    from ninject.types import AsyncContextManagerCallable
-    from ninject.types import ContextManagerCallable
+    from pybooster._private._utils import NormDependencies
+    from pybooster.types import AsyncContextManagerCallable
+    from pybooster.types import ContextManagerCallable
 
 P = ParamSpec("P")
 R = TypeVar("R")

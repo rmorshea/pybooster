@@ -1,10 +1,10 @@
-# Ninject 🥷
+# PyBooster 💉
 
-[![PyPI - Version](https://img.shields.io/pypi/v/ninject.svg)](https://pypi.org/project/ninject)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ninject.svg)](https://pypi.org/project/ninject)
+[![PyPI - Version](https://img.shields.io/pypi/v/pybooster.svg)](https://pypi.org/project/pybooster)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pybooster.svg)](https://pypi.org/project/pybooster)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Ninject uses modern Python features to provide a simple and performant dependency
+PyBooster uses modern Python features to provide a simple and performant dependency
 injection framework.
 
 -   [Installation](#installation)
@@ -20,7 +20,7 @@ injection framework.
 ## Installation
 
 ```console
-pip install ninject
+pip install pybooster
 ```
 
 ## Basic Usage
@@ -28,7 +28,7 @@ pip install ninject
 ```python
 from dataclasses import dataclass
 
-from ninject import injector, provider, required
+from pybooster import injector, provider, required
 
 
 # Define a type to be used as a dependency
@@ -105,7 +105,7 @@ program:
 ```python
 from typing import NewType
 
-from ninject import injector, provider, required, entrypoint
+from pybooster import injector, provider, required, entrypoint
 
 Greeting = NewType("Greeting", str)
 
@@ -151,13 +151,13 @@ as sync singleton providers.
 
 It's important to provide easily distinguishable types. In the case of built-in objects,
 you can leverage `NewType` to define a new class that can serve as a dependency. In the
-example below, `Greeting` and `Recipient` are both `str` subtypes that Ninject
+example below, `Greeting` and `Recipient` are both `str` subtypes that PyBooster
 recognizes as being distinct:
 
 ```python
 from typing import NewType
 
-from ninject import injector, provider, required
+from pybooster import injector, provider, required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -190,7 +190,7 @@ Providers can have their own dependencies:
 from typing import NewType
 from dataclasses import dataclass
 
-from ninject import injector, provider, required
+from pybooster import injector, provider, required
 
 
 @dataclass
@@ -228,7 +228,7 @@ A single provider can supply multiple dependencies by returning a tuple:
 ```python
 from typing import NewType
 
-from ninject import injector, provider, required
+from pybooster import injector, provider, required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -254,7 +254,7 @@ You may also depend on the tuple, in this case `MessageContent`, directly:
 ```python
 from typing import NewType
 
-from ninject import injector, provider, required
+from pybooster import injector, provider, required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -279,8 +279,8 @@ if __name__ == "__main__":
 
 ## Providing Dependencies Concurrently
 
-Ninject does not execute async providers concurrently since doing so can add overhead to
-async function calls if it's unnecessary. If you want to satisfy dependencies
+PyBooster does not execute async providers concurrently since doing so can add overhead
+to async function calls if it's unnecessary. If you want to satisfy dependencies
 concurrently you can leverage the ability to provide
 [multiple dependencies](#providing-multiple-dependencies) at once. With that in mind,
 you can use `asyncio.gather` to run several async functions concurrently before
@@ -289,7 +289,7 @@ returning the dependencies:
 ```python
 import asyncio
 from typing import NewType
-from ninject import injector, provider, required
+from pybooster import injector, provider, required
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -330,7 +330,7 @@ together:
 import asyncio
 from typing import NewType
 
-from ninject import injector, provider, required
+from pybooster import injector, provider, required
 
 
 Greeting = NewType("Greeting", str)
@@ -412,7 +412,7 @@ a function by using the `current` context manager:
 ```python
 from typing import NewType
 
-from ninject import provider, current
+from pybooster import provider, current
 
 
 Message = NewType("Message", str)
@@ -433,7 +433,7 @@ You can also use `current` to set the value of a dependency:
 ```python
 from typing import NewType
 
-from ninject import provider, current
+from pybooster import provider, current
 
 Message = NewType("Message", str)
 
@@ -449,7 +449,7 @@ since that cannot be easily done with the built-in `injector` decorators:
 ```python
 from typing import NewType
 
-from ninject import provider, current
+from pybooster import provider, current
 
 
 Message = NewType("Message", str)

@@ -1,17 +1,18 @@
 # Home
 
-Ninject is a [dependency injection](https://en.wikipedia.org/wiki/Dependency_injection)
-framework for Python that reduces boilerplate by leveraging modern typing features.
+PyBooster is a
+[dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) framework for
+Python that reduces boilerplate by leveraging modern typing features.
 
 ## Installation
 
 ```bash
-pip install -U ninject
+pip install -U pybooster
 ```
 
 ## Quick Start
 
-Getting started with Ninject involves a few steps:
+Getting started with PyBooster involves a few steps:
 
 1. Define a [provider](concepts.md#providers) function for a
    [dependency](concepts.md#dependencies).
@@ -26,9 +27,9 @@ that executes a query:
 import sqlite3
 from typing import Iterator
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 
 @provider.iterator

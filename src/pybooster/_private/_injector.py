@@ -5,12 +5,12 @@ from typing import Any
 from typing import ParamSpec
 from typing import TypeVar
 
-from ninject._private._provider import ProviderInfo
-from ninject._private._provider import SyncProviderInfo
-from ninject._private._provider import iter_provider_infos
-from ninject._private._shared import SHARED_VALUES
-from ninject._private._utils import NormDependencies
-from ninject._private._utils import undefined
+from pybooster._private._provider import ProviderInfo
+from pybooster._private._provider import SyncProviderInfo
+from pybooster._private._provider import iter_provider_infos
+from pybooster._private._shared import SHARED_VALUES
+from pybooster._private._utils import NormDependencies
+from pybooster._private._utils import undefined
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

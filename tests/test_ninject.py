@@ -1,11 +1,10 @@
 from typing import NewType
 
 import pytest
-
-from ninject import injector
-from ninject import provider
-from ninject import required
-from ninject.types import ProviderMissingError
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster.types import ProviderMissingError
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)

@@ -9,8 +9,8 @@ from typing import Callable
 from typing import ParamSpec
 from typing import TypeVar
 
-from ninject._private._provider import get_provider_info
-from ninject._private._utils import undefined
+from pybooster._private._provider import get_provider_info
+from pybooster._private._utils import undefined
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

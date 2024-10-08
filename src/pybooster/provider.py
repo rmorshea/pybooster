@@ -14,24 +14,23 @@ from typing import TypeAlias
 from typing import TypeVar
 
 from paramorator import paramorator
-
-from ninject import injector
-from ninject._private._provider import set_provider
-from ninject._private._utils import get_callable_dependencies
-from ninject._private._utils import get_callable_return_type
-from ninject._private._utils import get_coroutine_return_type
-from ninject._private._utils import get_iterator_yield_type
+from pybooster import injector
+from pybooster._private._provider import set_provider
+from pybooster._private._utils import get_callable_dependencies
+from pybooster._private._utils import get_callable_return_type
+from pybooster._private._utils import get_coroutine_return_type
+from pybooster._private._utils import get_iterator_yield_type
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from collections.abc import Iterator
     from collections.abc import Sequence
 
-    from ninject.types import AsyncContextManagerCallable
-    from ninject.types import AsyncIteratorCallable
-    from ninject.types import ContextManagerCallable
-    from ninject.types import Dependencies
-    from ninject.types import IteratorCallable
+    from pybooster.types import AsyncContextManagerCallable
+    from pybooster.types import AsyncIteratorCallable
+    from pybooster.types import ContextManagerCallable
+    from pybooster.types import Dependencies
+    from pybooster.types import IteratorCallable
 
 P = ParamSpec("P")
 R = TypeVar("R")

@@ -6,15 +6,15 @@ Injectors are used to supply a set of dependencies to a function or context.
 
 ### Decorator Injectors
 
-Ninject supplies a set of decorators that can be added to functions in order to inject
+PyBooster supplies a set of decorators that can be added to functions in order to inject
 [dependencies](#dependencies). Dependencies for a decorated function are declared as
 keyword-only arguments with a type annotation and a default value of `required`.
 
 ```python
 from typing import NewType
 
-from ninject import injector
-from ninject import required
+from pybooster import injector
+from pybooster import required
 
 Recipient = NewType("Recipient", str)
 
@@ -26,7 +26,7 @@ def hello_greeting(*, recipient: Recipient = required) -> str:
 
 !!! note
 
-    Don't forget to add the `required` default value. Without it, Ninject will not
+    Don't forget to add the `required` default value. Without it, PyBooster will not
     know that the argument is a dependency that needs to be injected.
 
 In order for a value to be injected you'll need to declare a [provider](#providers) and
@@ -35,9 +35,9 @@ activate it:
 ```python
 from typing import NewType
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 Recipient = NewType("Recipient", str)
 
@@ -56,7 +56,7 @@ with alice.scope():
     assert hello_greeting() == "Hello, Alice!"
 ```
 
-Ninject supports decorators for the following types of functions:
+PyBooster supports decorators for the following types of functions:
 
 -   `injector.function`
 -   `injector.asyncfunction`
@@ -88,8 +88,8 @@ manager.
 ```python
 from typing import NewType
 
-from ninject import injector
-from ninject import provider
+from pybooster import injector
+from pybooster import provider
 
 Recipient = NewType("Recipient", str)
 
@@ -117,7 +117,7 @@ Sync providers can either be functions the return a dependency's value:
 ```python
 from dataclasses import dataclass
 
-from ninject import provider
+from pybooster import provider
 
 
 @dataclass
@@ -138,7 +138,7 @@ resources that need to be cleaned up when the dependency's value is no longer in
 import sqlite3
 from typing import Iterator
 
-from ninject import provider
+from pybooster import provider
 
 
 @provider.iterator
@@ -155,7 +155,7 @@ Async providers can either be a coroutine function that returns a dependency's v
 from asyncio import sleep
 from dataclasses import dataclass
 
-from ninject import provider
+from pybooster import provider
 
 
 @dataclass
@@ -179,7 +179,7 @@ from asyncio import StreamReader
 from asyncio import open_connection
 from typing import AsyncIterator
 
-from ninject import provider
+from pybooster import provider
 
 
 @provider.asynciterator
@@ -197,16 +197,16 @@ async def example_reader() -> AsyncIterator[StreamReader]:
 ### Mixing Sync/Async Providers
 
 You can define both sync and async providers for the same dependency. Sync providers can
-be used in async contexts, but not the other way around. Ninject will always choose to
+be used in async contexts, but not the other way around. PyBooster will always choose to
 use an async provider when running in an async context and one is available.
 
 ```python
 import asyncio
 from dataclasses import dataclass
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 
 @dataclass
@@ -253,7 +253,7 @@ function signature that are not [dependencies](#dependencies):
 import sqlite3
 from typing import Iterator
 
-from ninject import provider
+from pybooster import provider
 
 
 @provider.iterator
@@ -278,8 +278,8 @@ import sqlite3
 from typing import Iterator
 from typing import NewType
 
-from ninject import provider
-from ninject import required
+from pybooster import provider
+from pybooster import required
 
 Database = NewType("DatabasePath", str)
 
@@ -304,7 +304,7 @@ of a provider.
 ```python
 from typing import NewType
 
-from ninject import provider
+from pybooster import provider
 
 Recipient = NewType("Recipient", str)
 
@@ -324,9 +324,9 @@ dependency.
 ```python
 from typing import NewType
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 Recipient = NewType("Recipient", str)
 
@@ -364,7 +364,7 @@ A dependency is (almost) any Python type or class.
 
 ### Built-In Types
 
-Ninject does not allow you to use built-in types directly. Instead you should use
+PyBooster does not allow you to use built-in types directly. Instead you should use
 [`NewType`](https://docs.python.org/3/library/typing.html#newtype) to define a distinct
 subtype so that it is easily identifiable. For example, instead of using `str` to
 represent a username, you might define a `Username` new type like this:
@@ -380,9 +380,9 @@ Now you can make a [provider](#providers) for `Username` and inject it into func
 ```python
 from typing import NewType
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 Username = NewType("Username", str)
 
@@ -408,9 +408,9 @@ This includes types you or a third-party package define. In this case, an `Auth`
 ```python
 from dataclasses import dataclass
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 
 @dataclass
@@ -444,9 +444,9 @@ that require `Auth`.
 from dataclasses import dataclass
 from typing import Literal
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 
 @dataclass
@@ -485,9 +485,9 @@ where you have an `Employee` or `Contractor` class that are not related by inher
 ```python
 from dataclasses import dataclass
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 
 @dataclass
@@ -540,9 +540,9 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import NewType
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 Username = NewType("Username", str)
 Password = NewType("Password", str)
@@ -570,18 +570,18 @@ with username_and_password.scope():
 
 ## Shared Contexts
 
-By default, Ninject will create a new instance of a dependency each time it is injected.
-To change this, using the `shared` context manager to declare that a dependency should
-be re-used across all injections for the duration of a context. This will immediately
-execute the provider and store the result for future use.
+By default, PyBooster will create a new instance of a dependency each time it is
+injected. To change this, using the `shared` context manager to declare that a
+dependency should be re-used across all injections for the duration of a context. This
+will immediately execute the provider and store the result for future use.
 
 ```python
 from dataclasses import dataclass
 
-from ninject import injector
-from ninject import provider
-from ninject import required
-from ninject import shared
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import shared
 
 
 @dataclass
@@ -621,9 +621,9 @@ static data.
 ```python
 from dataclasses import dataclass
 
-from ninject import injector
-from ninject import required
-from ninject import shared
+from pybooster import injector
+from pybooster import required
+from pybooster import shared
 
 
 @dataclass

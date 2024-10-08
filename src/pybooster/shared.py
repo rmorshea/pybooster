@@ -5,10 +5,10 @@ from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING
 from typing import TypeVar
 
-from ninject._private._shared import async_shared_context
-from ninject._private._shared import sync_shared_context
-from ninject._private._utils import normalize_dependency
-from ninject._private._utils import undefined
+from pybooster._private._shared import async_shared_context
+from pybooster._private._shared import sync_shared_context
+from pybooster._private._utils import normalize_dependency
+from pybooster._private._utils import undefined
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

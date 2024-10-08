@@ -15,12 +15,11 @@ from typing import ParamSpec
 from typing import TypeVar
 
 from paramorator import paramorator
-
-from ninject._private._injector import async_update_arguments_by_initializing_dependencies
-from ninject._private._injector import setdefault_arguments_with_initialized_dependencies
-from ninject._private._injector import sync_update_arguments_by_initializing_dependencies
-from ninject._private._utils import get_callable_dependencies
-from ninject._private._utils import normalize_dependency
+from pybooster._private._injector import async_update_arguments_by_initializing_dependencies
+from pybooster._private._injector import setdefault_arguments_with_initialized_dependencies
+from pybooster._private._injector import sync_update_arguments_by_initializing_dependencies
+from pybooster._private._utils import get_callable_dependencies
+from pybooster._private._utils import normalize_dependency
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -28,11 +27,11 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from collections.abc import Sequence
 
-    from ninject.types import AsyncGeneratorCallable
-    from ninject.types import AsyncIteratorCallable
-    from ninject.types import Dependencies
-    from ninject.types import GeneratorCallable
-    from ninject.types import IteratorCallable
+    from pybooster.types import AsyncGeneratorCallable
+    from pybooster.types import AsyncIteratorCallable
+    from pybooster.types import Dependencies
+    from pybooster.types import GeneratorCallable
+    from pybooster.types import IteratorCallable
 
 P = ParamSpec("P")
 R = TypeVar("R")

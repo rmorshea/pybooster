@@ -1,9 +1,9 @@
 site_author: Ryan Morshead
 site_description: A modern dependency injection framework for Python.
-site_name: Ninject
+site_name: PyBooster
 docs_dir: src
 
-repo_url: https://github.com/rmorshea/ninject
+repo_url: https://github.com/rmorshea/pybooster
 
 nav:
     - Home: index.md
@@ -15,7 +15,7 @@ theme:
     name: material
     icon:
         repo: fontawesome/brands/git-alt
-        logo: material/shuriken
+        logo: material/needle
 
 plugins:
     - search

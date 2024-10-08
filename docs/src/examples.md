@@ -6,9 +6,9 @@
 import sqlite3
 from typing import Iterator
 
-from ninject import injector
-from ninject import provider
-from ninject import required
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
 
 
 @provider.iterator
@@ -39,10 +39,10 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import mapped_column
 
-from ninject import injector
-from ninject import provider
-from ninject import required
-from ninject import shared
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import shared
 
 
 class Base(DeclarativeBase): ...
@@ -114,10 +114,10 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
-from ninject import injector
-from ninject import provider
-from ninject import required
-from ninject import shared
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import shared
 
 
 class Base(DeclarativeBase): ...

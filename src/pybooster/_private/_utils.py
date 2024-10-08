@@ -19,10 +19,10 @@ from typing import get_args
 from typing import get_origin
 from typing import get_type_hints
 
-import ninject
+import pybooster
 
 if TYPE_CHECKING:
-    from ninject.types import Dependencies
+    from pybooster.types import Dependencies
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -51,7 +51,7 @@ def _get_callable_dependencies(func: Callable[P, R]) -> NormDependencies:
     dependencies: dict[str, Sequence[type]] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in signature(func).parameters.values():
-        if param.default is ninject.required:
+        if param.default is pybooster.required:
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected dependant parameter {param!r} to be keyword-only."
                 raise TypeError(msg)
