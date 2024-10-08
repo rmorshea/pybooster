@@ -5,7 +5,12 @@ import pytest
 from pytest_examples import CodeExample
 from pytest_examples import EvalExample
 from pytest_examples import find_examples
-from tomllib import loads
+
+try:
+    import tomllib
+except ImportError:
+    import toml as tomllib
+
 
 HERE = Path(__file__).parent
 ROOT_DIR = HERE.parent
@@ -23,7 +28,7 @@ def get_dict_path(data: dict, path: str) -> Any:
 
 @pytest.fixture(scope="module")
 def ruff_ignore() -> list[str]:
-    data = loads(PYPROJECT_TOML_FILE.read_text())
+    data = tomllib.loads(PYPROJECT_TOML_FILE.read_text())
     per_file_ignores = get_dict_path(data, "tool.ruff.lint.per-file-ignores")
     ignores = get_dict_path(data, "tool.ruff.lint.ignore")
     return per_file_ignores["**.md"] + ignores
