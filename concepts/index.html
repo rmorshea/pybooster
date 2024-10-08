@@ -440,19 +440,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sharing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sharing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sharing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#shared-contexts" class="md-nav__link">
     <span class="md-ellipsis">
       Shared Contexts
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Shared Contexts">
-      <ul class="md-nav__list">
+</li>
         
           <li class="md-nav__item">
-  <a href="#shared-static-values" class="md-nav__link">
+  <a href="#shared-values" class="md-nav__link">
     <span class="md-ellipsis">
-      Shared Static Values
+      Shared Values
     </span>
   </a>
   
@@ -691,19 +700,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sharing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sharing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sharing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#shared-contexts" class="md-nav__link">
     <span class="md-ellipsis">
       Shared Contexts
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Shared Contexts">
-      <ul class="md-nav__list">
+</li>
         
           <li class="md-nav__item">
-  <a href="#shared-static-values" class="md-nav__link">
+  <a href="#shared-values" class="md-nav__link">
     <span class="md-ellipsis">
-      Shared Static Values
+      Shared Values
     </span>
   </a>
   
@@ -1224,7 +1242,9 @@ to destructure some data into separate dependencies.</p>
 </span><span id="__span-17-30"><a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a><span class="k">with</span> <span class="n">username_and_password</span><span class="o">.</span><span class="n">scope</span><span class="p">():</span>
 </span><span id="__span-17-31"><a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>    <span class="k">assert</span> <span class="n">login_message</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Logged in as alice&quot;</span>
 </span></code></pre></div>
-<h2 id="shared-contexts">Shared Contexts</h2>
+<h2 id="sharing">Sharing</h2>
+<p>PyBooster provides a few ways to share dependencies across multiple injections.</p>
+<h3 id="shared-contexts">Shared Contexts</h3>
 <p>By default, PyBooster will create a new instance of a dependency each time it is
 injected. To change this, using the <code>shared</code> context manager to declare that a
 dependency should be re-used across all injections for the duration of a context. This
@@ -1263,7 +1283,7 @@ will immediately execute the provider and store the result for future use.</p>
 <p>If the dependency's provider might be asynchronous, enter the <code>shared()</code> context manager
 using <code>async with</code> instead. If you in an async context you should default to using
 <code>async with</code> to ensure that async providers can be executed successfully.</p>
-<h3 id="shared-static-values">Shared Static Values</h3>
+<h3 id="shared-values">Shared Values</h3>
 <p>You can share a static value across all injections by passing a <code>value</code> argument to the
 <code>shared</code> context manager. This can be useful for sharing configuration values or other
 static data.</p>
