@@ -75,7 +75,7 @@ def get_provider_info(types: Sequence[type], *, sync: bool) -> ProviderInfo:
 
 
 def get_all_provider_infos(*, sync: bool) -> Mapping[type, ProviderInfo]:
-    return _SYNC_PROVIDER_INFOS.get() if sync else _SYNC_PROVIDER_INFOS.get() | _ASYNC_PROVIDER_INFOS.get()
+    return _SYNC_PROVIDER_INFOS.get() if sync else {**_SYNC_PROVIDER_INFOS.get(), **_ASYNC_PROVIDER_INFOS.get()}
 
 
 @overload
@@ -115,7 +115,7 @@ def set_provider(
     else:
         new_provider_infos = _make_scalar_provider_infos(provides, manager, sync=sync)
 
-    next_provider_infos: dict[type, ProviderInfo] = dict(prior_provider_infos)
+    next_provider_infos = dict(prior_provider_infos)
     for cls, provider_info in new_provider_infos.items():
         if isinstance(cls, type):
             mro_without_builtins = filter(lambda c: c.__module__ != "builtins", cls.mro())
@@ -157,15 +157,19 @@ def _make_tuple_provider_infos(
     *,
     sync: bool,
 ) -> dict[type, ProviderInfo]:
-    return _make_scalar_provider_infos(provides, manager, sync=sync) | {
-        item_type: _make_scalar_provider_infos(
-            item_type,
-            manager,
-            sync=sync,
-            getter=lambda x, i=index: x[i],
-        )
-        for index, item_type in enumerate(get_args(provides))
-    }
+    infos_list = (
+        _make_scalar_provider_infos(provides, manager, sync=sync),
+        *(
+            _make_scalar_provider_infos(
+                item_type,
+                manager,
+                sync=sync,
+                getter=lambda x, i=index: x[i],
+            )
+            for index, item_type in enumerate(get_args(provides))
+        ),
+    )
+    return {c: i for infos in infos_list for c, i in infos.items()}
 
 
 def _make_scalar_provider_infos(
@@ -177,9 +181,6 @@ def _make_scalar_provider_infos(
 ) -> dict[type, ProviderInfo]:
     if get_origin(provides) is Union:
         msg = f"Cannot provide a union type {provides}."
-        raise TypeError(msg)
-    if isinstance(provides, type) and provides.__module__ == "builtins":
-        msg = f"Cannot provide built-in type {provides} - use NewType to make a distinct subtype."
         raise TypeError(msg)
     return {provides: {"manager": manager, "getter": getter, "sync": sync}}
 

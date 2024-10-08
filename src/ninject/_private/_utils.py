@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import builtins
 from collections.abc import AsyncIterator
 from collections.abc import Coroutine
 from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
-from ctypes import Union
 from inspect import Parameter
 from inspect import signature
+from types import UnionType
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Callable
@@ -60,9 +61,14 @@ def _get_callable_dependencies(func: Callable[P, R]) -> NormDependencies:
 
 def normalize_dependency(types: type[R] | Sequence[type[R]]) -> Sequence[type[R]]:
     if isinstance(types, Sequence):
-        return [normalize_dependency(cls) for cls in types]
-    else:
-        return get_args(types) if get_origin(types) is Union else (types,)
+        return [c for cls in types for c in normalize_dependency(cls)]
+
+    cls = types
+    if isinstance(cls, type) and cls.__module__ == "builtins" and getattr(builtins, cls.__name__, None) is cls:
+        msg = f"Cannot provide built-in type {cls.__module__}.{cls} - use NewType to make a distinct subtype."
+        raise TypeError(msg)
+
+    return normalize_dependency(get_args(cls)) if get_origin(cls) is UnionType else (cls,)
 
 
 class DependencyInfo(TypedDict):

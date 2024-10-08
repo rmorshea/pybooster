@@ -99,9 +99,11 @@ def iterator(
     """
     provides = provides or get_iterator_yield_type(func, sync=True)
     norm_dependencies = get_callable_dependencies(func, dependencies)
-    if norm_dependencies:
-        func = injector.generator(func, dependencies=norm_dependencies)
-    return _SyncProvider(_contextmanager(func), provides, set(norm_dependencies.values()))
+    return _SyncProvider(
+        injector.contextmanager(func, dependencies=norm_dependencies) if norm_dependencies else _contextmanager(func),
+        provides,
+        set(norm_dependencies.values()),
+    )
 
 
 @paramorator
@@ -119,9 +121,16 @@ def asynciterator(
         provides: The type that the function provides (infered if not provided).
     """
     provides = provides or get_iterator_yield_type(func, sync=False)
-    if dependencies := get_callable_dependencies(func, dependencies):
-        func = injector.asyncgenerator(func, dependencies=dependencies)
-    return _AsyncProvider(_asynccontextmanager(func), provides, set(dependencies.values()))
+    norm_dependencies = get_callable_dependencies(func, dependencies)
+    return _AsyncProvider(
+        (
+            injector.asynccontextmanager(func, dependencies=norm_dependencies)
+            if norm_dependencies
+            else _asynccontextmanager(func)
+        ),
+        provides,
+        set(norm_dependencies.values()),
+    )
 
 
 class _Provider(Generic[P, R]):

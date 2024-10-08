@@ -5,9 +5,10 @@ from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING
 from typing import TypeVar
 
-from ninject._private._singleton import async_singleton
-from ninject._private._singleton import sync_singleton
+from ninject._private._shared import async_shared_context
+from ninject._private._shared import sync_shared_context
 from ninject._private._utils import normalize_dependency
+from ninject._private._utils import undefined
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -15,23 +16,29 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-def singleton(cls: type[T] | Sequence) -> _SingletonContext[T]:
-    """Declare that a dependency should be a singleton for the duration of the context."""
-    return _SingletonContext(normalize_dependency(cls))
+def shared(cls: type[T] | Sequence, value: T = undefined) -> _SharedContext[T]:
+    """Declare that a single value should be shared across all injections of a dependency.
+
+    Args:
+        cls: The dependency to share.
+        value: The value to share. If not provided, the dependency will be resolved.
+    """
+    return _SharedContext(normalize_dependency(cls), value=value)
 
 
-class _SingletonContext(AbstractContextManager[T], AbstractAsyncContextManager[T]):
-    """A context manager to declare a singleton instance of a dependency."""
+class _SharedContext(AbstractContextManager[T], AbstractAsyncContextManager[T]):
+    """A context manager to declare a shared instance of a dependency."""
 
-    def __init__(self, types: Sequence[type[T]]) -> None:
+    def __init__(self, types: Sequence[type[T]], value: T) -> None:
         self.types = types
+        self.value = value
 
     def __enter__(self) -> T:
         if hasattr(self, "_sync_ctx"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
 
-        self._sync_ctx = sync_singleton(self.types)
+        self._sync_ctx = sync_shared_context(self.types, self.value)
         try:
             return self._sync_ctx.__enter__()
         except BaseException:
@@ -49,7 +56,7 @@ class _SingletonContext(AbstractContextManager[T], AbstractAsyncContextManager[T
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
 
-        self._async_ctx = async_singleton(self.types)
+        self._async_ctx = async_shared_context(self.types, self.value)
         try:
             return await self._async_ctx.__aenter__()
         except BaseException:

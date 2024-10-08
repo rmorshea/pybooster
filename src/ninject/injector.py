@@ -46,7 +46,12 @@ def function(
     *,
     dependencies: Dependencies | None = None,
 ) -> Callable[P, R]:
-    """Inject dependencies into the given function."""
+    """Inject dependencies into the given function.
+
+    Args:
+        func: The function to inject dependencies into.
+        dependencies: The dependencies to inject into the function.
+    """
     dependencies = get_callable_dependencies(func, dependencies)
 
     @wraps(func)
@@ -93,6 +98,7 @@ def generator(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Generator[Y, S, R]:
         if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
             yield from func(*args, **kwargs)
+            return
         with ExitStack() as stack:
             sync_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
             yield from func(*args, **kwargs)
@@ -114,6 +120,7 @@ def asyncgenerator(
         if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
             async for value in func(*args, **kwargs):
                 yield value
+                return
         async with AsyncExitStack() as stack:
             await async_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
             async for value in func(*args, **kwargs):

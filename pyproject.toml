@@ -32,15 +32,23 @@ path = "src/ninject/__init__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
-  "coverage[toml]>=6.5",
-  "pytest>=8.2.2,<9",
-  "pytest-asyncio>=0.23.7,<1",
+  "coverage[toml]==7.6.1",
+  "mkdocs-material==9.5.39",
+  "mkdocs-open-in-new-tab==1.0.5",
+  "mkdocs==1.6.1",
+  "mkdocstrings-python==1.11.1",
+  "pytest-asyncio==0.24.0",
+  "pytest-examples==0.0.13",
+  "pytest==8.3.3",
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
-cov-report = ["- coverage combine", "coverage report"]
-cov = ["test-cov", "cov-report"]
+test-cov-run = "coverage run -m pytest {args:tests}"
+test-cov-report = ["- coverage combine", "coverage report"]
+test-cov = ["test-cov-run", "cov-report-report"]
+docs-build = "mkdocs build"
+docs-serve = "mkdocs serve -f docs/mkdocs.yml"
+docs-fix = "pytest tests/test_docs.py --update-examples"
 
 [tool.hatch.envs.lint]
 extra-dependencies = ["black==24.8.0", "pyright==1.1.377", "ruff==0.5.7"]
@@ -49,16 +57,6 @@ typing = "pyright {args:src/ninject tests}"
 style = ["ruff check {args:.}", "black --check --diff {args:.}"]
 fix = ["black {args:.}", "ruff check --fix {args:.}", "style"]
 all = ["style", "typing"]
-
-[tool.hatch.envs.docs]
-extra-dependencies = [
-  "mkdocs==1.6.1",
-  "mkdocs-material==9.5.39",
-  "mkdocs-open-in-new-tab==1.0.5",
-]
-[tool.hatch.envs.docs.scripts]
-build = "mkdocs build"
-serve = "mkdocs serve -f docs/mkdocs.yml"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -118,15 +116,24 @@ force-single-line = true
 ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*" = [
-  "PLC2701", # Allow private imports
-  "RUF029",  # Allow async functions without await
-  "S101",    # Allow asserts in tests
-  "D",
-  "ANN",
+"tests/**" = [
+  "PLC2701", # Private imports
+  "RUF029",  # Async functions without await
+  "S101",    # Assert statements
+  "D",       # Docstrings
+  "ANN",     # Type annotations
 ]
 "**.ipynb" = [
-  "T201", # Allow print statements
+  "T201", # Print statements
+]
+"**.md" = [
+  "D",      # Docstrings
+  "ANN",    # Type annotations
+  "S101",   # Assert statements
+  "S106",   # Possible passwords
+  "FA102",  # Unsafe __futures__ annotations usage
+  "SIM115", # Use context manager for opening files
+  "RUF029", # No await in async function
 ]
 
 [tool.coverage.run]

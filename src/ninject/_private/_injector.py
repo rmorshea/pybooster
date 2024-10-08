@@ -8,7 +8,7 @@ from typing import TypeVar
 from ninject._private._provider import ProviderInfo
 from ninject._private._provider import SyncProviderInfo
 from ninject._private._provider import iter_provider_infos
-from ninject._private._singleton import SINGLETONS
+from ninject._private._shared import SHARED_VALUES
 from ninject._private._utils import NormDependencies
 from ninject._private._utils import undefined
 
@@ -27,7 +27,7 @@ def setdefault_arguments_with_initialized_dependencies(
     dependencies: NormDependencies,
 ) -> NormDependencies:
     missing: dict[str, Sequence[type]] = {}
-    dependency_values = SINGLETONS.get()
+    dependency_values = SHARED_VALUES.get()
     for name, types in dependencies.items():
         if name not in arguments:
             for cls in types:
@@ -45,7 +45,7 @@ def sync_update_arguments_by_initializing_dependencies(
     dependencies: NormDependencies,
 ) -> None:
     for name, cls, info in iter_provider_infos(dependencies, sync=True):
-        if (value := SINGLETONS.get().get(cls, undefined)) is undefined:
+        if (value := SHARED_VALUES.get().get(cls, undefined)) is undefined:
             arguments[name] = sync_enter_provider_context(stack, info)
         else:
             arguments[name] = value
@@ -57,7 +57,7 @@ async def async_update_arguments_by_initializing_dependencies(
     dependencies: NormDependencies,
 ) -> None:
     for name, cls, info in iter_provider_infos(dependencies, sync=False):
-        if (value := SINGLETONS.get().get(cls, undefined)) is undefined:
+        if (value := SHARED_VALUES.get().get(cls, undefined)) is undefined:
             if info["sync"] is True:
                 arguments[name] = sync_enter_provider_context(stack, info)
             else:

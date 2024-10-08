@@ -6,7 +6,7 @@ framework for Python that reduces boilerplate by leveraging modern typing featur
 ## Installation
 
 ```bash
-pip install ninject
+pip install -U ninject
 ```
 
 ## Quick Start
@@ -23,23 +23,25 @@ Here's brief example showing how to inject a `sqlite3.Connection` object into a 
 that executes a query:
 
 ```python
-from sqlite3 import Connection
+import sqlite3
+from typing import Iterator
 
-from ninject import provider, injector, required
+from ninject import injector
+from ninject import provider
+from ninject import required
 
 
 @provider.iterator
-def sqlite_connection(database: str) -> Iterator[Connection]:
-    with connect(database) as conn:
+def sqlite_connection(database: str) -> Iterator[sqlite3.Connection]:
+    with sqlite3.connect(database) as conn:
         yield conn
 
 
 @injector.function
-def query_database(query: str, *, conn: Connection = required) -> None:
-    with conn.cursor() as cursor:
-        cursor.execute(query)
+def query_database(query: str, *, conn: sqlite3.Connection = required) -> None:
+    conn.execute(query)
 
 
-with sqlite_connection.scope('example.db'):
-    query_database('CREATE TABLE example (id INTEGER PRIMARY KEY)')
+with sqlite_connection.scope(":memory:"):
+    query_database("CREATE TABLE example (id INTEGER PRIMARY KEY)")
 ```
