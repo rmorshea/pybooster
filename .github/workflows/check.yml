@@ -30,6 +30,6 @@ jobs:
             - name: Run lint
               run: hatch run lint:all
             - name: Run tests
-              run: hatch run cov
+              run: hatch run test-cov
             - name: Build dist
               run: hatch build
