@@ -1,9 +1,8 @@
-from collections.abc import AsyncGenerator
 from collections.abc import AsyncIterator
-from collections.abc import Generator
 from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
+from contextlib import AbstractAsyncContextManager
 from contextlib import AbstractContextManager
 from typing import Callable
 from typing import ParamSpec
@@ -20,13 +19,9 @@ IteratorCallable = Callable[P, Iterator[R]]
 """A callable that returns an iterator."""
 AsyncIteratorCallable = Callable[P, AsyncIterator[R]]
 """A callable that returns an async iterator."""
-GeneratorCallable = Callable[P, Generator[Y, S, R]]
-"""A callable that returns a generator."""
-AsyncGeneratorCallable = Callable[P, AsyncGenerator[Y, S]]
-"""A callable that returns an async generator."""
 ContextManagerCallable = Callable[P, AbstractContextManager[R]]
 """A callable that returns a context manager."""
-AsyncContextManagerCallable = Callable[P, AbstractContextManager[R]]
+AsyncContextManagerCallable = Callable[P, AbstractAsyncContextManager[R]]
 """A callable that returns an async context manager."""
 
 Dependencies = Mapping[str, type | Sequence[type]]

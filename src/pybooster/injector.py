@@ -23,21 +23,17 @@ from pybooster._private._utils import get_callable_dependencies
 from pybooster._private._utils import normalize_dependency
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncIterator
     from collections.abc import Coroutine
-    from collections.abc import Generator
+    from collections.abc import Iterator
     from collections.abc import Sequence
 
-    from pybooster.types import AsyncGeneratorCallable
     from pybooster.types import AsyncIteratorCallable
     from pybooster.types import Dependencies
-    from pybooster.types import GeneratorCallable
     from pybooster.types import IteratorCallable
 
 P = ParamSpec("P")
 R = TypeVar("R")
-Y = TypeVar("Y")
-S = TypeVar("S")
 
 
 @paramorator
@@ -75,7 +71,7 @@ def asyncfunction(
     dependencies = get_callable_dependencies(func, dependencies)
 
     @wraps(func)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[reportReturnType]
         if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
             return await func(*args, **kwargs)
         async with AsyncExitStack() as stack:
@@ -86,37 +82,39 @@ def asyncfunction(
 
 
 @paramorator
-def generator(
-    func: GeneratorCallable[P, Y, S, R],
+def iterator(
+    func: IteratorCallable[P, R],
     *,
     dependencies: Dependencies | None = None,
-) -> GeneratorCallable[P, Y, S, R]:
+) -> IteratorCallable[P, R]:
     """Inject dependencies into the given iterator."""
     dependencies = get_callable_dependencies(func, dependencies)
 
     @wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> Generator[Y, S, R]:
-        if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
-            yield from func(*args, **kwargs)
-            return
-        with ExitStack() as stack:
-            sync_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
-            yield from func(*args, **kwargs)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
+        try:
+            if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
+                yield from func(*args, **kwargs)
+            with ExitStack() as stack:
+                sync_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
+                yield from func(*args, **kwargs)
+        except StopIteration as e:
+            return e.value  # noqa: B901
 
     return wrapper
 
 
 @paramorator
-def asyncgenerator(
-    func: AsyncGeneratorCallable[P, Y, S],
+def asynciterator(
+    func: AsyncIteratorCallable[P, R],
     *,
     dependencies: Dependencies | None = None,
-) -> AsyncGeneratorCallable[P, Y, S]:
+) -> AsyncIteratorCallable[P, R]:
     """Inject dependencies into the given async iterator."""
     dependencies = get_callable_dependencies(func, dependencies)
 
     @wraps(func)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncGenerator[Y, S]:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
             async for value in func(*args, **kwargs):
                 yield value
@@ -135,9 +133,9 @@ def contextmanager(
     func: IteratorCallable[P, R],
     *,
     dependencies: Dependencies | None = None,
-) -> AbstractContextManager[R]:
+) -> Callable[P, AbstractContextManager[R]]:
     """Inject dependencies into the given context manager function."""
-    return _contextmanager(generator(func, dependencies=dependencies))
+    return _contextmanager(iterator(func, dependencies=dependencies))
 
 
 @paramorator
@@ -145,9 +143,9 @@ def asynccontextmanager(
     func: AsyncIteratorCallable[P, R],
     *,
     dependencies: Dependencies | None = None,
-) -> AbstractAsyncContextManager[R]:
+) -> Callable[P, AbstractAsyncContextManager[R]]:
     """Inject dependencies into the given async context manager function."""
-    return _asynccontextmanager(asyncgenerator(func, dependencies=dependencies))
+    return _asynccontextmanager(asynciterator(func, dependencies=dependencies))
 
 
 def current(cls: type[R]) -> _CurrentContext[R]:
@@ -167,12 +165,12 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             raise RuntimeError(msg)
 
         values: dict[Literal["dependency"], R] = {}
-        if not (missing := setdefault_arguments_with_initialized_dependencies(values, {"dependency": self.types})):
+        if not (missing := setdefault_arguments_with_initialized_dependencies(values, {"dependency": self.types})):  # type: ignore[reportArgumentType]
             return values["dependency"]
 
         stack = self._sync_stack = ExitStack()
 
-        sync_update_arguments_by_initializing_dependencies(stack, values, missing)
+        sync_update_arguments_by_initializing_dependencies(stack, values, missing)  # type: ignore[reportArgumentType]
         return values["dependency"]
 
     async def __aenter__(self) -> R:
@@ -181,12 +179,12 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             raise RuntimeError(msg)
 
         values: dict[Literal["dependency"], R] = {}
-        if not (missing := setdefault_arguments_with_initialized_dependencies(values, {"dependency": self.types})):
+        if not (missing := setdefault_arguments_with_initialized_dependencies(values, {"dependency": self.types})):  # type: ignore[reportArgumentType]
             return values["dependency"]
 
-        stack = self._async_stack = ExitStack()
+        stack = self._async_stack = AsyncExitStack()
 
-        await async_update_arguments_by_initializing_dependencies(stack, values, missing)
+        await async_update_arguments_by_initializing_dependencies(stack, values, missing)  # type: ignore[reportArgumentType]
         return values["dependency"]
 
     def __exit__(self, *exc: Any) -> None:

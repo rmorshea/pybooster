@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from contextlib import AbstractAsyncContextManager
-from contextlib import AbstractContextManager
 from contextlib import asynccontextmanager as _asynccontextmanager
 from contextlib import contextmanager as _contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING
+from typing import Any
 from typing import Callable
 from typing import Generic
 from typing import Literal
 from typing import ParamSpec
 from typing import TypeAlias
 from typing import TypeVar
+from typing import cast
 
 from paramorator import paramorator
 
@@ -24,6 +24,7 @@ from pybooster._private._utils import get_iterator_yield_type
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from collections.abc import Awaitable
     from collections.abc import Iterator
     from collections.abc import Sequence
 
@@ -62,7 +63,7 @@ def function(
 
 @paramorator
 def asyncfunction(
-    func: Callable[P, R],
+    func: Callable[P, Awaitable[R]],
     *,
     dependencies: Dependencies | None = None,
     provides: type[R] | None = None,
@@ -99,9 +100,9 @@ def iterator(
     """
     provides = provides or get_iterator_yield_type(func, sync=True)
     norm_dependencies = get_callable_dependencies(func, dependencies)
-    return _SyncProvider(
+    return SyncProvider(
         injector.contextmanager(func, dependencies=norm_dependencies) if norm_dependencies else _contextmanager(func),
-        provides,
+        cast(type[R], provides),
         set(norm_dependencies.values()),
     )
 
@@ -122,26 +123,18 @@ def asynciterator(
     """
     provides = provides or get_iterator_yield_type(func, sync=False)
     norm_dependencies = get_callable_dependencies(func, dependencies)
-    return _AsyncProvider(
+    return AsyncProvider(
         (
             injector.asynccontextmanager(func, dependencies=norm_dependencies)
             if norm_dependencies
             else _asynccontextmanager(func)
         ),
-        provides,
+        cast(type[R], provides),
         set(norm_dependencies.values()),
     )
 
 
-class _Provider(Generic[P, R]):
-
-    provides: type[R]
-    """The dependency that this provider produces."""
-    value: ContextManagerCallable[P, R] | AsyncContextManagerCallable[P, R]
-    """The function that produces the dependency."""
-
-    _dependency_set: set[Sequence[type]]
-    _sync: bool
+class _Provider(Generic[P]):
 
     @_contextmanager
     def scope(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[None]:
@@ -149,6 +142,12 @@ class _Provider(Generic[P, R]):
 
         Noteable this does not actually create the dependency until the context is entered.
         """
+        # convince type checker these attributes exist
+        self.provides: Any
+        self.value: Any
+        self._sync: Any
+        self._dependency_set: Any
+
         reset = set_provider(
             self.provides,
             wraps(self.value)(lambda: self.value(*args, **kwargs)),
@@ -161,7 +160,8 @@ class _Provider(Generic[P, R]):
             reset()
 
 
-class _SyncProvider(_Provider[P, R]):
+class SyncProvider(_Provider[P], Generic[P, R]):
+    """A provider that produces a dependency."""
 
     def __init__(
         self,
@@ -170,12 +170,13 @@ class _SyncProvider(_Provider[P, R]):
         dependency_set: set[Sequence[type]],
     ) -> None:
         self.provides = provides
-        self.value: Callable[P, AbstractContextManager[R]] = manager
+        self.value: ContextManagerCallable[P, R] = manager
         self._dependency_set = dependency_set
         self._sync: Literal[True] = True
 
 
-class _AsyncProvider(_Provider[P, R]):
+class AsyncProvider(_Provider[P], Generic[P, R]):
+    """A provider that produces an async dependency."""
 
     def __init__(
         self,
@@ -184,14 +185,10 @@ class _AsyncProvider(_Provider[P, R]):
         dependency_set: set[Sequence[type]],
     ) -> None:
         self.provides = provides
-        self.value: Callable[P, AbstractAsyncContextManager[R]] = manager
+        self.value: AsyncContextManagerCallable[P, R] = manager
         self._dependency_set = dependency_set
         self._sync: Literal[False] = False
 
 
-SyncProvider: TypeAlias = "_SyncProvider[P, R]"
-"""A sync provider that produces a dependency."""
-AsyncProvider: TypeAlias = "_AsyncProvider[P, R]"
-"""An async provider that produces a dependency."""
 Provider: TypeAlias = "SyncProvider[P, R] | AsyncProvider[P, R]"
 """A provider that produces a dependency."""

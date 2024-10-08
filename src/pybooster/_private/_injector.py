@@ -5,7 +5,7 @@ from typing import Any
 from typing import ParamSpec
 from typing import TypeVar
 
-from pybooster._private._provider import ProviderInfo
+from pybooster._private._provider import AsyncProviderInfo
 from pybooster._private._provider import SyncProviderInfo
 from pybooster._private._provider import iter_provider_infos
 from pybooster._private._shared import SHARED_VALUES
@@ -70,5 +70,5 @@ def sync_enter_provider_context(stack: ExitStack | AsyncExitStack, provider_info
     return provider_info["getter"](stack.enter_context(provider_info["manager"]()))
 
 
-async def async_enter_provider_context(stack: AsyncExitStack, provider_info: ProviderInfo) -> Any:
+async def async_enter_provider_context(stack: AsyncExitStack, provider_info: AsyncProviderInfo) -> Any:
     return provider_info["getter"](await stack.enter_async_context(provider_info["manager"]()))

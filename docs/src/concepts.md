@@ -60,8 +60,8 @@ PyBooster supports decorators for the following types of functions:
 
 -   `injector.function`
 -   `injector.asyncfunction`
--   `injector.generator`
--   `injector.asyncgenerator`
+-   `injector.iterator`
+-   `injector.asynciterator`
 -   `injector.contextmanager`
 -   `injector.asynccontextmanager`
 

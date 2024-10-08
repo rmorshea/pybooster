@@ -10,6 +10,7 @@ from typing import ParamSpec
 from typing import TypedDict
 from typing import TypeVar
 from typing import Union
+from typing import cast
 from typing import get_args
 from typing import get_origin
 from typing import overload
@@ -78,26 +79,6 @@ def get_all_provider_infos(*, sync: bool) -> Mapping[type, ProviderInfo]:
     return _SYNC_PROVIDER_INFOS.get() if sync else {**_SYNC_PROVIDER_INFOS.get(), **_ASYNC_PROVIDER_INFOS.get()}
 
 
-@overload
-def set_provider(
-    provides: type[R],
-    provider: ContextManagerCallable[[], R],
-    dependency_set: set[Sequence[type]],
-    *,
-    sync: Literal[True],
-) -> Callable[[], None]: ...
-
-
-@overload
-def set_provider(
-    provides: type[R],
-    provider: AsyncContextManagerCallable[[], R],
-    dependency_set: set[Sequence[type]],
-    *,
-    sync: Literal[False],
-) -> Callable[[], None]: ...
-
-
 def set_provider(
     provides: type[R],
     manager: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
@@ -123,8 +104,8 @@ def set_provider(
         else:
             next_provider_infos[cls] = provider_info
 
-    token = provider_infos_var.set(next_provider_infos)
-    return lambda: provider_infos_var.reset(token)
+    token = provider_infos_var.set(next_provider_infos)  # type: ignore[reportArgumentType]
+    return lambda: provider_infos_var.reset(token)  # type: ignore[reportArgumentType]
 
 
 def _check_missing_dependencies(dependency_set: set[Sequence[type]], *, sync: bool) -> None:
@@ -152,8 +133,8 @@ ProviderInfo = SyncProviderInfo | AsyncProviderInfo
 
 
 def _make_tuple_provider_infos(
-    provides: tuple,
-    manager: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
+    provides: Any,
+    manager: ContextManagerCallable[[], Any] | AsyncContextManagerCallable[[], Any],
     *,
     sync: bool,
 ) -> dict[type, ProviderInfo]:
@@ -164,7 +145,7 @@ def _make_tuple_provider_infos(
                 item_type,
                 manager,
                 sync=sync,
-                getter=lambda x, i=index: x[i],
+                getter=lambda x, i=index: x[i],  # type: ignore[reportIndexIssue]
             )
             for index, item_type in enumerate(get_args(provides))
         ),
@@ -173,8 +154,8 @@ def _make_tuple_provider_infos(
 
 
 def _make_scalar_provider_infos(
-    provides: type[R],
-    manager: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
+    provides: Any,
+    manager: ContextManagerCallable[[], Any] | AsyncContextManagerCallable[[], Any],
     *,
     sync: bool,
     getter: Callable[[R], Any] = lambda x: x,
@@ -182,7 +163,7 @@ def _make_scalar_provider_infos(
     if get_origin(provides) is Union:
         msg = f"Cannot provide a union type {provides}."
         raise TypeError(msg)
-    return {provides: {"manager": manager, "getter": getter, "sync": sync}}
+    return {provides: cast(ProviderInfo, {"manager": manager, "getter": getter, "sync": sync})}
 
 
 _SYNC_PROVIDER_INFOS: ContextVar[Mapping[type, SyncProviderInfo]] = ContextVar("SYNC_PROVIDER_INFOS", default={})
