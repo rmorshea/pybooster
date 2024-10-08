@@ -95,9 +95,11 @@ def iterator(
         try:
             if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
                 yield from func(*args, **kwargs)
+                return
             with ExitStack() as stack:
                 sync_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
                 yield from func(*args, **kwargs)
+                return
         except StopIteration as e:
             return e.value  # noqa: B901
 
