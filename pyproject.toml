@@ -32,28 +32,17 @@ path = "src/pybooster/__init__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
-  # tests
   "coverage[toml]==7.6.1",
   "pytest-asyncio==0.24.0",
   "pytest-examples==0.0.13",
   "pytest==8.3.3",
-  "toml==0.10.2",
-  # docs
-  "aiosqlite==0.20.0",
-  "mkdocs-material==9.5.39",
-  "mkdocs-open-in-new-tab==1.0.5",
-  "mkdocs==1.6.1",
-  "mkdocstrings-python==1.11.1",
-  "sqlalchemy[asyncio]==2.0.35",
+  "toml==0.10.2",            # python 3.10 compatibility
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest -v {args:tests}"
-test-cov-run = "coverage run -m pytest -v {args:tests}"
-test-cov-report = ["- coverage combine", "coverage report"]
-test-cov = ["test-cov-run", "test-cov-report"]
-docs-build = "mkdocs build"
-docs-serve = "mkdocs serve -f docs/mkdocs.yml"
-docs-fix = "pytest tests/test_docs.py --update-examples"
+cov-run = "coverage run -m pytest -v {args:tests}"
+cov-report = ["- coverage combine", "coverage report"]
+cov = ["cov-run", "cov-report"]
 
 [tool.hatch.envs.lint]
 python = "3.12"
@@ -63,6 +52,20 @@ typing = "pyright {args:src/pybooster tests}"
 style = ["ruff check {args:.}", "black --check --diff {args:.}"]
 fix = ["black {args:.}", "ruff check --fix {args:.}", "style"]
 all = ["style", "typing"]
+
+[tool.hatch.envs.docs]
+extra-dependencies = [
+  "aiosqlite==0.20.0",
+  "mkdocs-material==9.5.39",
+  "mkdocs-open-in-new-tab==1.0.5",
+  "mkdocs==1.6.1",
+  "mkdocstrings-python==1.11.1",
+  "sqlalchemy[asyncio]==2.0.35",
+]
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build"
+serve = "mkdocs serve -f docs/mkdocs.yml"
+fix = "pytest tests/test_docs.py --update-examples"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
