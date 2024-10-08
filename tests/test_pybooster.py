@@ -1,6 +1,7 @@
 from typing import NewType
 
 import pytest
+
 from pybooster import injector
 from pybooster import provider
 from pybooster import required

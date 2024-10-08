@@ -14,6 +14,7 @@ from typing import TypeAlias
 from typing import TypeVar
 
 from paramorator import paramorator
+
 from pybooster import injector
 from pybooster._private._provider import set_provider
 from pybooster._private._utils import get_callable_dependencies

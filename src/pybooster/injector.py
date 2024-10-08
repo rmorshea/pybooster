@@ -15,6 +15,7 @@ from typing import ParamSpec
 from typing import TypeVar
 
 from paramorator import paramorator
+
 from pybooster._private._injector import async_update_arguments_by_initializing_dependencies
 from pybooster._private._injector import setdefault_arguments_with_initialized_dependencies
 from pybooster._private._injector import sync_update_arguments_by_initializing_dependencies
