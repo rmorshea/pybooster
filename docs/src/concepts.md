@@ -568,7 +568,11 @@ with username_and_password.scope():
     assert login_message() == "Logged in as alice"
 ```
 
-## Shared Contexts
+## Sharing
+
+PyBooster provides a few ways to share dependencies across multiple injections.
+
+### Shared Contexts
 
 By default, PyBooster will create a new instance of a dependency each time it is
 injected. To change this, using the `shared` context manager to declare that a
@@ -612,7 +616,7 @@ If the dependency's provider might be asynchronous, enter the `shared()` context
 using `async with` instead. If you in an async context you should default to using
 `async with` to ensure that async providers can be executed successfully.
 
-### Shared Static Values
+### Shared Values
 
 You can share a static value across all injections by passing a `value` argument to the
 `shared` context manager. This can be useful for sharing configuration values or other
