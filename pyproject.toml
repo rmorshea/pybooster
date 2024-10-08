@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ninject"
+name = "pybooster"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
@@ -20,35 +20,52 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ["typing_extensions"]
+dependencies = ["typing_extensions", "paramorator>=1.0.2,<2"]
 
 [project.urls]
-Documentation = "https://github.com/rmorshea/ninject#readme"
-Issues = "https://github.com/rmorshea/ninject/issues"
-Source = "https://github.com/rmorshea/ninject"
+Documentation = "https://github.com/rmorshea/pybooster#readme"
+Issues = "https://github.com/rmorshea/pybooster/issues"
+Source = "https://github.com/rmorshea/pybooster"
 
 [tool.hatch.version]
-path = "src/ninject/__init__.py"
+path = "src/pybooster/__init__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
-  "coverage[toml]>=6.5",
-  "pytest>=8.2.2,<9",
-  "pytest-asyncio>=0.23.7,<1",
+  "coverage[toml]==7.6.1",
+  "pytest-asyncio==0.24.0",
+  "pytest-examples==0.0.13",
+  "pytest==8.3.3",
+  "toml==0.10.2",            # python 3.10 compatibility
 ]
 [tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
+test = "pytest -v {args:tests}"
+cov-run = "coverage run -m pytest -v {args:tests}"
 cov-report = ["- coverage combine", "coverage report"]
-cov = ["test-cov", "cov-report"]
+cov = ["cov-run", "cov-report"]
 
 [tool.hatch.envs.lint]
-extra-dependencies = ["black==24.8.0", "pyright==1.1.375", "ruff==0.5.7"]
+python = "3.12"
+extra-dependencies = ["black==24.8.0", "pyright==1.1.377", "ruff==0.5.7"]
 [tool.hatch.envs.lint.scripts]
-typing = "pyright {args:src/ninject tests}"
+typing = "pyright {args:src/pybooster tests}"
 style = ["ruff check {args:.}", "black --check --diff {args:.}"]
 fix = ["black {args:.}", "ruff check --fix {args:.}", "style"]
 all = ["style", "typing"]
+
+[tool.hatch.envs.docs]
+extra-dependencies = [
+  "aiosqlite==0.20.0",
+  "mkdocs-material==9.5.39",
+  "mkdocs-open-in-new-tab==1.0.5",
+  "mkdocs==1.6.1",
+  "mkdocstrings-python==1.11.1",
+  "sqlalchemy[asyncio]==2.0.35",
+]
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build"
+serve = "mkdocs serve -f docs/mkdocs.yml"
+fix = "pytest tests/test_docs.py --update-examples"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -70,76 +87,72 @@ indent-style = "space"
 
 [tool.ruff.lint]
 preview = true
-select = [
-  "A",
-  "ARG",
-  "B",
-  "C",
-  "DTZ",
-  "E",
-  "EM",
-  "F",
-  "FBT",
-  "I",
-  "ICN",
-  "ISC",
-  "N",
-  "PLC",
-  "PLE",
-  "PLR",
-  "PLW",
-  "Q",
-  "RUF",
-  "S",
-  "T",
-  "TID",
-  "UP",
-  "W",
-  "YTT",
-]
+select = ["ALL"]
 ignore = [
-  # Allow non-abstract empty methods in abstract base classes
-  "B027",
-  # Allow boolean positional values in function calls, like `dict.get(... True)`
-  "FBT003",
-  # Ignore checks for possible passwords
-  "S105",
-  "S106",
-  "S107",
-  # Ignore complexity
-  "C901",
-  "PLR0911",
-  "PLR0912",
-  "PLR0913",
-  "PLR0915",
-  # Allow contextmanager dunder methods
-  "PLC2801",
-  # Allow shadowing builtin modules
-  "A005",
+  "A005",   # Module shadowing built-in
+  "ANN",    # Let pyright handle annotations
+  "ANN401", # Allow Any type hints
+  "B027",   # Allow non-abstract empty methods in abstract base classes
+  "B039",   # Mutable default for contextvars
+  "C901",   # Ignore complexity
+  "COM812", # Trailing comma
+  "CPY001", # Copyright at top of file
+  "D100",   # Docstring for module
+  "D104",   # Ignore missing docstring for __init__.py
+  "D105",   # Docstring for magic method
+  "D107",   # Docstring for __init__ method
+  "D407",   # Docstring dashes under section names
+  "D413",   # Docstring blank line after last section
+  "DOC201", # Return type documentation
+  "DOC402", # Yield type documentation
+  "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "PL",     # PyLint
+  "PYI",    # Stub files
+  "RET503", # Explicit return
+  "RET505", # Unnecessary return statement after return
+  "S105",   # Ignore checks for possible passwords
 ]
+unfixable = [
+  "COM819", # Trailing comma
+]
+extend-safe-fixes = ["TCH"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ninject"]
+known-first-party = ["pybooster"]
 force-single-line = true
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*" = [
-  "PLC2701", # Allow private imports
-  "RUF029",  # Allow async functions without await
-  "S101",    # Allow asserts in tests
+"tests/**" = [
+  "PLC2701", # Private imports
+  "RUF029",  # Async functions without await
+  "S101",    # Assert statements
+  "D",       # Docstrings
+  "ANN",     # Type annotations
+]
+"**.ipynb" = [
+  "T201", # Print statements
+]
+"**.md" = [
+  "D",      # Docstrings
+  "ANN",    # Type annotations
+  "S101",   # Assert statements
+  "S106",   # Possible passwords
+  "FA102",  # Unsafe __futures__ annotations usage
+  "SIM115", # Use context manager for opening files
+  "RUF029", # No await in async function
 ]
 
 [tool.coverage.run]
-source_pkgs = ["ninject", "tests"]
+source_pkgs = ["pybooster", "tests"]
 branch = true
 parallel = true
 omit = []
 
 [tool.coverage.paths]
-ninject = ["src/ninject"]
+pybooster = ["src/pybooster"]
 tests = ["tests"]
 
 [tool.coverage.report]
