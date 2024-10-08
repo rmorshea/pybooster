@@ -33,9 +33,9 @@ def ruff_ignore() -> list[str]:
 def test_docstrings(example: CodeExample, eval_example: EvalExample, ruff_ignore: list[str]):
     eval_example.set_config(ruff_ignore=ruff_ignore, quotes="double", ruff_select=["ALL"])
     if eval_example.update_examples:
+        eval_example.run_print_update(example)
         eval_example.format_black(example)
         eval_example.format_ruff(example)
-        eval_example.run_print_update(example)
     else:
-        eval_example.lint(example)
         eval_example.run_print_check(example)
+        eval_example.lint(example)

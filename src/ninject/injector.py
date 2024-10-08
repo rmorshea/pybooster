@@ -120,11 +120,12 @@ def asyncgenerator(
         if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
             async for value in func(*args, **kwargs):
                 yield value
-                return
+            return
         async with AsyncExitStack() as stack:
             await async_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
             async for value in func(*args, **kwargs):
                 yield value
+            return
 
     return wrapper
 
