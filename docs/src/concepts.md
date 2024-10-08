@@ -71,7 +71,7 @@ You can use all of these decorators on methods of a class as well.
 
     You can always skip injecting a dependency by passing a value directly as an argument:
 
-    ```python
+    ```python test="false"
     assert hello_greeting(recipient="Bob") == "Hello, Bob!"
     ```
 
@@ -264,7 +264,7 @@ def sqlite_connection(database: str) -> Iterator[sqlite3.Connection]:
 
 These parameters can be supplied when activating the `scope`.
 
-```python
+```python test="false"
 with sqlite_connection.scope(":memory:"):
     ...
 ```
