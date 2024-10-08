@@ -63,9 +63,10 @@ extra-dependencies = [
   "sqlalchemy[asyncio]==2.0.35",
 ]
 [tool.hatch.envs.docs.scripts]
-build = "mkdocs build"
-serve = "mkdocs serve -f docs/mkdocs.yml"
+build = "mkdocs build -f docs/mkdocs.yml"
+deploy = "mkdocs gh-deploy -f docs/mkdocs.yml"
 fix = "pytest tests/test_docs.py --update-examples"
+serve = "mkdocs serve -f docs/mkdocs.yml"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
