@@ -1,10 +1,9 @@
 # Home
 
-PyBooster is a
-[dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) framework for
-Python that reduces boilerplate by leveraging modern typing features.
+PyBooster is a dependency injection framework for Python that reduces boilerplate with
+modern typing features.
 
-## Installation
+## Install
 
 ```bash
 pip install -U pybooster
