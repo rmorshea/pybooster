@@ -103,6 +103,115 @@ with alice.scope(), injector.current(Recipient) as recipient:
     assert recipient == "Alice"
 ```
 
+### Shared Context Injector
+
+By default, PyBooster will create a new instance of a dependency each time it is
+injected. To change this, using the `shared` context manager to declare that a
+dependency should be re-used across all injections for the duration of a context. This
+will immediately execute the provider and store the result for future use.
+
+```python
+from dataclasses import dataclass
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+
+@dataclass
+class Auth:
+    username: str
+    password: str
+
+
+@provider.function
+def auth() -> Auth:
+    return Auth(username="alice", password="EGwVEo3y9E")
+
+
+@injector.function
+def get_auth(*, auth: Auth = required) -> Auth:
+    return auth
+
+
+with auth.scope():
+
+    assert get_auth() is not get_auth()
+
+    with injector.shared(Auth):
+        assert get_auth() is get_auth()
+```
+
+!!! note
+
+    If the dependency's provider might be asynchronous, enter the `shared()` context manager
+    using `async with` instead. If you in an async context you should default to using
+    `async with` to ensure that async providers can be executed successfully.
+
+### Shared Value Injector
+
+You can share a static value amongst injections and without needing a provider by
+passing a `value` argument to the `shared` context manager. This can be useful for
+sharing configuration values or other static data.
+
+```python
+from dataclasses import dataclass
+
+from pybooster import injector
+from pybooster import required
+
+
+@dataclass
+class Auth:
+    username: str
+    password: str
+
+
+@injector.function
+def get_auth(*, auth: Auth = required) -> Auth:
+    return auth
+
+
+with injector.shared(Auth, value=Auth(username="alice", password="EGwVEo3y9E")):
+    assert get_auth() is get_auth()
+```
+
+Using a shared value will also cause any providers for the dependency to be ignored.
+
+```python
+import os
+from dataclasses import dataclass
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+
+@dataclass
+class Auth:
+    username: str
+    password: str
+
+
+@provider.function
+def auth_from_env() -> Auth:
+    return Auth(username=os.environ["USERNAME"], password=os.environ["PASSWORD"])
+
+
+@injector.function
+def get_auth(*, auth: Auth = required) -> Auth:
+    return auth
+
+
+fake_auth = Auth(username="fake", password="fake")
+with injector.shared(Auth, value=fake_auth), auth_from_env.scope():
+    assert get_auth() == fake_auth
+```
+
+Note that if `auth_from_env` had gotten executed it would have raised a `KeyError`
+because `os.environ["USERNAME"]` and `os.environ["PASSWORD"]` would not have been set.
+However, because the `shared` context manager was used, the provider was skipped.
+
 ## Providers
 
 A provider is a function that creates or yields a [dependency](#dependencies). Providers
@@ -110,7 +219,7 @@ are used to define how dependencies resolved when they are [injected](#injectors
 function or context. What providers are available depends on what scopes are active when
 a dependency is resolved.
 
-### Defining Sync Providers
+### Sync Providers
 
 Sync providers can either be functions the return a dependency's value:
 
@@ -147,7 +256,7 @@ def sqlite_connection() -> Iterator[sqlite3.Connection]:
         yield conn
 ```
 
-### Defining Async Providers
+### Async Providers
 
 Async providers can either be a coroutine function that returns a dependency's value:
 
@@ -192,56 +301,6 @@ async def example_reader() -> AsyncIterator[StreamReader]:
     finally:
         writer.close()
         await writer.wait_closed()
-```
-
-### Mixing Sync/Async Providers
-
-You can define both sync and async providers for the same dependency. Sync providers can
-be used in async contexts, but not the other way around. PyBooster will always choose to
-use an async provider when running in an async context and one is available.
-
-```python
-import asyncio
-from dataclasses import dataclass
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-
-
-@dataclass
-class Config:
-    username: str
-    password: str
-
-
-@provider.function
-def config() -> Config:
-    return Config(username="sync-user", password="sync-pass")
-
-
-@provider.asyncfunction
-async def async_config() -> Config:
-    await asyncio.sleep(0)  # Do some async work here...
-    return Config(username="async-user", password="async-pass")
-
-
-@injector.function
-def get_config(*, config: Config = required) -> str:
-    return f"{config.username}:{config.password}"
-
-
-@injector.asyncfunction
-async def get_async_config(*, config: Config = required) -> str:
-    return f"{config.username}:{config.password}"
-
-
-with config.scope(), async_config.scope():
-    assert get_config() == "sync-user:sync-pass"
-    assert asyncio.run(get_async_config()) == "async-user:async-pass"
-
-with config.scope():
-    assert asyncio.run(get_async_config()) == "sync-user:sync-pass"
 ```
 
 ### Parameterizing Providers
@@ -357,6 +416,56 @@ with alice.scope():
 
     The exact behavior of scopes can depend on whether the requested dependency is
     a [union](#union-types) or has [subclasses](#subclassed-types).
+
+### Mixing Sync/Async
+
+You can define both sync and async providers for the same dependency. Sync providers can
+be used in async contexts, but not the other way around. PyBooster will always choose to
+use an async provider when running in an async context and one is available.
+
+```python
+import asyncio
+from dataclasses import dataclass
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+
+@dataclass
+class Config:
+    username: str
+    password: str
+
+
+@provider.function
+def config() -> Config:
+    return Config(username="sync-user", password="sync-pass")
+
+
+@provider.asyncfunction
+async def async_config() -> Config:
+    await asyncio.sleep(0)  # Do some async work here...
+    return Config(username="async-user", password="async-pass")
+
+
+@injector.function
+def get_config(*, config: Config = required) -> str:
+    return f"{config.username}:{config.password}"
+
+
+@injector.asyncfunction
+async def get_async_config(*, config: Config = required) -> str:
+    return f"{config.username}:{config.password}"
+
+
+with config.scope(), async_config.scope():
+    assert get_config() == "sync-user:sync-pass"
+    assert asyncio.run(get_async_config()) == "async-user:async-pass"
+
+with config.scope():
+    assert asyncio.run(get_async_config()) == "sync-user:sync-pass"
+```
 
 ## Dependencies
 
@@ -567,84 +676,3 @@ def login_message(*, username: Username = required) -> str:
 with username_and_password.scope():
     assert login_message() == "Logged in as alice"
 ```
-
-## Sharing
-
-PyBooster provides a few ways to share dependencies across multiple injections.
-
-### Shared Contexts
-
-By default, PyBooster will create a new instance of a dependency each time it is
-injected. To change this, using the `shared` context manager to declare that a
-dependency should be re-used across all injections for the duration of a context. This
-will immediately execute the provider and store the result for future use.
-
-```python
-from dataclasses import dataclass
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import shared
-
-
-@dataclass
-class Auth:
-    username: str
-    password: str
-
-
-@provider.function
-def auth() -> Auth:
-    return Auth(username="alice", password="EGwVEo3y9E")
-
-
-@injector.function
-def get_auth(*, auth: Auth = required) -> Auth:
-    return auth
-
-
-with auth.scope():
-
-    assert get_auth() is not get_auth()
-
-    with shared(Auth):
-        assert get_auth() is get_auth()
-```
-
-If the dependency's provider might be asynchronous, enter the `shared()` context manager
-using `async with` instead. If you in an async context you should default to using
-`async with` to ensure that async providers can be executed successfully.
-
-### Shared Values
-
-You can share a static value across all injections by passing a `value` argument to the
-`shared` context manager. This can be useful for sharing configuration values or other
-static data.
-
-```python
-from dataclasses import dataclass
-
-from pybooster import injector
-from pybooster import required
-from pybooster import shared
-
-
-@dataclass
-class Auth:
-    username: str
-    password: str
-
-
-@injector.function
-def get_auth(*, auth: Auth = required) -> Auth:
-    return auth
-
-
-with shared(Auth, value=Auth(username="alice", password="EGwVEo3y9E")):
-    assert get_auth() is get_auth()
-```
-
-!!! note
-
-    You do not need to declare a provider for a dependency that is shared in this way.

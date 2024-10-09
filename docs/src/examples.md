@@ -42,7 +42,6 @@ from sqlalchemy.orm import mapped_column
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import shared
 
 
 class Base(DeclarativeBase): ...
@@ -92,7 +91,7 @@ url = "sqlite:///:memory:"
 with (
     sqlalchemy_engine.scope(url),
     sqlalchemy_session.scope(),
-    shared(Engine),
+    injector.shared(Engine),
 ):
     create_tables()
     user_id = add_user("Alice")
@@ -117,7 +116,6 @@ from sqlalchemy.orm import mapped_column
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import shared
 
 
 class Base(DeclarativeBase): ...
@@ -172,7 +170,7 @@ async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
 async def main():
     url = "sqlite+aiosqlite:///:memory:"
     with sqlalchemy_async_engine.scope(url), sqlalchemy_async_session.scope():
-        async with shared(AsyncEngine):
+        async with injector.shared(AsyncEngine):
             await create_tables()
             user_id = await add_user("Alice")
             user = await get_user(user_id)

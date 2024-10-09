@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractContextManager
 from contextlib import asynccontextmanager as _asynccontextmanager
 from contextlib import contextmanager as _contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING
-from typing import Any
 from typing import Callable
 from typing import Generic
 from typing import Literal
@@ -134,33 +135,7 @@ def asynciterator(
     )
 
 
-class _Provider(Generic[P]):
-
-    @_contextmanager
-    def scope(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[None]:
-        """Declare this as the provider for the dependency within the context.
-
-        Noteable this does not actually create the dependency until the context is entered.
-        """
-        # convince type checker these attributes exist
-        self.provides: Any
-        self.value: Any
-        self._sync: Any
-        self._dependency_set: Any
-
-        reset = set_provider(
-            self.provides,
-            wraps(self.value)(lambda: self.value(*args, **kwargs)),
-            self._dependency_set,
-            sync=self._sync,
-        )
-        try:
-            yield None
-        finally:
-            reset()
-
-
-class SyncProvider(_Provider[P], Generic[P, R]):
+class SyncProvider(Generic[P, R]):
     """A provider that produces a dependency."""
 
     def __init__(
@@ -174,8 +149,12 @@ class SyncProvider(_Provider[P], Generic[P, R]):
         self._dependency_set = dependency_set
         self._sync: Literal[True] = True
 
+    def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
+        """Declare this as the provider for the dependency within the context."""
+        return _ProviderScope(self.provides, lambda: self.value(*args, **kwargs), self._dependency_set, sync=True)
 
-class AsyncProvider(_Provider[P], Generic[P, R]):
+
+class AsyncProvider(Generic[P, R]):
     """A provider that produces an async dependency."""
 
     def __init__(
@@ -188,6 +167,45 @@ class AsyncProvider(_Provider[P], Generic[P, R]):
         self.value: AsyncContextManagerCallable[P, R] = manager
         self._dependency_set = dependency_set
         self._sync: Literal[False] = False
+
+    def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
+        """Declare this as the provider for the dependency within the context."""
+        return _ProviderScope(self.provides, lambda: self.value(*args, **kwargs), self._dependency_set, sync=False)
+
+
+class _ProviderScope(AbstractContextManager[None], AbstractAsyncContextManager[None]):
+    """A context manager to provide the current value of a dependency."""
+
+    def __init__(
+        self,
+        provides: type[R],
+        manager: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
+        dependency_set: set[Sequence[type]],
+        *,
+        sync: bool,
+    ) -> None:
+        self._provides = provides
+        self._manager = manager
+        self._dependency_set = dependency_set
+        self._sync = sync
+
+    def __enter__(self) -> None:
+        if hasattr(self, "_reset"):
+            msg = "Cannot reuse a context manager."
+            raise RuntimeError(msg)
+        self._reset = set_provider(self._provides, self._manager, self._dependency_set, sync=self._sync)
+
+    def __exit__(self, *args) -> None:
+        try:
+            self._reset()
+        finally:
+            del self._reset
+
+    async def __aenter__(self) -> None:
+        return self.__enter__()
+
+    async def __aexit__(self, *args) -> None:
+        return self.__exit__(*args)
 
 
 Provider: TypeAlias = "SyncProvider[P, R] | AsyncProvider[P, R]"

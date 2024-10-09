@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 from typing import Any
