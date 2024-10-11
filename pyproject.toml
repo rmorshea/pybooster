@@ -46,10 +46,14 @@ dependencies = [
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest -v {args:tests}"
-cov-run = "coverage run -m pytest -v {args:tests}"
-cov-report = ["- coverage combine", "coverage report", "coverage xml"]
-cov-diff = ["diff-cover coverage.xml --config-file pyproject.toml"]
-cov = ["cov-run", "cov-report", "cov-diff"]
+cov-test = ["coverage run -m pytest -v {args:tests}"]
+cov-report = [
+  "- coverage combine",
+  "coverage report",
+  "coverage xml",
+  "diff-cover coverage.xml --config-file pyproject.toml",
+]
+cov = ["cov-test", "cov-report"]
 
 [tool.hatch.envs.lint]
 python = "3.12"

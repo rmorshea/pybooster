@@ -7,16 +7,13 @@ on:
         branches: ["main"]
 
 jobs:
-    build:
+    check-tests:
         runs-on: ubuntu-latest
         strategy:
             matrix:
                 python-version: ["3.10", "3.11", "3.12"]
         steps:
             - uses: actions/checkout@v4
-              with:
-                  fetch-depth: 50
-            - run: git fetch origin main
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v5
               with:
@@ -33,10 +30,33 @@ jobs:
             - name: Run lint
               run: hatch run lint:all
             - name: Run tests
-              run: hatch run cov-run && hatch run cov-report
-            - name: Check coverage
-              run:
-                  hatch run cov-diff || echo "::warning title=Coverage::Coverage
-                  decreased"
+              run: hatch run cov-test
+            - name: Upload coverage
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage-${{ matrix.python-version }}
+                  path: ${{ github.workspace }}/.coverage.*
+                  include-hidden-files: true
             - name: Build dist
               run: hatch build
+    check-coverage:
+        runs-on: ubuntu-latest
+        needs: check-tests
+        steps:
+            - name: Download coverage
+              uses: actions/download-artifact@v4
+              with:
+                  name: coverage-3.12
+            - run: ls -a
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 50
+            - run: git fetch origin main
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.10"
+            - name: Install Hatch
+              run: pipx install hatch
+            - name: Run coverage
+              run: hatch run cov-report
