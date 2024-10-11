@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from typing import Callable
 from typing import NewType
 from typing import TypeVar
 
@@ -194,7 +195,7 @@ def test_allow_provider_return_any_if_concrete_type_declared_before_entering_sco
 def test_allow_provider_return_typevar_if_concrete_type_declared_before_entering_scope():
 
     @provider.function
-    def make_string(cls: type[T], string: str) -> T:
+    def make_string(cls: Callable[[str], T], string: str) -> T:
         return cls(string)
 
     @injector.function
