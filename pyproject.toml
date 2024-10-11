@@ -36,7 +36,9 @@ dependencies = [
   "pytest-asyncio==0.24.0",
   "pytest-examples==0.0.13",
   "pytest==8.3.3",
-  "toml==0.10.2",            # python 3.10 compatibility
+  "toml==0.10.2",                # python 3.10 compatibility
+  "aiosqlite==0.20.0",
+  "sqlalchemy[asyncio]==2.0.35",
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest -v {args:tests}"
@@ -55,12 +57,10 @@ all = ["style", "typing"]
 
 [tool.hatch.envs.docs]
 extra-dependencies = [
-  "aiosqlite==0.20.0",
   "mkdocs-material==9.5.39",
   "mkdocs-open-in-new-tab==1.0.5",
   "mkdocs==1.6.1",
   "mkdocstrings-python==1.11.1",
-  "sqlalchemy[asyncio]==2.0.35",
 ]
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build -f docs/mkdocs.yml"
