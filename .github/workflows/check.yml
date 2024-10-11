@@ -33,6 +33,10 @@ jobs:
             - name: Run lint
               run: hatch run lint:all
             - name: Run tests
-              run: hatch run cov
+              run: hatch run cov-run && hatch run cov-report
+            - name: Check coverage
+              run:
+                  hatch run cov-diff || echo "::warning title=Coverage::Coverage
+                  decreased"
             - name: Build dist
               run: hatch build

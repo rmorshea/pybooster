@@ -33,24 +33,23 @@ path = "src/pybooster/__init__.py"
 [tool.hatch.envs.default]
 dependencies = [
   "aiosqlite==0.20.0",
+  "boto3-stubs[essential]==1.35.38",
+  "boto3==1.35.38",
   "coverage[toml]==7.6.1",
   "diff-cover==9.2.0",
+  "moto==5.0.16",
   "pytest-asyncio==0.24.0",
   "pytest-examples==0.0.13",
   "pytest==8.3.3",
   "sqlalchemy[asyncio]==2.0.35",
-  "toml==0.10.2",                # python 3.10 compatibility
+  "toml==0.10.2",                    # python 3.10 compatibility
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest -v {args:tests}"
 cov-run = "coverage run -m pytest -v {args:tests}"
-cov-report = [
-  "- coverage combine",
-  "coverage report",
-  "coverage xml",
-  "diff-cover coverage.xml --compare-branch=origin/main",
-]
-cov = ["cov-run", "cov-report"]
+cov-report = ["- coverage combine", "coverage report", "coverage xml"]
+cov-diff = ["diff-cover coverage.xml --config-file pyproject.toml"]
+cov = ["cov-run", "cov-report", "cov-diff"]
 
 [tool.hatch.envs.lint]
 python = "3.12"
@@ -118,6 +117,7 @@ ignore = [
   "RET503", # Explicit return
   "RET505", # Unnecessary return statement after return
   "S105",   # Ignore checks for possible passwords
+  "SIM117", # Use a single `with` statement
 ]
 unfixable = [
   "COM819", # Trailing comma
@@ -150,6 +150,7 @@ ban-relative-imports = "all"
   "FA102",  # Unsafe __futures__ annotations usage
   "SIM115", # Use context manager for opening files
   "RUF029", # No await in async function
+  "TCH002", # Move third-party import into a type-checking block
 ]
 
 [tool.coverage.run]

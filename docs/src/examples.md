@@ -179,3 +179,61 @@ async def main():
 
 asyncio.run(main())
 ```
+
+## Boto3
+
+```python
+from dataclasses import dataclass
+
+from boto3.session import Session
+from botocore.client import BaseClient
+from moto import mock_aws
+from mypy_boto3_s3 import S3Client
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+
+@dataclass
+class AwsCredentials:
+    access_key_id: str | None = None
+    secret_access_key: str | None = None
+    session_token: str | None = None
+    profile_name: str | None = None
+    region_name: str | None = None
+
+
+@provider.function
+def aws_session(*, creds: AwsCredentials = required) -> Session:
+    return Session(
+        aws_access_key_id=creds.access_key_id,
+        aws_secret_access_key=creds.secret_access_key,
+        aws_session_token=creds.session_token,
+        region_name=creds.region_name,
+    )
+
+
+@provider.function
+def aws_client(service_name: str, *, session: Session = required) -> BaseClient:
+    return session.client(service_name)
+
+
+@injector.function
+def create_bucket(bucket_name: str, *, client: S3Client = required) -> None:
+    client.create_bucket(Bucket=bucket_name)
+
+
+@injector.function
+def list_buckets(*, client: S3Client = required) -> list[str]:
+    return [bucket["Name"] for bucket in client.list_buckets()["Buckets"]]
+
+
+# Get credentials somehow...
+creds = AwsCredentials()
+
+with mock_aws():  # Mock AWS services for testing purposes
+    with aws_session.scope(creds=creds), aws_client[S3Client].scope(service_name="s3"):
+        create_bucket("my-bucket")
+        assert "my-bucket" in list_buckets()
+```
