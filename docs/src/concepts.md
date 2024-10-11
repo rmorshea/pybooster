@@ -525,7 +525,7 @@ with sync_auth.scope():
 
 ## Dependencies
 
-A dependency is (almost) any Python type or class.
+A dependency is (almost) any Python type or class required by a function.
 
 ### Built-In Types
 
@@ -602,8 +602,8 @@ with auth.scope():
 ### Subclassed Types
 
 Providers of subclasses will be automatically injected into functions that require the
-base class. So an `AdminAuth` class that extends `Auth` will be injected into functions
-that require `Auth`.
+base class. So an `AdminAuth` class that inherits from `Auth` can be injected into
+functions that require `Auth`.
 
 ```python
 from dataclasses import dataclass
