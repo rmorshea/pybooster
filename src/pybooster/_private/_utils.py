@@ -10,6 +10,7 @@ from inspect import Parameter
 from inspect import signature
 from types import UnionType
 from typing import TYPE_CHECKING
+from typing import Annotated
 from typing import Any
 from typing import Callable
 from typing import ParamSpec
@@ -76,14 +77,28 @@ class DependencyInfo(TypedDict):
     new: bool
 
 
-def get_callable_return_type(func: Callable) -> type:
-    hints = get_type_hints(func)
+def check_is_concrete_type(cls: type) -> None:
+    if get_origin(cls) is Annotated:
+        cls = get_args(cls)[0]
 
-    if (return_type := hints.get("return")) is None:
-        msg = f"Expected function {func} to have a return type"
+    if cls is Any or cls is object:
+        msg = f"Expected concrete type, but found {cls}"
         raise TypeError(msg)
 
-    return return_type
+    for c in _recurse_type(cls):
+        if type(c) is TypeVar:
+            msg = f"Expected concrete type, but found type variable in {cls}"
+            raise TypeError(msg)
+
+
+def _recurse_type(cls: Any) -> Iterator[Any]:
+    yield cls
+    for arg in get_args(cls):
+        yield from _recurse_type(arg)
+
+
+def get_callable_return_type(func: Callable) -> type:
+    return get_type_hints(func).get("return", Any)
 
 
 def get_coroutine_return_type(func: Callable) -> type:

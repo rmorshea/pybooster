@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
+G = TypeVar("G")
 
 
 @paramorator
@@ -135,7 +136,18 @@ def asynciterator(
     )
 
 
-class SyncProvider(Generic[P, R]):
+class _BaseProvider(Generic[P]):
+    def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
+        """Declare this as the provider for the dependency within the context."""
+        # convince the type checker these exist
+        self.provides: type
+        self.value: Callable
+        self._dependency_set: set
+        self._sync: bool
+        return _ProviderScope(self.provides, lambda: self.value(*args, **kwargs), self._dependency_set, sync=self._sync)
+
+
+class SyncProvider(_BaseProvider[P], Generic[P, R]):
     """A provider that produces a dependency."""
 
     def __init__(
@@ -149,12 +161,12 @@ class SyncProvider(Generic[P, R]):
         self._dependency_set = dependency_set
         self._sync: Literal[True] = True
 
-    def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
-        """Declare this as the provider for the dependency within the context."""
-        return _ProviderScope(self.provides, lambda: self.value(*args, **kwargs), self._dependency_set, sync=True)
+    def __getitem__(self, provides: type[R]) -> SyncProvider[P, R]:
+        """Declare a specific type for a generic provider."""
+        return SyncProvider(self.value, provides, self._dependency_set)
 
 
-class AsyncProvider(Generic[P, R]):
+class AsyncProvider(_BaseProvider[P], Generic[P, R]):
     """A provider that produces an async dependency."""
 
     def __init__(
@@ -168,9 +180,9 @@ class AsyncProvider(Generic[P, R]):
         self._dependency_set = dependency_set
         self._sync: Literal[False] = False
 
-    def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
-        """Declare this as the provider for the dependency within the context."""
-        return _ProviderScope(self.provides, lambda: self.value(*args, **kwargs), self._dependency_set, sync=False)
+    def __getitem__(self, provides: type[R]) -> AsyncProvider[P, R]:
+        """Declare a specific type for a generic provider."""
+        return AsyncProvider(self.value, provides, self._dependency_set)
 
 
 class _ProviderScope(AbstractContextManager[None], AbstractAsyncContextManager[None]):

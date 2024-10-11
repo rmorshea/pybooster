@@ -24,13 +24,13 @@ def hello_greeting(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 ```
 
-!!! note
+!!! warning
 
     Don't forget to add the `required` default value. Without it, PyBooster will not
     know that the argument is a dependency that needs to be injected.
 
 In order for a value to be injected you'll need to declare a [provider](#providers) and
-activate it:
+activate it's [scope](#scoping-providers) before calling the function.
 
 ```python
 from typing import NewType
@@ -67,11 +67,11 @@ PyBooster supports decorators for the following types of functions:
 
 You can use all of these decorators on methods of a class as well.
 
-!!! note
+!!! tip
 
     You can always skip injecting a dependency by passing a value directly as an argument:
 
-    ```python test="false"
+    ```python { test="false" }
     assert hello_greeting(recipient="Bob") == "Hello, Bob!"
     ```
 
@@ -142,11 +142,12 @@ with auth.scope():
         assert get_auth() is get_auth()
 ```
 
-!!! note
+!!! info
 
-    If the dependency's provider might be asynchronous, enter the `shared()` context manager
-    using `async with` instead. If you in an async context you should default to using
-    `async with` to ensure that async providers can be executed successfully.
+    If the dependency's provider is, or could be asynchronous, enter the `shared()`
+    context manager using `async with` instead. This will ensure that async providers
+    can be executed successfully. Even if the provider is synchronous, using `async with`
+    will still work.
 
 ### Shared Value Injector
 
@@ -231,13 +232,14 @@ from pybooster import provider
 
 @dataclass
 class Config:
-    username: str
-    password: str
+    app_name: str
+    app_version: int
+    debug_mode: bool
 
 
 @provider.function
 def config() -> Config:
-    return Config(username="alice", password="EGwVEo3y9E")
+    return Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
 Or iterators that yield the dependency's value. Iterators are useful when you have
@@ -269,14 +271,15 @@ from pybooster import provider
 
 @dataclass
 class Config:
-    username: str
-    password: str
+    app_name: str
+    app_version: int
+    debug_mode: bool
 
 
 @provider.asyncfunction
 async def async_config() -> Config:
     await sleep(1)  # Do some async work here...
-    return Config(username="alice", password="EGwVEo3y9E")
+    return Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
 Or async iterators that yield the dependency's value. Async iterators are useful when
@@ -303,6 +306,58 @@ async def example_reader() -> AsyncIterator[StreamReader]:
         await writer.wait_closed()
 ```
 
+### Generic Providers
+
+You can use a single provider to supply multiple dependencies by narrowing the return
+type if it's a base class, union, `Any`, or includes a `TypeVar`. This is done using
+square brackets to annotate the exact concrete type that the provider will supply before
+activating its [scope](#scoping-providers). So, in the case you have a provider that
+loads json data from a file you could annotate its return type as `Any` but narrow the
+type to `ConfigDict` before calling entering its scope.
+
+```python
+import json
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from typing import Any
+from typing import TypedDict
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+
+@provider.function
+def load_json(path: str | Path) -> Any:
+    with Path(path).open() as f:
+        return json.load(f)
+
+
+class ConfigDict(TypedDict):
+    app_name: str
+    app_version: int
+    debug_mode: bool
+
+
+@injector.function
+def get_config(*, config: ConfigDict = required) -> ConfigDict:
+    return config
+
+
+tempfile = NamedTemporaryFile()
+CONFIG_JSON = Path(tempfile.name)
+CONFIG_JSON.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
+
+with load_json[ConfigDict].scope(CONFIG_JSON):
+    assert get_config() == {"app_name": "MyApp", "app_version": 1, "debug_mode": True}
+```
+
+!!! warning
+
+    Concrete types for `TypeVar`s cannot be inferred from the arguments passed to the
+    provider. You must always narrow the return type of a provider using square brackets
+    before activating its scope.
+
 ### Parameterizing Providers
 
 You can pass additional arguments to a provider by adding parameters to a provider
@@ -323,7 +378,7 @@ def sqlite_connection(database: str) -> Iterator[sqlite3.Connection]:
 
 These parameters can be supplied when activating the `scope`.
 
-```python test="false"
+```python { test="false"}
 with sqlite_connection.scope(":memory:"):
     ...
 ```
@@ -412,10 +467,11 @@ with alice.scope():
     assert get_recipient() == "Alice"
 ```
 
-!!! note
+!!! info
 
     The exact behavior of scopes can depend on whether the requested dependency is
-    a [union](#union-types) or has [subclasses](#subclassed-types).
+    a [union](#union-types) or has [subclasses](#subclassed-types). Refer to those
+    sections for more information.
 
 ### Mixing Sync/Async
 
@@ -433,38 +489,38 @@ from pybooster import required
 
 
 @dataclass
-class Config:
+class Auth:
     username: str
     password: str
 
 
 @provider.function
-def config() -> Config:
-    return Config(username="sync-user", password="sync-pass")
+def sync_auth() -> Auth:
+    return Auth(username="sync-user", password="sync-pass")
 
 
 @provider.asyncfunction
-async def async_config() -> Config:
+async def async_auth() -> Auth:
     await asyncio.sleep(0)  # Do some async work here...
-    return Config(username="async-user", password="async-pass")
+    return Auth(username="async-user", password="async-pass")
 
 
 @injector.function
-def get_config(*, config: Config = required) -> str:
-    return f"{config.username}:{config.password}"
+def sync_get_auth(*, auth: Auth = required) -> str:
+    return f"{auth.username}:{auth.password}"
 
 
 @injector.asyncfunction
-async def get_async_config(*, config: Config = required) -> str:
-    return f"{config.username}:{config.password}"
+async def get_async_auth(*, auth: Auth = required) -> str:
+    return f"{auth.username}:{auth.password}"
 
 
-with config.scope(), async_config.scope():
-    assert get_config() == "sync-user:sync-pass"
-    assert asyncio.run(get_async_config()) == "async-user:async-pass"
+with sync_auth.scope(), async_auth.scope():
+    assert sync_get_auth() == "sync-user:sync-pass"
+    assert asyncio.run(get_async_auth()) == "async-user:async-pass"
 
-with config.scope():
-    assert asyncio.run(get_async_config()) == "sync-user:sync-pass"
+with sync_auth.scope():
+    assert asyncio.run(get_async_auth()) == "sync-user:sync-pass"
 ```
 
 ## Dependencies

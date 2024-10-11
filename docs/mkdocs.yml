@@ -7,6 +7,7 @@ repo_url: https://github.com/rmorshea/pybooster
 
 nav:
     - Home: index.md
+    - Tutorials: tutorials.md
     - Concepts: concepts.md
     - Examples: examples.md
     - Reference: reference.md
@@ -16,6 +17,8 @@ theme:
     icon:
         repo: fontawesome/brands/git-alt
         logo: material/needle
+    features:
+        - content.code.copy
 
 plugins:
     - search
