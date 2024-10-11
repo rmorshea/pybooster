@@ -8,7 +8,7 @@ from pytest_examples import find_examples
 
 try:
     import tomllib
-except ImportError:
+except ImportError:  # nocov
     import toml as tomllib
 
 
@@ -37,7 +37,7 @@ def ruff_ignore() -> list[str]:
 @pytest.mark.parametrize("example", EXAMPLES, ids=str)
 def test_docstrings(example: CodeExample, eval_example: EvalExample, ruff_ignore: list[str]):
     eval_example.set_config(ruff_ignore=ruff_ignore, quotes="double", ruff_select=["ALL"])
-    if eval_example.update_examples:
+    if eval_example.update_examples:  # nocov
         eval_example.run_print_update(example)
         eval_example.format_black(example)
         eval_example.format_ruff(example)

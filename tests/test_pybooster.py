@@ -112,4 +112,4 @@ async def test_sync_provider_cannot_depend_on_async_provider():
         greeting.scope(),
         message.scope(),
     ):
-        await use_message()
+        pass  # nocov
