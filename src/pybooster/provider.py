@@ -6,9 +6,9 @@ from contextlib import asynccontextmanager as _asynccontextmanager
 from contextlib import contextmanager as _contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING
+from typing import Any
 from typing import Callable
 from typing import Generic
-from typing import Literal
 from typing import ParamSpec
 from typing import TypeAlias
 from typing import TypeVar
@@ -140,9 +140,9 @@ class _BaseProvider(Generic[P]):
     def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
         """Declare this as the provider for the dependency within the context."""
         # convince the type checker these exist
-        self.provides: type
-        self.value: Callable
-        self._dependency_set: set
+        self.provides: type[Any]
+        self.value: Callable[P, Any]
+        self._dependency_set: set[Sequence[type]]
         self._sync: bool
         return _ProviderScope(self.provides, lambda: self.value(*args, **kwargs), self._dependency_set, sync=self._sync)
 
@@ -159,7 +159,7 @@ class SyncProvider(_BaseProvider[P], Generic[P, R]):
         self.provides = provides
         self.value: ContextManagerCallable[P, R] = manager
         self._dependency_set = dependency_set
-        self._sync: Literal[True] = True
+        self._sync = True
 
     def __getitem__(self, provides: type[R]) -> SyncProvider[P, R]:
         """Declare a specific type for a generic provider."""
@@ -178,7 +178,7 @@ class AsyncProvider(_BaseProvider[P], Generic[P, R]):
         self.provides = provides
         self.value: AsyncContextManagerCallable[P, R] = manager
         self._dependency_set = dependency_set
-        self._sync: Literal[False] = False
+        self._sync = False
 
     def __getitem__(self, provides: type[R]) -> AsyncProvider[P, R]:
         """Declare a specific type for a generic provider."""
