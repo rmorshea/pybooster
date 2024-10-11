@@ -1,4 +1,8 @@
+from __future__ import annotations
+
+from typing import Any
 from typing import NewType
+from typing import TypeVar
 
 import pytest
 
@@ -6,6 +10,8 @@ from pybooster import injector
 from pybooster import provider
 from pybooster import required
 from pybooster.types import ProviderMissingError
+
+T = TypeVar("T")
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
@@ -55,7 +61,7 @@ async def test_async_injection():
         assert await use_message() == "Hello World"
 
 
-async def test_sync_and_async_providers_do_not_overwrite_eachother():
+async def test_sync_and_async_providers_do_not_overwrite_each_other():
     @provider.function
     def sync_message() -> Message:
         return Message("Hello, Sync")
@@ -113,3 +119,87 @@ async def test_sync_provider_cannot_depend_on_async_provider():
         message.scope(),
     ):
         pass  # nocov
+
+
+def test_union_dependency_is_resolved_in_order():
+    @provider.function
+    def greeting() -> Greeting:
+        return Greeting("Hello")
+
+    @provider.function
+    def recipient() -> Recipient:
+        return Recipient("World")
+
+    @injector.function
+    def get_greeting_or_recipient(*, greeting_or_recipient: Greeting | Recipient = required):
+        return greeting_or_recipient
+
+    with greeting.scope(), recipient.scope():
+        assert get_greeting_or_recipient() == "Hello"
+
+    with recipient.scope(), greeting.scope():
+        assert get_greeting_or_recipient() == "Hello"
+
+    with greeting.scope():
+        assert get_greeting_or_recipient() == "Hello"
+
+    with recipient.scope():
+        assert get_greeting_or_recipient() == "World"
+
+
+def test_disallow_builtin_type_as_provided_depdency():
+    with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
+
+        @provider.function
+        def greeting() -> str:  # nocov
+            raise AssertionError
+
+
+def test_disallow_builtin_type_as_injected_dependency():
+    with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
+
+        @injector.function
+        def use_greeting(*, _: str = required):  # nocov
+            raise AssertionError
+
+
+@pytest.mark.parametrize("returns", [Any, object, TypeVar("T")], ids=str)
+def test_provider_must_have_concrete_type_when_entering_scope(returns):
+
+    def f():
+        raise AssertionError  # nocov
+
+    f.__annotations__["returns"] = returns
+
+    f_provider = provider.function(f)
+
+    with pytest.raises(TypeError, match=r"Expected concrete type"), f_provider.scope():
+        raise AssertionError  # nocov
+
+
+def test_allow_provider_return_any_if_concrete_type_declared_before_entering_scope():
+
+    @provider.function
+    def greeting() -> Any:
+        return "Hello"
+
+    @injector.function
+    def get_greeting(*, greeting: Greeting = required) -> Greeting:
+        return greeting
+
+    with greeting[Greeting].scope():
+        assert get_greeting() == "Hello"
+
+
+def test_allow_provider_return_typevar_if_concrete_type_declared_before_entering_scope():
+
+    @provider.function
+    def make_string(cls: type[T], string: str) -> T:
+        return cls(string)
+
+    @injector.function
+    def get_greeting(*, greeting: Greeting = required) -> Greeting:
+        return greeting
+
+    with make_string[Greeting].scope(Greeting, "Hello"):
+        assert get_greeting() == "Hello"

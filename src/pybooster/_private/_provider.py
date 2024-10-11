@@ -16,7 +16,6 @@ from typing import get_args
 from typing import get_origin
 from typing import overload
 
-from pybooster._private._utils import check_is_concrete_type
 from pybooster.types import ProviderMissingError
 
 if TYPE_CHECKING:
@@ -88,7 +87,6 @@ def set_provider(
     *,
     sync: bool,
 ) -> Callable[[], None]:
-    check_is_concrete_type(provides)
     _check_missing_dependencies(dependency_set, sync=sync)
 
     provider_infos_var = _SYNC_PROVIDER_INFOS if sync else _ASYNC_PROVIDER_INFOS

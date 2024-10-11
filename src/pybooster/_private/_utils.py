@@ -16,6 +16,7 @@ from typing import Callable
 from typing import ParamSpec
 from typing import TypedDict
 from typing import TypeVar
+from typing import Union
 from typing import get_args
 from typing import get_origin
 from typing import get_type_hints
@@ -60,16 +61,19 @@ def _get_callable_dependencies(func: Callable[P, R]) -> NormDependencies:
     return dependencies
 
 
-def normalize_dependency(types: type[R] | Sequence[type[R]]) -> Sequence[type[R]]:
-    if isinstance(types, Sequence):
-        return [c for cls in types for c in normalize_dependency(cls)]
+def normalize_dependency(anno: type[R] | Sequence[type[R]]) -> Sequence[type[R]]:
+    if isinstance(anno, Sequence):
+        return [c for cls in anno for c in normalize_dependency(cls)]
 
-    cls = types
-    if isinstance(cls, type) and cls.__module__ == "builtins" and getattr(builtins, cls.__name__, None) is cls:
-        msg = f"Cannot provide built-in type {cls.__module__}.{cls} - use NewType to make a distinct subtype."
+    check_is_not_builtin_type(anno)
+
+    return normalize_dependency(get_args(anno)) if _is_union(anno) else (anno,)
+
+
+def check_is_not_builtin_type(anno: Any) -> None:
+    if isinstance(anno, type) and anno.__module__ == "builtins" and getattr(builtins, anno.__name__, None) is anno:
+        msg = f"Cannot provide built-in type {anno.__module__}.{anno} - use NewType to make a distinct subtype."
         raise TypeError(msg)
-
-    return normalize_dependency(get_args(cls)) if get_origin(cls) is UnionType else (cls,)
 
 
 class DependencyInfo(TypedDict):
@@ -128,3 +132,7 @@ def get_iterator_yield_type(func: Callable, *, sync: bool) -> type:
     except IndexError:
         msg = f"Expected return type {return_type} to have a single argument"
         raise TypeError(msg) from None
+
+
+def _is_union(anno: Any) -> bool:
+    return get_origin(anno) in (Union, UnionType)

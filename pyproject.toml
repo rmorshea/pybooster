@@ -46,6 +46,7 @@ test = "pytest -v {args:tests}"
 cov-run = "coverage run -m pytest -v {args:tests}"
 cov-report = [
   "- coverage combine",
+  "coverage report",
   "coverage xml",
   "diff-cover coverage.xml --compare-branch=origin/main",
 ]
