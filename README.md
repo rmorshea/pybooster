@@ -16,20 +16,20 @@ Learn more here: https://ryanmorshead.com/pybooster
 pip install -U pybooster
 ```
 
-## Quick Start
+## At a Glance
 
 Getting started with PyBooster involves a few steps:
 
-1. Define a [provider](https://ryanmorshead.com/pybooster/concepts#providers) function
-   for a [dependency](https://ryanmorshead.com/pybooster/concepts#dependencies).
-2. Add an [injector](https://ryanmorshead.com/pybooster/concepts#injectors) to a
+1. Define a [provider](https://ryanmorshead.com/pybooster/concepts.md#providers)
+   function for a
+   [dependency](https://ryanmorshead.com/pybooster/concepts.md#dependencies).
+2. Add an [injector](https://ryanmorshead.com/pybooster/concepts.md#injectors) to a
    function that will use that dependency.
-3. Activate the
-   [provider's scope](https://ryanmorshead.com/pybooster/concepts#scoping-providers) and
-   call injected function inside it.
+3. Enter the
+   [provider's scope](https://ryanmorshead.com/pybooster/concepts.md#scoping-providers)
+   and call the dependent function in it.
 
-Here's brief example showing how to inject a `sqlite3.Connection` object into a function
-that executes a query:
+The example below injects a `sqlite3.Connection` into a function that executes a query:
 
 ```python
 import sqlite3
@@ -54,3 +54,9 @@ def query_database(query: str, *, conn: sqlite3.Connection = required) -> None:
 with sqlite_connection.scope(":memory:"):
     query_database("CREATE TABLE example (id INTEGER PRIMARY KEY)")
 ```
+
+This works by inspecting the type hints of the provider `sqlite_connection` to see that
+it produces a `sqlite3.Connection`. Simarly, the signature of the dependant function
+`query_database` is inspected to see that it requires a `sqlite3.Connection`. At that
+point, when `query_database` is called it checks to see if there's a
+`sqlite3.Connection` provider in scope and, if so, injects it into the function.

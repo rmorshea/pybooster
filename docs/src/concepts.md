@@ -525,7 +525,7 @@ with sync_auth.scope():
 
 ## Dependencies
 
-A dependency is (almost) any Python type or class.
+A dependency is (almost) any Python type or class required by a function.
 
 ### Built-In Types
 
