@@ -345,10 +345,10 @@ def get_config(*, config: ConfigDict = required) -> ConfigDict:
 
 
 tempfile = NamedTemporaryFile()
-CONFIG_JSON = Path(tempfile.name)
-CONFIG_JSON.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
+config_json = Path(tempfile.name)
+config_json.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with load_json[ConfigDict].scope(CONFIG_JSON):
+with load_json[ConfigDict].scope(config_json):
     assert get_config() == {"app_name": "MyApp", "app_version": 1, "debug_mode": True}
 ```
 
@@ -361,10 +361,11 @@ on the `cls: type[T]` argument so the `provides` inference function will just re
 that:
 
 ```python
+import json
 from dataclasses import dataclass
-from typing import TypeVar
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import TypeVar
 
 from pybooster import injector
 from pybooster import provider
@@ -399,10 +400,10 @@ def get_config(*, config: Config = required) -> Config:
 
 
 tempfile = NamedTemporaryFile()
-CONFIG_JSON = Path(tempfile.name)
-CONFIG_JSON.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
+config_json = Path(tempfile.name)
+config_json.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with config_from_file.scope(Config, CONFIG_JSON):
+with config_from_file.scope(Config, config_json):
     assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
@@ -765,13 +766,13 @@ Username = NewType("Username", str)
 Password = NewType("Password", str)
 
 tempfile = NamedTemporaryFile()
-SECRETS_JSON = Path(tempfile.name)
-SECRETS_JSON.write_text('{"username": "alice", "password": "EGwVEo3y9E"}')
+secrets_json = Path(tempfile.name)
+secrets_json.write_text('{"username": "alice", "password": "EGwVEo3y9E"}')
 
 
 @provider.function
 def username_and_password() -> tuple[Username, Password]:
-    with SECRETS_JSON.open() as f:
+    with secrets_json.open() as f:
         secrets = json.load(f)
     return Username(secrets["username"]), Password(secrets["password"])
 

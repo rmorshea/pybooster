@@ -149,10 +149,12 @@ def test_union_dependency_is_resolved_in_order():
 
 
 def test_disallow_builtin_type_as_provided_depdency():
-    with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
+    @provider.function
+    def greeting() -> str:
+        raise AssertionError  # nocov
 
-        @provider.function
-        def greeting() -> str:  # nocov
+    with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
+        with greeting.scope():  # nocov
             raise AssertionError
 
 
@@ -174,7 +176,7 @@ def test_provider_must_have_concrete_type_when_entering_scope(returns):
 
     f_provider = provider.function(f)
 
-    with pytest.raises(TypeError, match=r"Expected concrete type"), f_provider.scope():
+    with pytest.raises(TypeError, match=r"Can only provide concrete type"), f_provider.scope():
         raise AssertionError  # nocov
 
 
@@ -203,4 +205,18 @@ def test_allow_provider_return_typevar_if_concrete_type_declared_before_entering
         return greeting
 
     with make_string[Greeting].scope(Greeting, "Hello"):
+        assert get_greeting() == "Hello"
+
+
+def test_generic_with_provides_inference_function():
+
+    @provider.function(provides=lambda cls, *a, **kw: cls)
+    def make_string(cls: Callable[[str], T], string: str) -> T:
+        return cls(string)
+
+    @injector.function
+    def get_greeting(*, greeting: Greeting = required) -> Greeting:
+        return greeting
+
+    with make_string.scope(Greeting, "Hello"):
         assert get_greeting() == "Hello"

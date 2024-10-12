@@ -7,12 +7,14 @@ from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
 from inspect import Parameter
+from inspect import isclass
 from inspect import signature
 from types import UnionType
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
 from typing import Callable
+from typing import NewType
 from typing import ParamSpec
 from typing import TypedDict
 from typing import TypeVar
@@ -30,6 +32,10 @@ P = ParamSpec("P")
 R = TypeVar("R")
 C = TypeVar("C", bound=Callable)
 D = TypeVar("D", bound=Callable)
+
+
+def is_type(value: Any) -> bool:
+    return get_origin(value) is not None or isclass(value) or isinstance(value, NewType)
 
 
 def make_sentinel_value(module: str, name: str) -> Any:
@@ -81,7 +87,7 @@ class DependencyInfo(TypedDict):
     new: bool
 
 
-def check_is_concrete_type(cls: type) -> None:
+def check_is_concrete_type(cls: Any) -> None:
     if get_origin(cls) is Annotated:
         cls = get_args(cls)[0]
 

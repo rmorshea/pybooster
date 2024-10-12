@@ -16,6 +16,7 @@ from typing import get_args
 from typing import get_origin
 from typing import overload
 
+from pybooster._private._utils import is_type
 from pybooster.types import ProviderMissingError
 
 if TYPE_CHECKING:
@@ -30,6 +31,16 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **kwargs: Any) -> type[R]:
+    if is_type(provides):
+        return cast(type[R], provides)
+    elif callable(provides):
+        return provides(*args, **kwargs)
+    else:
+        msg = f"Expected a type or function to infer one, got {provides}."
+        raise TypeError(msg)
 
 
 def raise_missing_provider(types: Collection[type], *, sync: bool) -> NoReturn:

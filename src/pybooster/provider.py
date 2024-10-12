@@ -17,6 +17,7 @@ from typing import cast
 from paramorator import paramorator
 
 from pybooster import injector
+from pybooster._private._provider import get_provides_type
 from pybooster._private._provider import set_provider
 from pybooster._private._utils import NormDependencies
 from pybooster._private._utils import check_is_concrete_type
@@ -157,18 +158,21 @@ class _BaseProvider(Generic[P, R]):
 
     def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
         """Declare this as the provider for the dependency within the context."""
-        provides_type = p(*args, **kwargs) if not isinstance(p := self._provides, type) and callable(p) else p
+        provides_type = get_provides_type(self._provides, *args, **kwargs)
 
         try:
-            check_is_not_builtin_type(provides_type)
             check_is_concrete_type(provides_type)
+            check_is_not_builtin_type(provides_type)
         except TypeError as exc:
-            msg = f"Invalid provider {self._manager}: {exc}"
+            msg = f"Invalid provider {self}: {exc}"
             raise TypeError(msg) from None
 
         dependencies = self._dependencies
         dependency_set = {dependencies[k] for k in dependencies.keys() - set(kwargs)}
         return _ProviderScope(provides_type, lambda: self._manager(*args, **kwargs), dependency_set, sync=self._sync)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._manager.__module__}.{self._manager.__qualname__})"
 
 
 class SyncProvider(_BaseProvider[P, R]):

@@ -213,7 +213,7 @@ class AwsCredentials:
 
 
 @provider.function
-def aws_session(*, creds: AwsCredentials = required) -> Session:
+def aws_session(creds: AwsCredentials) -> Session:
     return Session(
         aws_access_key_id=creds.access_key_id,
         aws_secret_access_key=creds.secret_access_key,
@@ -242,7 +242,7 @@ def main():
     creds = AwsCredentials()
 
     with mock_aws():  # Mock AWS services for testing purposes
-        with aws_session.scope(creds=creds), aws_client[S3Client].scope(service_name="s3"):
+        with aws_session.scope(creds), aws_client[S3Client].scope("s3"):
             create_bucket("my-bucket")
             assert "my-bucket" in list_buckets()
 
