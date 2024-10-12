@@ -48,7 +48,7 @@ def function(
     func: Callable[P, R],
     *,
     dependencies: Dependencies | None = None,
-    provides: type[R] | None = None,
+    provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given function.
 
@@ -71,7 +71,7 @@ def asyncfunction(
     func: Callable[P, Awaitable[R]],
     *,
     dependencies: Dependencies | None = None,
-    provides: type[R] | None = None,
+    provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given coroutine.
 
@@ -94,7 +94,7 @@ def iterator(
     func: IteratorCallable[P, R],
     *,
     dependencies: Dependencies | None = None,
-    provides: type[R] | None = None,
+    provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given iterator function.
 
@@ -117,7 +117,7 @@ def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
     dependencies: Dependencies | None = None,
-    provides: type[R] | None = None,
+    provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given async iterator function.
 
@@ -140,22 +140,35 @@ def asynciterator(
 
 
 class _BaseProvider(Generic[P, R]):
+    """A base class for providers."""
 
-    value: Callable[P, Any]
-    _dependencies: NormDependencies
-    _sync: bool
-
-    def __init__(self, provides: type[R]) -> None:
-        check_is_not_builtin_type(provides)
-        self.provides = provides
+    def __init__(
+        self,
+        manager: Callable[P, Any],
+        provides: type[R] | Callable[..., type[R]],
+        dependencies: NormDependencies,
+        *,
+        sync: bool,
+    ) -> None:
+        self._manager = manager
+        self._dependencies = dependencies
+        self._sync = sync
+        self._provides = provides
 
     def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
         """Declare this as the provider for the dependency within the context."""
-        check_is_concrete_type(self.provides)  # check here rather than in __init__ to allow for generic providers
+        provides_type = p(*args, **kwargs) if not isinstance(p := self._provides, type) and callable(p) else p
+
+        try:
+            check_is_not_builtin_type(provides_type)
+            check_is_concrete_type(provides_type)
+        except TypeError as exc:
+            msg = f"Invalid provider {self._manager}: {exc}"
+            raise TypeError(msg) from None
 
         dependencies = self._dependencies
         dependency_set = {dependencies[k] for k in dependencies.keys() - set(kwargs)}
-        return _ProviderScope(self.provides, lambda: self.value(*args, **kwargs), dependency_set, sync=self._sync)
+        return _ProviderScope(provides_type, lambda: self._manager(*args, **kwargs), dependency_set, sync=self._sync)
 
 
 class SyncProvider(_BaseProvider[P, R]):
@@ -164,13 +177,11 @@ class SyncProvider(_BaseProvider[P, R]):
     def __init__(
         self,
         manager: ContextManagerCallable[P, R],
-        provides: type[R],
+        provides: type[R] | Callable[..., type[R]],
         dependencies: NormDependencies,
     ) -> None:
-        super().__init__(provides)
-        self.value: ContextManagerCallable[P, R] = manager
-        self._dependencies = dependencies
-        self._sync = True
+        super().__init__(manager, provides, dependencies, sync=True)
+        self.value = manager
 
     def __getitem__(self, provides: type[R]) -> SyncProvider[P, R]:
         """Declare a specific type for a generic provider."""
@@ -186,10 +197,8 @@ class AsyncProvider(_BaseProvider[P, R]):
         provides: type[R],
         dependencies: NormDependencies,
     ) -> None:
-        super().__init__(provides)
-        self.value: AsyncContextManagerCallable[P, R] = manager
-        self._dependencies = dependencies
-        self._sync = False
+        super().__init__(manager, provides, dependencies, sync=False)
+        self.value = manager
 
     def __getitem__(self, provides: type[R]) -> AsyncProvider[P, R]:
         """Declare a specific type for a generic provider."""

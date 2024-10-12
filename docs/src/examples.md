@@ -22,8 +22,12 @@ def query_database(query: str, *, conn: sqlite3.Connection = required) -> None:
     conn.execute(query)
 
 
-with sqlite_connection.scope(":memory:"):
-    query_database("CREATE TABLE example (id INTEGER PRIMARY KEY)")
+def main():
+    with sqlite_connection.scope(":memory:"):
+        query_database("CREATE TABLE example (id INTEGER PRIMARY KEY)")
+
+
+main()
 ```
 
 ## [SQLAlchemy](https://www.sqlalchemy.org/)
@@ -87,16 +91,20 @@ def get_user(user_id: int, *, session: Session = required) -> User:
     return session.execute(select(User).where(User.id == user_id)).scalar_one()
 
 
-url = "sqlite:///:memory:"
-with (
-    sqlalchemy_engine.scope(url),
-    sqlalchemy_session.scope(),
-    injector.shared(Engine),
-):
-    create_tables()
-    user_id = add_user("Alice")
-    user = get_user(user_id)
-    assert user.name == "Alice"
+def main():
+    url = "sqlite:///:memory:"
+    with (
+        sqlalchemy_engine.scope(url),
+        sqlalchemy_session.scope(),
+        injector.shared(Engine),
+    ):
+        create_tables()
+        user_id = add_user("Alice")
+        user = get_user(user_id)
+        assert user.name == "Alice"
+
+
+main()
 ```
 
 ## [SQLAlchemy (Async)](https://www.sqlalchemy.org/)
@@ -229,11 +237,15 @@ def list_buckets(*, client: S3Client = required) -> list[str]:
     return [bucket["Name"] for bucket in client.list_buckets()["Buckets"]]
 
 
-# Get credentials somehow...
-creds = AwsCredentials()
+def main():
+    # Get credentials somehow...
+    creds = AwsCredentials()
 
-with mock_aws():  # Mock AWS services for testing purposes
-    with aws_session.scope(creds=creds), aws_client[S3Client].scope(service_name="s3"):
-        create_bucket("my-bucket")
-        assert "my-bucket" in list_buckets()
+    with mock_aws():  # Mock AWS services for testing purposes
+        with aws_session.scope(creds=creds), aws_client[S3Client].scope(service_name="s3"):
+            create_bucket("my-bucket")
+            assert "my-bucket" in list_buckets()
+
+
+main()
 ```

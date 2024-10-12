@@ -313,7 +313,7 @@ type if it's a base class, union, `Any`, or includes a `TypeVar`. This is done u
 square brackets to annotate the exact concrete type that the provider will supply before
 activating its [scope](#scoping-providers). So, in the case you have a provider that
 loads json data from a file you could annotate its return type as `Any` but narrow the
-type to `ConfigDict` before calling entering its scope.
+type to `ConfigDict` before entering its scope.
 
 ```python
 import json
@@ -352,11 +352,63 @@ with load_json[ConfigDict].scope(CONFIG_JSON):
     assert get_config() == {"app_name": "MyApp", "app_version": 1, "debug_mode": True}
 ```
 
-!!! warning
+Since concrete types for `TypeVar`s cannot be automatically inferred from the arguments
+passed to the provider. You must always narrow the return type (as shown above) or pass
+a `provides` inference function to the `@provider` decorator to specify how to figure
+out the concrete type. This function should can take all the non-dependency arguments of
+the provider and return the concrete type. In the example below the provider is generic
+on the `cls: type[T]` argument so the `provides` inference function will just return
+that:
 
-    Concrete types for `TypeVar`s cannot be inferred from the arguments passed to the
-    provider. You must always narrow the return type of a provider using square brackets
-    before activating its scope.
+```python
+from dataclasses import dataclass
+from typing import TypeVar
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+
+@dataclass
+class Config:
+    app_name: str
+    app_version: int
+    debug_mode: bool
+
+
+@dataclass
+class Auth:
+    username: str
+    password: str
+
+
+T = TypeVar("T")
+
+
+@provider.function(provides=lambda cls, *a, **kw: cls)
+def config_from_file(cls: type[T], path: str | Path) -> T:
+    with Path(path).open() as f:
+        return cls(**json.load(f))
+
+
+@injector.function
+def get_config(*, config: Config = required) -> Config:
+    return config
+
+
+tempfile = NamedTemporaryFile()
+CONFIG_JSON = Path(tempfile.name)
+CONFIG_JSON.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
+
+with config_from_file.scope(Config, CONFIG_JSON):
+    assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
+```
+
+!!! tip
+
+    This approach also works great for a provider with `overload`s.
 
 ### Parameterizing Providers
 

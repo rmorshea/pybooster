@@ -86,12 +86,12 @@ def check_is_concrete_type(cls: type) -> None:
         cls = get_args(cls)[0]
 
     if cls is Any or cls is object:
-        msg = f"Expected concrete type, but found {cls}"
+        msg = f"Can only provide concrete type, but found ambiguous type {cls}"
         raise TypeError(msg)
 
     for c in _recurse_type(cls):
         if type(c) is TypeVar:
-            msg = f"Expected concrete type, but found type variable in {cls}"
+            msg = f"Can only provide concrete type, but found type variable in {cls}"
             raise TypeError(msg)
 
 

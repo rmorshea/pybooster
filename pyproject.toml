@@ -102,6 +102,7 @@ ignore = [
   "A005",   # Module shadowing built-in
   "ANN",    # Let pyright handle annotations
   "ANN401", # Allow Any type hints
+  "ARG005", # Unused lambda argument
   "B027",   # Allow non-abstract empty methods in abstract base classes
   "B039",   # Mutable default for contextvars
   "C901",   # Ignore complexity
@@ -115,6 +116,7 @@ ignore = [
   "D413",   # Docstring blank line after last section
   "DOC201", # Return type documentation
   "DOC402", # Yield type documentation
+  "DOC501", # Ignore raises missing from docstring
   "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
   "PL",     # PyLint
   "PYI",    # Stub files
