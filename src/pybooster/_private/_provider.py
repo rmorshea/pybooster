@@ -39,7 +39,7 @@ def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **
     elif callable(provides):
         return provides(*args, **kwargs)
     else:
-        msg = f"Expected a type or function to infer one, got {provides}."
+        msg = f"Expected a type, or function to infer one, but got {provides}."
         raise TypeError(msg)
 
 
