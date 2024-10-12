@@ -9,12 +9,12 @@ from typing import Callable
 from typing import ParamSpec
 from typing import TypeVar
 
-from pybooster._private._provider import AsyncProviderInfo
-from pybooster._private._provider import SyncProviderInfo
-from pybooster._private._provider import get_provider_info
-from pybooster._private._provider import iter_provider_infos
-from pybooster._private._utils import NormDependencies
-from pybooster._private._utils import undefined
+from pybooster.core._private._provider import AsyncProviderInfo
+from pybooster.core._private._provider import SyncProviderInfo
+from pybooster.core._private._provider import get_provider_info
+from pybooster.core._private._provider import iter_provider_infos
+from pybooster.core._private._utils import NormDependencies
+from pybooster.core._private._utils import undefined
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

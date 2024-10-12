@@ -16,8 +16,8 @@ from typing import get_args
 from typing import get_origin
 from typing import overload
 
-from pybooster._private._utils import is_type
-from pybooster.types import ProviderMissingError
+from pybooster.core._private._utils import is_type
+from pybooster.core.types import ProviderMissingError
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -25,9 +25,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from collections.abc import Sequence
 
-    from pybooster._private._utils import NormDependencies
-    from pybooster.types import AsyncContextManagerCallable
-    from pybooster.types import ContextManagerCallable
+    from pybooster.core._private._utils import NormDependencies
+    from pybooster.core.types import AsyncContextManagerCallable
+    from pybooster.core.types import ContextManagerCallable
 
 P = ParamSpec("P")
 R = TypeVar("R")

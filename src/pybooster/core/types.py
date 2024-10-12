@@ -8,7 +8,7 @@ from typing import Callable
 from typing import ParamSpec
 from typing import TypeVar
 
-from pybooster._private._utils import make_sentinel_value
+from pybooster.core._private._utils import make_sentinel_value
 
 P = ParamSpec("P")
 R = TypeVar("R")

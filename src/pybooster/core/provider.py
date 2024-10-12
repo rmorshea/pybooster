@@ -17,15 +17,15 @@ from typing import cast
 from paramorator import paramorator
 
 from pybooster import injector
-from pybooster._private._provider import get_provides_type
-from pybooster._private._provider import set_provider
-from pybooster._private._utils import NormDependencies
-from pybooster._private._utils import check_is_concrete_type
-from pybooster._private._utils import check_is_not_builtin_type
-from pybooster._private._utils import get_callable_dependencies
-from pybooster._private._utils import get_callable_return_type
-from pybooster._private._utils import get_coroutine_return_type
-from pybooster._private._utils import get_iterator_yield_type
+from pybooster.core._private._provider import get_provides_type
+from pybooster.core._private._provider import set_provider
+from pybooster.core._private._utils import NormDependencies
+from pybooster.core._private._utils import check_is_concrete_type
+from pybooster.core._private._utils import check_is_not_builtin_type
+from pybooster.core._private._utils import get_callable_dependencies
+from pybooster.core._private._utils import get_callable_return_type
+from pybooster.core._private._utils import get_coroutine_return_type
+from pybooster.core._private._utils import get_iterator_yield_type
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -33,11 +33,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from collections.abc import Sequence
 
-    from pybooster.types import AsyncContextManagerCallable
-    from pybooster.types import AsyncIteratorCallable
-    from pybooster.types import ContextManagerCallable
-    from pybooster.types import Dependencies
-    from pybooster.types import IteratorCallable
+    from pybooster.core.types import AsyncContextManagerCallable
+    from pybooster.core.types import AsyncIteratorCallable
+    from pybooster.core.types import ContextManagerCallable
+    from pybooster.core.types import Dependencies
+    from pybooster.core.types import IteratorCallable
 
 P = ParamSpec("P")
 R = TypeVar("R")

@@ -16,14 +16,14 @@ from typing import TypeVar
 
 from paramorator import paramorator
 
-from pybooster._private._injector import async_shared_context
-from pybooster._private._injector import async_update_arguments_by_initializing_dependencies
-from pybooster._private._injector import setdefault_arguments_with_initialized_dependencies
-from pybooster._private._injector import sync_shared_context
-from pybooster._private._injector import sync_update_arguments_by_initializing_dependencies
-from pybooster._private._utils import get_callable_dependencies
-from pybooster._private._utils import normalize_dependency
-from pybooster._private._utils import undefined
+from pybooster.core._private._injector import async_shared_context
+from pybooster.core._private._injector import async_update_arguments_by_initializing_dependencies
+from pybooster.core._private._injector import setdefault_arguments_with_initialized_dependencies
+from pybooster.core._private._injector import sync_shared_context
+from pybooster.core._private._injector import sync_update_arguments_by_initializing_dependencies
+from pybooster.core._private._utils import get_callable_dependencies
+from pybooster.core._private._utils import normalize_dependency
+from pybooster.core._private._utils import undefined
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -34,9 +34,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from collections.abc import Sequence
 
-    from pybooster.types import AsyncIteratorCallable
-    from pybooster.types import Dependencies
-    from pybooster.types import IteratorCallable
+    from pybooster.core.types import AsyncIteratorCallable
+    from pybooster.core.types import Dependencies
+    from pybooster.core.types import IteratorCallable
 
 P = ParamSpec("P")
 R = TypeVar("R")
