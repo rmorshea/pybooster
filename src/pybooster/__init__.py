@@ -1,6 +1,6 @@
-from pybooster import injector
-from pybooster import provider
-from pybooster.types import required
+from pybooster.core import injector
+from pybooster.core import provider
+from pybooster.core.types import required
 
 __version__ = "0.0.1"
 
