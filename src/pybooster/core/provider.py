@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from contextlib import AbstractAsyncContextManager
-from contextlib import AbstractContextManager
 from contextlib import asynccontextmanager as _asynccontextmanager
+from contextlib import contextmanager
 from contextlib import contextmanager as _contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING
-from typing import Any
 from typing import Callable
 from typing import Generic
 from typing import ParamSpec
@@ -19,6 +17,7 @@ from paramorator import paramorator
 from pybooster import injector
 from pybooster.core._private._provider import get_provides_type
 from pybooster.core._private._provider import set_provider
+from pybooster.core._private._shared import SHARED_VALUES as _SHARED_VALUES
 from pybooster.core._private._utils import NormDependencies
 from pybooster.core._private._utils import check_is_concrete_type
 from pybooster.core._private._utils import check_is_not_builtin_type
@@ -33,6 +32,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from collections.abc import Sequence
 
+    from pybooster.core.types import AnyContextManagerCallable
     from pybooster.core.types import AsyncContextManagerCallable
     from pybooster.core.types import AsyncIteratorCallable
     from pybooster.core.types import ContextManagerCallable
@@ -145,7 +145,7 @@ class _BaseProvider(Generic[P, R]):
 
     def __init__(
         self,
-        manager: Callable[P, Any],
+        manager: AnyContextManagerCallable[[], R],
         provides: type[R] | Callable[..., type[R]],
         dependencies: NormDependencies,
         *,
@@ -156,7 +156,8 @@ class _BaseProvider(Generic[P, R]):
         self._sync = sync
         self._provides = provides
 
-    def scope(self, *args: P.args, **kwargs: P.kwargs) -> _ProviderScope:
+    @contextmanager
+    def scope(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[None]:
         """Declare this as the provider for the dependency within the context."""
         provides_type = get_provides_type(self._provides, *args, **kwargs)
 
@@ -167,9 +168,18 @@ class _BaseProvider(Generic[P, R]):
             msg = f"Invalid provider {self}: {exc}"
             raise TypeError(msg) from None
 
-        dependencies = self._dependencies
-        dependency_set = {dependencies[k] for k in dependencies.keys() - set(kwargs)}
-        return _ProviderScope(provides_type, lambda: self._manager(*args, **kwargs), dependency_set, sync=self._sync)
+        shared_values = _SHARED_VALUES.get()
+        dependency_set: set[Sequence[type]] = set()
+        for name, types in self._dependencies.items():
+            for cls in types:
+                if cls in shared_values:
+                    kwargs[name] = shared_values[cls]
+                    break
+            else:
+                dependency_set.add(types)
+
+        with set_provider(provides_type, lambda: self._manager(*args, **kwargs), dependency_set, sync=self._sync):
+            yield
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._manager.__module__}.{self._manager.__qualname__})"
@@ -185,11 +195,11 @@ class SyncProvider(_BaseProvider[P, R]):
         dependencies: NormDependencies,
     ) -> None:
         super().__init__(manager, provides, dependencies, sync=True)
-        self.value = manager
+        self.new = manager
 
     def __getitem__(self, provides: type[R]) -> SyncProvider[P, R]:
         """Declare a specific type for a generic provider."""
-        return SyncProvider(self.value, provides, self._dependencies)
+        return SyncProvider(self.new, provides, self._dependencies)
 
 
 class AsyncProvider(_BaseProvider[P, R]):
@@ -202,46 +212,11 @@ class AsyncProvider(_BaseProvider[P, R]):
         dependencies: NormDependencies,
     ) -> None:
         super().__init__(manager, provides, dependencies, sync=False)
-        self.value = manager
+        self.new = manager
 
     def __getitem__(self, provides: type[R]) -> AsyncProvider[P, R]:
         """Declare a specific type for a generic provider."""
-        return AsyncProvider(self.value, provides, self._dependencies)
-
-
-class _ProviderScope(AbstractContextManager[None], AbstractAsyncContextManager[None]):
-    """A context manager to provide the current value of a dependency."""
-
-    def __init__(
-        self,
-        provides: type[R],
-        manager: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
-        dependency_set: set[Sequence[type]],
-        *,
-        sync: bool,
-    ) -> None:
-        self._provides = provides
-        self._manager = manager
-        self._dependency_set = dependency_set
-        self._sync = sync
-
-    def __enter__(self) -> None:
-        if hasattr(self, "_reset"):
-            msg = "Cannot reuse a context manager."
-            raise RuntimeError(msg)
-        self._reset = set_provider(self._provides, self._manager, self._dependency_set, sync=self._sync)
-
-    def __exit__(self, *args) -> None:
-        try:
-            self._reset()
-        finally:
-            del self._reset
-
-    async def __aenter__(self) -> None:
-        return self.__enter__()
-
-    async def __aexit__(self, *args) -> None:
-        return self.__exit__(*args)
+        return AsyncProvider(self.new, provides, self._dependencies)
 
 
 Provider: TypeAlias = "SyncProvider[P, R] | AsyncProvider[P, R]"

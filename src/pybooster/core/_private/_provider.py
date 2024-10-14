@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 from typing import Any
@@ -91,13 +92,14 @@ def get_all_provider_infos(*, sync: bool) -> Mapping[type, ProviderInfo]:
     return _SYNC_PROVIDER_INFOS.get() if sync else {**_SYNC_PROVIDER_INFOS.get(), **_ASYNC_PROVIDER_INFOS.get()}
 
 
+@contextmanager
 def set_provider(
     provides: type[R],
     manager: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
     dependency_set: set[Sequence[type]],
     *,
     sync: bool,
-) -> Callable[[], None]:
+) -> Iterator[None]:
     _check_missing_dependencies(dependency_set, sync=sync)
 
     provider_infos_var = _SYNC_PROVIDER_INFOS if sync else _ASYNC_PROVIDER_INFOS
@@ -117,7 +119,10 @@ def set_provider(
             next_provider_infos[cls] = provider_info
 
     token = provider_infos_var.set(next_provider_infos)  # type: ignore[reportArgumentType]
-    return lambda: provider_infos_var.reset(token)  # type: ignore[reportArgumentType]
+    try:
+        yield
+    finally:
+        provider_infos_var.reset(token)
 
 
 def _check_missing_dependencies(dependency_set: set[Sequence[type]], *, sync: bool) -> None:

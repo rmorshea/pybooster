@@ -22,6 +22,10 @@ classifiers = [
 ]
 dependencies = ["typing_extensions", "paramorator>=1.0.2,<2"]
 
+[project.optional-dependencies]
+asgi = ["asgiref>=3.8.1,<4", "anyio>=4.6.0,<5"]
+sqlalchemy = ["sqlalchemy[asyncio]>=2.0.35,<3"]
+
 [project.urls]
 Documentation = "https://github.com/rmorshea/pybooster#readme"
 Issues = "https://github.com/rmorshea/pybooster/issues"
@@ -41,7 +45,6 @@ dependencies = [
   "pytest-asyncio==0.24.0",
   "pytest-examples==0.0.13",
   "pytest==8.3.3",
-  "sqlalchemy[asyncio]==2.0.35",
   "toml==0.10.2",                    # python 3.10 compatibility
 ]
 [tool.hatch.envs.default.scripts]
@@ -73,7 +76,7 @@ extra-dependencies = [
 ]
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build -f docs/mkdocs.yml"
-deploy = "mkdocs gh-deploy -f docs/mkdocs.yml"
+publish = "mkdocs gh-deploy -f docs/mkdocs.yml"
 fix = "pytest tests/test_docs.py --update-examples"
 serve = "mkdocs serve -f docs/mkdocs.yml"
 
@@ -117,6 +120,7 @@ ignore = [
   "DOC201", # Return type documentation
   "DOC402", # Yield type documentation
   "DOC501", # Ignore raises missing from docstring
+  "ERA001", # Commented out code
   "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
   "PL",     # PyLint
   "PYI",    # Stub files
@@ -128,6 +132,8 @@ ignore = [
 unfixable = [
   "COM819", # Trailing comma
 ]
+fixable = ["ALL"]
+
 extend-safe-fixes = ["TCH"]
 
 [tool.ruff.lint.isort]

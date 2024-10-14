@@ -1,5 +1,277 @@
 # Examples
 
+## [Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
+
+```python
+from typing import TYPE_CHECKING
+from typing import Annotated
+
+from boto3.session import Session
+from botocore.client import BaseClient
+from moto import mock_aws
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import shared
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
+else:
+    S3Client = Annotated[BaseClient, "mypy_boto3_s3.S3Client"]
+
+
+@provider.function
+def aws_client(service_name: str, *, session: Session = required) -> BaseClient:
+    return session.client(service_name)
+
+
+@injector.function
+def create_bucket(bucket_name: str, *, client: S3Client = required) -> None:
+    client.create_bucket(Bucket=bucket_name)
+
+
+@injector.function
+def list_buckets(*, client: S3Client = required) -> list[str]:
+    return [bucket["Name"] for bucket in client.list_buckets()["Buckets"]]
+
+
+def main():
+    with mock_aws():  # Mock AWS services for testing purposes
+        with shared(Session, value=Session()), aws_client[S3Client].scope("s3"):
+            create_bucket("my-bucket")
+            assert "my-bucket" in list_buckets()
+
+
+main()
+```
+
+## [Starlette](https://www.starlette.io/) + [SQLAlchemy](https://www.sqlalchemy.org/)
+
+```python
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import mapped_column
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
+from pybooster import injector
+from pybooster import required
+from pybooster import shared
+from pybooster.extra.asgi import PyBoosterMiddleware
+from pybooster.extra.sqlalchemy import async_engine_provider
+from pybooster.extra.sqlalchemy import async_session_provider
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class User(Base):
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column()
+
+
+DB_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@asynccontextmanager
+async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
+    with async_engine_provider.scope(DB_URL):  # set up the engine provider
+        async with shared(AsyncEngine) as engine:  # establish the engine as a singleton
+
+            # create tables if they don't exist
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+
+            with async_session_provider.scope():  # set up the transaction provider
+                yield
+
+
+@injector.asyncfunction
+async def post_user(
+    request: Request, *, session: AsyncSession = required
+) -> JSONResponse:
+    async with session.begin():
+        user = User(**(await request.json()))
+        session.add(user)
+        await session.flush()
+        return JSONResponse({"id": user.id})
+
+
+@injector.asyncfunction
+async def get_user(
+    request: Request, *, session: AsyncSession = required
+) -> JSONResponse:
+    user = await session.get(User, request.path_params["id"])
+    return JSONResponse(None if user is None else {"id": user.id, "name": user.name})
+
+
+app = Starlette(
+    routes=[
+        Route("/user", post_user, methods=["POST"]),
+        Route("/user/{id:int}", get_user, methods=["GET"]),
+    ],
+    lifespan=sqlalchemy_lifespan,
+    middleware=[Middleware(PyBoosterMiddleware)],
+)
+
+
+async def main():
+    with TestClient(app) as client:
+        response = client.post("/user", json={"name": "Alice"})
+        assert response.status_code == 200
+        assert response.json() == {"id": 1}
+
+        response = client.get("/user/1")
+        assert response.status_code == 200
+        assert response.json() == {"id": 1, "name": "Alice"}
+
+        response = client.get("/user/2")
+        assert response.status_code == 200
+        assert response.json() is None
+
+
+asyncio.run(main())
+```
+
+## [SQLAlchemy](https://www.sqlalchemy.org/)
+
+```python
+from sqlalchemy import Engine
+from sqlalchemy import select
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import Session
+from sqlalchemy.orm import mapped_column
+
+from pybooster import injector
+from pybooster import required
+from pybooster import shared
+from pybooster.extra.sqlalchemy import engine_provider
+from pybooster.extra.sqlalchemy import session_provider
+
+
+class Base(DeclarativeBase): ...
+
+
+class User(Base):
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+
+
+@injector.function
+def create_tables(*, session: Session = required) -> None:
+    Base.metadata.create_all(session.bind)
+
+
+@injector.function
+def add_user(name: str, *, session: Session = required) -> int:
+    with session.begin():
+        user = User(name=name)
+        session.add(user)
+        session.flush()
+        return user.id
+
+
+@injector.function
+def get_user(user_id: int, *, session: Session = required) -> User:
+    return session.execute(select(User).where(User.id == user_id)).scalar_one()
+
+
+def main():
+    url = "sqlite:///:memory:"
+    with (
+        engine_provider.scope(url),
+        shared(Engine),
+        session_provider.scope(expire_on_commit=False),
+    ):
+        create_tables()
+        user_id = add_user("Alice")
+        user = get_user(user_id)
+        assert user.name == "Alice"
+
+
+main()
+```
+
+## [SQLAlchemy (Async)](https://www.sqlalchemy.org/)
+
+```python
+import asyncio
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import mapped_column
+
+from pybooster import injector
+from pybooster import required
+from pybooster import shared
+from pybooster.extra.sqlalchemy import async_engine_provider
+from pybooster.extra.sqlalchemy import async_session_provider
+
+
+class Base(DeclarativeBase): ...
+
+
+class User(Base):
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+
+
+@injector.asyncfunction
+async def create_tables(*, engine: AsyncEngine = required) -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+@injector.asyncfunction
+async def add_user(name: str, *, session: AsyncSession = required) -> int:
+    async with session.begin():
+        user = User(name=name)
+        session.add(user)
+        await session.flush()
+        return user.id
+
+
+@injector.asyncfunction
+async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
+    return (await session.execute(select(User).where(User.id == user_id))).scalar_one()
+
+
+async def main():
+    url = "sqlite+aiosqlite:///:memory:"
+    with async_engine_provider.scope(url):
+        async with shared(AsyncEngine):
+            with async_session_provider.scope(expire_on_commit=False):
+                await create_tables()
+                user_id = await add_user("Alice")
+                user = await get_user(user_id)
+                assert user.name == "Alice"
+
+
+asyncio.run(main())
+```
+
 ## [SQLite](https://docs.python.org/3/library/sqlite3.html)
 
 ```python
@@ -25,226 +297,6 @@ def query_database(query: str, *, conn: sqlite3.Connection = required) -> None:
 def main():
     with sqlite_connection.scope(":memory:"):
         query_database("CREATE TABLE example (id INTEGER PRIMARY KEY)")
-
-
-main()
-```
-
-## [SQLAlchemy](https://www.sqlalchemy.org/)
-
-```python
-from collections.abc import Iterator
-
-from sqlalchemy import Engine
-from sqlalchemy import create_engine
-from sqlalchemy import select
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import mapped_column
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-
-
-class Base(DeclarativeBase): ...
-
-
-class User(Base):
-    __tablename__ = "user"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
-
-
-@provider.iterator
-def sqlalchemy_engine(url: str) -> Iterator[Engine]:
-    engine = create_engine(url)
-    try:
-        yield engine
-    finally:
-        engine.dispose()
-
-
-@provider.iterator
-def sqlalchemy_session(*, engine: Engine = required) -> Iterator[Session]:
-    with Session(bind=engine, expire_on_commit=False) as session, session.begin():
-        yield session
-
-
-@injector.function
-def create_tables(*, session: Session = required) -> None:
-    Base.metadata.create_all(session.bind)
-
-
-@injector.function
-def add_user(name: str, *, session: Session = required) -> int:
-    user = User(name=name)
-    session.add(user)
-    session.flush()
-    return user.id
-
-
-@injector.function
-def get_user(user_id: int, *, session: Session = required) -> User:
-    return session.execute(select(User).where(User.id == user_id)).scalar_one()
-
-
-def main():
-    url = "sqlite:///:memory:"
-    with (
-        sqlalchemy_engine.scope(url),
-        sqlalchemy_session.scope(),
-        injector.shared(Engine),
-    ):
-        create_tables()
-        user_id = add_user("Alice")
-        user = get_user(user_id)
-        assert user.name == "Alice"
-
-
-main()
-```
-
-## [SQLAlchemy (Async)](https://www.sqlalchemy.org/)
-
-```python
-import asyncio
-from collections.abc import AsyncIterator
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import mapped_column
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-
-
-class Base(DeclarativeBase): ...
-
-
-class User(Base):
-    __tablename__ = "user"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
-
-
-@provider.asynciterator
-async def sqlalchemy_async_engine(url: str) -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine(url)
-    try:
-        yield engine
-    finally:
-        await engine.dispose()
-
-
-@provider.asynciterator
-async def sqlalchemy_async_session(
-    *, engine: AsyncEngine = required
-) -> AsyncIterator[AsyncSession]:
-    async with (
-        AsyncSession(bind=engine, expire_on_commit=False) as session,
-        session.begin(),
-    ):
-        yield session
-
-
-@injector.asyncfunction
-async def create_tables(*, engine: AsyncEngine = required) -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-
-@injector.asyncfunction
-async def add_user(name: str, *, session: AsyncSession = required) -> int:
-    user = User(name=name)
-    session.add(user)
-    await session.flush()
-    return user.id
-
-
-@injector.asyncfunction
-async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
-    return (await session.execute(select(User).where(User.id == user_id))).scalar_one()
-
-
-async def main():
-    url = "sqlite+aiosqlite:///:memory:"
-    with sqlalchemy_async_engine.scope(url), sqlalchemy_async_session.scope():
-        async with injector.shared(AsyncEngine):
-            await create_tables()
-            user_id = await add_user("Alice")
-            user = await get_user(user_id)
-            assert user.name == "Alice"
-
-
-asyncio.run(main())
-```
-
-## Boto3
-
-```python
-from dataclasses import dataclass
-
-from boto3.session import Session
-from botocore.client import BaseClient
-from moto import mock_aws
-from mypy_boto3_s3 import S3Client
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-
-
-@dataclass
-class AwsCredentials:
-    access_key_id: str | None = None
-    secret_access_key: str | None = None
-    session_token: str | None = None
-    profile_name: str | None = None
-    region_name: str | None = None
-
-
-@provider.function
-def aws_session(creds: AwsCredentials) -> Session:
-    return Session(
-        aws_access_key_id=creds.access_key_id,
-        aws_secret_access_key=creds.secret_access_key,
-        aws_session_token=creds.session_token,
-        region_name=creds.region_name,
-    )
-
-
-@provider.function
-def aws_client(service_name: str, *, session: Session = required) -> BaseClient:
-    return session.client(service_name)
-
-
-@injector.function
-def create_bucket(bucket_name: str, *, client: S3Client = required) -> None:
-    client.create_bucket(Bucket=bucket_name)
-
-
-@injector.function
-def list_buckets(*, client: S3Client = required) -> list[str]:
-    return [bucket["Name"] for bucket in client.list_buckets()["Buckets"]]
-
-
-def main():
-    # Get credentials somehow...
-    creds = AwsCredentials()
-
-    with mock_aws():  # Mock AWS services for testing purposes
-        with aws_session.scope(creds), aws_client[S3Client].scope("s3"):
-            create_bucket("my-bucket")
-            assert "my-bucket" in list_buckets()
 
 
 main()

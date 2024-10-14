@@ -10,7 +10,7 @@ import pytest
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster.types import ProviderMissingError
+from pybooster.core.types import ProviderMissingError
 
 T = TypeVar("T")
 

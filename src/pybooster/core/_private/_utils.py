@@ -26,7 +26,7 @@ from typing import get_type_hints
 import pybooster
 
 if TYPE_CHECKING:
-    from pybooster.types import Dependencies
+    from pybooster.core.types import Dependencies
 
 P = ParamSpec("P")
 R = TypeVar("R")
