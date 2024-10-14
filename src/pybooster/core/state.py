@@ -8,7 +8,7 @@ from pybooster.core._private._shared import SHARED_VALUES as _SHARED_VALUES
 
 
 def copy_state() -> Callable[[], None]:
-    """Copy the current internal state of PyBooster and return a function to restore it."""
+    """Copy the internal state of PyBooster from the current context and return a function to restore it in another."""
     context = {
         _SHARED_VALUES: _SHARED_VALUES.get(),
         _SYNC_PROVIDER_INFOS: _SYNC_PROVIDER_INFOS.get(),
