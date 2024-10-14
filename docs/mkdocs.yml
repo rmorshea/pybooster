@@ -7,8 +7,10 @@ repo_url: https://github.com/rmorshea/pybooster
 
 nav:
     - Home: index.md
-    - Tutorials: tutorials.md
-    - Concepts: concepts.md
+    - Tutorial: tutorial.md
+    - Features: features.md
+    - Usages: usages.md
+    - Integrations: integrations.md
     - Examples: examples.md
     - Reference: reference.md
 
@@ -27,6 +29,7 @@ plugins:
           handlers:
               python:
                   options:
+                      load_external_modules: true
                       docstring_style: google
                       members_order: alphabetical
                       merge_init_into_class: true
@@ -48,7 +51,11 @@ markdown_extensions:
           pygments_lang_class: true
     - pymdownx.inlinehilite
     - pymdownx.snippets
-    - pymdownx.superfences
+    - pymdownx.superfences:
+          custom_fences:
+              - name: mermaid
+                class: mermaid
+                format: !!python/name:pymdownx.superfences.fence_code_format
     - admonition
     - pymdownx.details
     - pymdownx.superfences

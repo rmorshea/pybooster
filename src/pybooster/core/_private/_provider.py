@@ -16,7 +16,8 @@ from typing import get_args
 from typing import get_origin
 from typing import overload
 
-from pybooster.types import ProviderMissingError
+from pybooster.core._private._utils import is_type
+from pybooster.core.types import ProviderMissingError
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -24,12 +25,22 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from collections.abc import Sequence
 
-    from pybooster._private._utils import NormDependencies
-    from pybooster.types import AsyncContextManagerCallable
-    from pybooster.types import ContextManagerCallable
+    from pybooster.core._private._utils import NormDependencies
+    from pybooster.core.types import AsyncContextManagerCallable
+    from pybooster.core.types import ContextManagerCallable
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **kwargs: Any) -> type[R]:
+    if is_type(provides):
+        return cast(type[R], provides)
+    elif callable(provides):
+        return provides(*args, **kwargs)
+    else:
+        msg = f"Expected a type, or function to infer one, but got {provides}."
+        raise TypeError(msg)
 
 
 def raise_missing_provider(types: Collection[type], *, sync: bool) -> NoReturn:
@@ -106,7 +117,7 @@ def set_provider(
             next_provider_infos[cls] = provider_info
 
     token = provider_infos_var.set(next_provider_infos)  # type: ignore[reportArgumentType]
-    return lambda: provider_infos_var.reset(token)  # type: ignore[reportArgumentType]
+    return lambda: provider_infos_var.reset(token)
 
 
 def _check_missing_dependencies(dependency_set: set[Sequence[type]], *, sync: bool) -> None:

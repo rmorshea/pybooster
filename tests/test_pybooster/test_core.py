@@ -10,13 +10,14 @@ import pytest
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster.types import ProviderMissingError
+from pybooster.core.types import ProviderMissingError
 
 T = TypeVar("T")
 
 Greeting = NewType("Greeting", str)
 Recipient = NewType("Recipient", str)
 Message = NewType("Message", str)
+SideEffect = NewType("SideEffect", None)
 
 
 def test_sync_injection():
@@ -149,10 +150,12 @@ def test_union_dependency_is_resolved_in_order():
 
 
 def test_disallow_builtin_type_as_provided_depdency():
-    with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
+    @provider.function
+    def greeting() -> str:
+        raise AssertionError  # nocov
 
-        @provider.function
-        def greeting() -> str:  # nocov
+    with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
+        with greeting.scope():  # nocov
             raise AssertionError
 
 
@@ -174,7 +177,7 @@ def test_provider_must_have_concrete_type_when_entering_scope(returns):
 
     f_provider = provider.function(f)
 
-    with pytest.raises(TypeError, match=r"Expected concrete type"), f_provider.scope():
+    with pytest.raises(TypeError, match=r"Can only provide concrete type"), f_provider.scope():
         raise AssertionError  # nocov
 
 
@@ -204,3 +207,39 @@ def test_allow_provider_return_typevar_if_concrete_type_declared_before_entering
 
     with make_string[Greeting].scope(Greeting, "Hello"):
         assert get_greeting() == "Hello"
+
+
+def test_generic_with_provides_inference_function():
+
+    @provider.function(provides=lambda cls, *a, **kw: cls)
+    def make_string(cls: Callable[[str], T], string: str) -> T:
+        return cls(string)
+
+    @injector.function
+    def get_greeting(*, greeting: Greeting = required) -> Greeting:
+        return greeting
+
+    with make_string.scope(Greeting, "Hello"):
+        assert get_greeting() == "Hello"
+
+
+def test_dependency_reused_across_providers():
+    call_count = 0
+
+    @provider.function
+    def greeting() -> Greeting:
+        nonlocal call_count
+        call_count += 1
+        return Greeting("Hello")
+
+    @provider.function
+    def provider_uses_greeting(*, _: Greeting = required) -> SideEffect:
+        return SideEffect(None)
+
+    @injector.function
+    def get_greeting(*, greeting: Greeting = required, _: SideEffect = required) -> Greeting:
+        return greeting
+
+    with greeting.scope(), provider_uses_greeting.scope():
+        get_greeting()
+        assert call_count == 1

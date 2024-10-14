@@ -8,7 +8,7 @@ from typing import Callable
 from typing import ParamSpec
 from typing import TypeVar
 
-from pybooster._private._utils import make_sentinel_value
+from pybooster.core._private._utils import make_sentinel_value
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -23,6 +23,8 @@ ContextManagerCallable = Callable[P, AbstractContextManager[R]]
 """A callable that returns a context manager."""
 AsyncContextManagerCallable = Callable[P, AbstractAsyncContextManager[R]]
 """A callable that returns an async context manager."""
+AnyContextManagerCallable = Callable[P, AbstractContextManager[R] | AbstractAsyncContextManager[R]]
+"""A callable that returns any kind of context manager."""
 
 Dependencies = Mapping[str, type | Sequence[type]]
 """A mapping of parameter names to their possible type or types."""

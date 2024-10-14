@@ -20,14 +20,13 @@ pip install -U pybooster
 
 Getting started with PyBooster involves a few steps:
 
-1. Define a [provider](https://ryanmorshead.com/pybooster/concepts.md#providers)
-   function for a
-   [dependency](https://ryanmorshead.com/pybooster/concepts.md#dependencies).
-2. Add an [injector](https://ryanmorshead.com/pybooster/concepts.md#injectors) to a
+1. Define a [provider](https://ryanmorshead.com/pybooster/features#providers) function
+   for a [dependency](https://ryanmorshead.com/pybooster/features#dependencies).
+2. Add an [injector](https://ryanmorshead.com/pybooster/features#injectors) to a
    function that will use that dependency.
 3. Enter the
-   [provider's scope](https://ryanmorshead.com/pybooster/concepts.md#scoping-providers)
-   and call the dependent function in it.
+   [provider's scope](https://ryanmorshead.com/pybooster/features#scoping-providers) and
+   call the dependent function in it.
 
 The example below injects a `sqlite3.Connection` into a function that executes a query:
 
