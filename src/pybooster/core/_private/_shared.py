@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
-from contextlib import contextmanager
+import sys
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 from typing import Any
@@ -13,8 +12,7 @@ from pybooster.core._private._provider import get_provider_info
 from pybooster.core._private._utils import undefined
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
-    from collections.abc import Iterator
+    from collections.abc import Awaitable
     from collections.abc import Mapping
     from collections.abc import Sequence
 
@@ -23,38 +21,26 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-@contextmanager
-def sync_shared_context(types: Sequence[type[R]], value: R) -> Iterator[R]:
+def sync_set_shared_context(types: Sequence[type[R]], value: R) -> tuple[R, Callable[[], None]]:
     if value is not undefined:
         reset = _set_shared_value(types, value)
-        try:
-            yield value
-        finally:
-            reset()
+        return value, reset
     else:
-        with get_provider_info(types, sync=True)["manager"]() as value:
-            reset = _set_shared_value(types, value)
-            try:
-                yield value
-            finally:
-                reset()
+        ctx = get_provider_info(types, sync=True)["manager"]()
+        value = ctx.__enter__()
+        reset = _set_shared_value(types, value)
+        return value, lambda: reset() and ctx.__exit__(*sys.exc_info())
 
 
-@asynccontextmanager
-async def async_shared_context(types: Sequence[type[R]], value: R) -> AsyncIterator[R]:
+async def async_set_shared_context(types: Sequence[type[R]], value: R) -> tuple[R, Callable[[], Awaitable[None]]]:
     if value is not undefined:
         reset = _set_shared_value(types, value)
-        try:
-            yield value
-        finally:
-            reset()
+        return value, reset
     else:
-        async with get_provider_info(types, sync=False)["manager"]() as value:
-            reset = _set_shared_value(types, value)
-            try:
-                yield value
-            finally:
-                reset()
+        ctx = get_provider_info(types, sync=False)["manager"]()
+        value = await ctx.__aenter__()
+        reset = _set_shared_value(types, value)
+        return value, lambda: reset() and ctx.__aexit__(*sys.exc_info())
 
 
 def _set_shared_value(types: Sequence[type[R]], value: R) -> Callable[[], None]:

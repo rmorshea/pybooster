@@ -3,8 +3,12 @@
 ## [Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
 
 ```python
+import json
+from dataclasses import asdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Annotated
+from typing import NewType
 
 from boto3.session import Session
 from botocore.client import BaseClient
@@ -15,32 +19,68 @@ from pybooster import provider
 from pybooster import required
 from pybooster import shared
 
+# This avoids importing mypy_boto3_s3 while still making S3Client available at runtime.
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
 else:
     S3Client = Annotated[BaseClient, "mypy_boto3_s3.S3Client"]
 
 
+BucketName = NewType("BucketName", str)
+
+
+@dataclass
+class User:
+    id: int
+    name: str
+
+
 @provider.function
-def aws_client(service_name: str, *, session: Session = required) -> BaseClient:
+def client_provider(service_name: str, *, session: Session = required) -> BaseClient:
     return session.client(service_name)
 
 
-@injector.function
-def create_bucket(bucket_name: str, *, client: S3Client = required) -> None:
-    client.create_bucket(Bucket=bucket_name)
+@provider.function
+def bucket_provider(bucket_name: str, *, client: S3Client = required) -> BucketName:
+    try:
+        # Check if the bucket already exists
+        client.head_bucket(Bucket=bucket_name)
+    except client.exceptions.ClientError as e:
+        # Create if it doesn't
+        if e.response["Error"]["Code"] == "404":
+            client.create_bucket(Bucket=bucket_name)
+        else:
+            raise
+    return BucketName(bucket_name)
 
 
 @injector.function
-def list_buckets(*, client: S3Client = required) -> list[str]:
-    return [bucket["Name"] for bucket in client.list_buckets()["Buckets"]]
+def put_user(
+    user: User, *, bucket_name: BucketName = required, client: S3Client = required
+) -> None:
+    data = json.dumps(asdict(user)).encode()
+    client.put_object(Bucket=bucket_name, Key=f"user/{user.id}", Body=data)
+
+
+@injector.function
+def get_user(
+    user_id: int, *, bucket_name: BucketName = required, client: S3Client = required
+) -> User:
+    response = client.get_object(Bucket=bucket_name, Key=f"user/{user_id}")
+    return User(**json.loads(response["Body"].read()))
 
 
 def main():
     with mock_aws():  # Mock AWS services for testing purposes
-        with shared(Session, value=Session()), aws_client[S3Client].scope("s3"):
-            create_bucket("my-bucket")
-            assert "my-bucket" in list_buckets()
+        with (
+            shared(Session, value=Session()),
+            client_provider[S3Client].scope("s3"),
+            bucket_provider.scope("my-bucket"),
+            shared(BucketName),
+        ):
+            user = User(id=1, name="Alice")
+            put_user(user)
+            assert get_user(user.id) == user
 
 
 main()
@@ -274,13 +314,17 @@ asyncio.run(main())
 
 ## [SQLite](https://docs.python.org/3/library/sqlite3.html)
 
+Shows how to create and read back a user from an SQLite database.
+
 ```python
 import sqlite3
-from typing import Iterator
+from collections.abc import Iterator
+from typing import Self
 
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
+from pybooster import shared
 
 
 @provider.iterator
@@ -290,13 +334,38 @@ def sqlite_connection(database: str) -> Iterator[sqlite3.Connection]:
 
 
 @injector.function
-def query_database(query: str, *, conn: sqlite3.Connection = required) -> None:
-    conn.execute(query)
+def make_user_table(*, conn: sqlite3.Connection = required) -> None:
+    conn.execute("CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT)")
+    conn.commit()
+
+
+class User:
+    def __init__(self, user_id: int, name: str):
+        self.id = user_id
+        self.name = name
+
+    @injector.function
+    def save(self, *, conn: sqlite3.Connection = required) -> None:
+        conn.execute("INSERT INTO user (id, name) VALUES (?, ?)", (self.id, self.name))
+
+    @classmethod
+    @injector.function
+    def load(cls, user_id: int, *, conn: sqlite3.Connection = required) -> Self:
+        cursor = conn.execute("SELECT name FROM user WHERE id = ?", (user_id,))
+        name = cursor.fetchone()[0]
+        return cls(user_id, name)
 
 
 def main():
-    with sqlite_connection.scope(":memory:"):
-        query_database("CREATE TABLE example (id INTEGER PRIMARY KEY)")
+    with (
+        sqlite_connection.scope(":memory:"),
+        # Reusing the same connection is only needed for in-memory databases.
+        shared(sqlite3.Connection),
+    ):
+        make_user_table()
+        user = User(1, "Alice")
+        user.save()
+        assert User.load(1).name == "Alice"
 
 
 main()

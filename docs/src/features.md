@@ -756,6 +756,10 @@ with shared(Auth, value=Auth(username="alice", password="EGwVEo3y9E")):
     assert get_auth() is get_auth()
 ```
 
+!!! tip
+
+    Creating shared values at the begining of your program effectively creates a singleton.
+
 Using a shared value will also cause any providers for the dependency to be ignored.
 
 ```python

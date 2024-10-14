@@ -8,7 +8,8 @@ repo_url: https://github.com/rmorshea/pybooster
 nav:
     - Home: index.md
     - Tutorial: tutorial.md
-    - Concepts: concepts.md
+    - Features: features.md
+    - Usages: usages.md
     - Integrations: integrations.md
     - Examples: examples.md
     - Reference: reference.md
@@ -28,6 +29,7 @@ plugins:
           handlers:
               python:
                   options:
+                      load_external_modules: true
                       docstring_style: google
                       members_order: alphabetical
                       merge_init_into_class: true
@@ -60,9 +62,3 @@ markdown_extensions:
     - pymdownx.emoji:
           emoji_index: !!python/name:material.extensions.emoji.twemoji
           emoji_generator: !!python/name:material.extensions.emoji.to_svg
-
-extra_javascript:
-    # Ensure imported packages use the same versions listed above
-    - path: js/register-mermaid-icons.js
-      type: module
-    - https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs

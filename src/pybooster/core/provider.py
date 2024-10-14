@@ -158,7 +158,6 @@ class _BaseProvider(Generic[P, R]):
 
     @contextmanager
     def scope(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[None]:
-        """Declare this as the provider for the dependency within the context."""
         provides_type = get_provides_type(self._provides, *args, **kwargs)
 
         try:
@@ -178,8 +177,11 @@ class _BaseProvider(Generic[P, R]):
             else:
                 dependency_set.add(types)
 
-        with set_provider(provides_type, lambda: self._manager(*args, **kwargs), dependency_set, sync=self._sync):
+        reset = set_provider(provides_type, lambda: self._manager(*args, **kwargs), dependency_set, sync=self._sync)
+        try:
             yield
+        finally:
+            reset()
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._manager.__module__}.{self._manager.__qualname__})"
