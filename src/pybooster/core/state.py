@@ -2,21 +2,26 @@ from __future__ import annotations
 
 from typing import Callable
 
-from pybooster.core._private._provider import _ASYNC_PROVIDER_INFOS
-from pybooster.core._private._provider import _SYNC_PROVIDER_INFOS
-from pybooster.core._private._shared import SHARED_VALUES as _SHARED_VALUES
+from pybooster.core._private._injector import CURRENT_VALUES as _CURRENT_VALUES
+from pybooster.core._private._solution import _FULL_INFOS
+from pybooster.core._private._solution import _FULL_SOLUTION
+from pybooster.core._private._solution import _SYNC_INFOS
+from pybooster.core._private._solution import _SYNC_SOLUTION
 
 
 def copy_state() -> Callable[[], None]:
-    """Copy the internal state of PyBooster from the current context and return a function to restore it in another."""
-    context = {
-        _SHARED_VALUES: _SHARED_VALUES.get(),
-        _SYNC_PROVIDER_INFOS: _SYNC_PROVIDER_INFOS.get(),
-        _ASYNC_PROVIDER_INFOS: _ASYNC_PROVIDER_INFOS.get(),
-    }
+    """Copy PyBooster's current state and return a callback that will restore it in another context."""
+    current_values = _CURRENT_VALUES.get()
+    full_infos = _FULL_INFOS.get()
+    sync_infos = _SYNC_INFOS.get()
+    full_solution = _FULL_SOLUTION.get()
+    sync_solution = _SYNC_SOLUTION.get()
 
-    def restore():
-        for var, val in context.items():
-            var.set(val)
+    def restore() -> None:
+        _CURRENT_VALUES.set(current_values)
+        _FULL_INFOS.set(full_infos)
+        _SYNC_INFOS.set(sync_infos)
+        _FULL_SOLUTION.set(full_solution)
+        _SYNC_SOLUTION.set(sync_solution)
 
     return restore

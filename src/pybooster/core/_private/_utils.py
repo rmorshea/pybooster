@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+from ast import TypeVarTuple
 from collections.abc import AsyncIterator
 from collections.abc import Coroutine
 from collections.abc import Iterator
@@ -9,6 +10,7 @@ from collections.abc import Sequence
 from inspect import Parameter
 from inspect import isclass
 from inspect import signature
+from sys import version_info
 from types import UnionType
 from typing import TYPE_CHECKING
 from typing import Annotated
@@ -25,13 +27,44 @@ from typing import get_type_hints
 
 import pybooster
 
+if version_info >= (3, 11):
+    from typing import TypeVarTuple
+else:
+    from typing_extensions import TypeVarTuple
+
 if TYPE_CHECKING:
+    from anyio.abc import TaskGroup
+
     from pybooster.core.types import Dependencies
 
 P = ParamSpec("P")
 R = TypeVar("R")
 C = TypeVar("C", bound=Callable)
 D = TypeVar("D", bound=Callable)
+T = TypeVarTuple("T")
+
+
+def start_future(task_group: TaskGroup, coro: Coroutine[None, None, R]) -> Callable[[], R]:
+    """Get a function a function that returns the result of a task once it has completed.
+
+    The returned function raises a `RuntimeError` if the task has not completed yet.
+    """
+    result: R
+
+    async def task() -> None:
+        nonlocal result
+        result = await coro
+
+    task_group.start_soon(task)
+
+    def resolve():
+        try:
+            return result
+        except NameError:
+            msg = "Promise has not completed."
+            raise RuntimeError(msg) from None
+
+    return resolve
 
 
 def is_type(value: Any) -> bool:

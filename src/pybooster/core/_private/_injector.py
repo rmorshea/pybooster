@@ -1,22 +1,30 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from contextlib import AsyncExitStack
+from contextlib import ExitStack
 from contextvars import ContextVar
+from sys import exc_info
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Callable
 from typing import ParamSpec
 from typing import TypeVar
 
-from pybooster.core._private._provider import AsyncProviderInfo
-from pybooster.core._private._provider import SyncProviderInfo
-from pybooster.core._private._provider import iter_provider_infos
-from pybooster.core._private._shared import SHARED_VALUES
+from anyio import create_task_group
+
+from pybooster.core._private._solution import get_full_solution
+from pybooster.core._private._solution import get_sync_solution
+from pybooster.core._private._utils import start_future
+from pybooster.core._private._utils import undefined
+from pybooster.core.types import ProviderMissingError
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
     from collections.abc import Sequence
-    from contextlib import AsyncExitStack
-    from contextlib import ExitStack
 
+    from pybooster.core._private._provider import AsyncProviderInfo
+    from pybooster.core._private._provider import SyncProviderInfo
     from pybooster.core._private._utils import NormDependencies
 
 
@@ -24,21 +32,70 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+def sync_set_current_values(types: Sequence[type[R]], value: R) -> tuple[R, Callable[[], None]]:
+    if value is not undefined:
+        return value, _set_current_values(types, value)
+    else:
+        arguments: dict[str, R] = {}
+        dependencies: dict[str, Sequence[type[R]]] = {"result": types}
+        if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
+            stack = ExitStack()
+            sync_update_arguments_by_initializing_dependencies(stack, arguments, missing)
+
+            def reset():
+                stack.__exit__(*exc_info())
+
+        else:
+
+            def reset():
+                pass
+
+    return value, reset
+
+
+async def async_set_current_values(types: Sequence[type[R]], value: R) -> tuple[R, Callable[[], Awaitable[None]]]:
+    if value is not undefined:
+        _reset = _set_current_values(types, value)
+
+        async def reset():  # noqa: RUF029
+            _reset()
+
+    else:
+        arguments: dict[str, R] = {}
+        dependencies: dict[str, Sequence[type[R]]] = {"result": types}
+        if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
+            stack = AsyncExitStack()
+            await async_update_arguments_by_initializing_dependencies(stack, arguments, missing)
+
+            async def reset():
+                await stack.__aexit__(*exc_info())
+
+        else:
+
+            async def reset():
+                pass
+
+        value = arguments["result"]
+
+    return value, reset
+
+
+def _set_current_values(types: Sequence[type[R]], value: R) -> Callable[[], None]:
+    token = CURRENT_VALUES.set({**CURRENT_VALUES.get(), **dict.fromkeys(types, value)})
+    return lambda: CURRENT_VALUES.reset(token)
+
+
 def setdefault_arguments_with_initialized_dependencies(
     arguments: dict[str, Any],
     dependencies: NormDependencies,
 ) -> NormDependencies:
     missing: dict[str, Sequence[type]] = {}
-    shared_values = SHARED_VALUES.get()
-    injector_values = _INJECTOR_VALUES.get() or {}
+    current_values = CURRENT_VALUES.get()
     for name, types in dependencies.items():
         if name not in arguments:
             for cls in types:
-                if cls in shared_values:
-                    arguments[name] = shared_values[cls]
-                    break
-                if cls in injector_values:
-                    arguments[name] = injector_values[cls]
+                if cls in current_values:
+                    arguments[name] = current_values[cls]
                     break
             else:
                 missing[name] = types
@@ -50,18 +107,10 @@ def sync_update_arguments_by_initializing_dependencies(
     arguments: dict[str, Any],
     dependencies: NormDependencies,
 ) -> None:
-    shared_values = SHARED_VALUES.get()
-    injector_values, reset_injector_values = _get_injector_values()
-    try:
-        for name, cls, info in iter_provider_infos(dependencies, sync=True):
-            if cls in injector_values:
-                arguments[name] = injector_values[cls]
-            elif cls in shared_values:
-                injector_values[cls] = arguments[name] = shared_values[cls]
-            else:
-                injector_values[cls] = arguments[name] = sync_enter_provider_context(stack, info)
-    finally:
-        reset_injector_values()
+    current_values = dict(CURRENT_VALUES.get())
+    for providers in get_sync_solution(dependencies):
+        _sync_add_current_values(stack, current_values, providers)
+    _set_current_values_and_arguments(stack, current_values, arguments, dependencies)
 
 
 async def async_update_arguments_by_initializing_dependencies(
@@ -69,34 +118,61 @@ async def async_update_arguments_by_initializing_dependencies(
     arguments: dict[str, Any],
     dependencies: NormDependencies,
 ) -> None:
-    shared_values = SHARED_VALUES.get()
-    injector_values, reset_injector_values = _get_injector_values()
-    try:
-        for name, cls, info in iter_provider_infos(dependencies, sync=False):
-            if cls in injector_values:
-                arguments[name] = injector_values[cls]
-            elif cls in shared_values:
-                injector_values[cls] = arguments[name] = shared_values[cls]
-            else:
-                if info["sync"] is True:
-                    injector_values[cls] = arguments[name] = sync_enter_provider_context(stack, info)
-                else:
-                    injector_values[cls] = arguments[name] = await async_enter_provider_context(stack, info)
-    finally:
-        reset_injector_values()
+    current_values = CURRENT_VALUES.get()
+    for provider_infos in get_full_solution(dependencies):
+        sync_providers: list[SyncProviderInfo] = []
+        async_providers: list[AsyncProviderInfo] = []
+        for info in provider_infos:
+            (sync_providers if info["is_sync"] else async_providers).append(info)
+        _sync_add_current_values(stack, current_values, sync_providers)
+        await _async_add_current_values(stack, current_values, async_providers)
+    _set_current_values_and_arguments(stack, current_values, arguments, dependencies)
 
 
-def sync_enter_provider_context(stack: ExitStack | AsyncExitStack, provider_info: SyncProviderInfo) -> Any:
-    return provider_info["getter"](stack.enter_context(provider_info["manager"]()))
+def _set_current_values_and_arguments(
+    stack: ExitStack | AsyncExitStack,
+    current_values: dict[type, Any],
+    arguments: dict[str, Any],
+    dependencies: NormDependencies,
+) -> None:
+    token = CURRENT_VALUES.set(current_values)
+    if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
+        msg = f"Missing providers for {missing}"
+        raise ProviderMissingError(msg)
+    stack.callback(CURRENT_VALUES.reset, token)
 
 
-async def async_enter_provider_context(stack: AsyncExitStack, provider_info: AsyncProviderInfo) -> Any:
-    return provider_info["getter"](await stack.enter_async_context(provider_info["manager"]()))
+def _sync_add_current_values(
+    stack: ExitStack | AsyncExitStack,
+    current_values: dict[type, Any],
+    providers: Sequence[AsyncProviderInfo],
+) -> None:
+    for p in providers:
+        current_values[p["provides"]] = _sync_enter_provider_context(stack, p)
 
 
-def _get_injector_values() -> tuple[dict[type, Any], Callable[[], None]]:
-    token = _INJECTOR_VALUES.set(injector_values := {}) if (injector_values := _INJECTOR_VALUES.get()) is None else None
-    return injector_values, lambda: token and _INJECTOR_VALUES.reset(token)
+async def _async_add_current_values(
+    stack: AsyncExitStack,
+    current_values: dict[type, Any],
+    providers: Sequence[AsyncProviderInfo],
+) -> None:
+    if providers_len := len(providers):
+        if providers_len == 1:
+            p = providers[0]
+            current_values[p["provides"]] = await _async_enter_provider_context(stack, p)
+        else:
+            async with create_task_group() as tg:
+                provider_futures = [(p, start_future(tg, _async_enter_provider_context(stack, p))) for p in providers]
+            for p, f in provider_futures:
+                current_values[p["provides"]] = f()
 
 
-_INJECTOR_VALUES: ContextVar[dict[type, Any] | None] = ContextVar("INJECTOR_VALUES")
+def _sync_enter_provider_context(stack: ExitStack | AsyncExitStack, provider_info: SyncProviderInfo) -> Any:
+    return provider_info["getter"](stack.enter_context(provider_info["producer"]()))
+
+
+async def _async_enter_provider_context(stack: AsyncExitStack, provider_info: AsyncProviderInfo) -> Any:
+    return provider_info["getter"](await stack.enter_async_context(provider_info["producer"]()))
+
+
+CURRENT_VALUES = ContextVar[Mapping[type, Any]]("CURRENT_VALUES", default={})
