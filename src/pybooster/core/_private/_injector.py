@@ -139,7 +139,8 @@ def _sync_add_current_values(
     providers: Sequence[AsyncProviderInfo],
 ) -> None:
     for p in providers:
-        current_values[p["provides"]] = _sync_enter_provider_context(stack, p)
+        if (cls := p["provides"]) not in current_values:
+            current_values[cls] = _sync_enter_provider_context(stack, p)
 
 
 async def _async_add_current_values(
@@ -150,10 +151,12 @@ async def _async_add_current_values(
     if providers_len := len(providers):
         if providers_len == 1:
             p = providers[0]
-            current_values[p["provides"]] = await _async_enter_provider_context(stack, p)
+            if (cls := p["provides"]) not in current_values:
+                current_values[cls] = await _async_enter_provider_context(stack, p)
         else:
+            missing = [p for p in providers if p["provides"] not in current_values]
             async with create_task_group() as tg:
-                provider_futures = [(p, start_future(tg, _async_enter_provider_context(stack, p))) for p in providers]
+                provider_futures = [(p, start_future(tg, _async_enter_provider_context(stack, p))) for p in missing]
             for p, f in provider_futures:
                 current_values[p["provides"]] = f()
 
