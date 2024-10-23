@@ -8,7 +8,7 @@ repo_url: https://github.com/rmorshea/pybooster
 nav:
     - Home: index.md
     - Tutorial: tutorial.md
-    - Features: features.md
+    - Concepts: concepts.md
     - Usages: usages.md
     - Integrations: integrations.md
     - Examples: examples.md

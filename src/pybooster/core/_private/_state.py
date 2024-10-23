@@ -5,9 +5,9 @@ from typing import Any
 
 from pybooster.core._private._injector import CURRENT_VALUES as _CURRENT_VALUES
 from pybooster.core._private._solution import _FULL_INFOS
-from pybooster.core._private._solution import _FULL_SOLUTION
 from pybooster.core._private._solution import _SYNC_INFOS
-from pybooster.core._private._solution import _SYNC_SOLUTION
+from pybooster.core._private._solution import FULL_SOLUTION
+from pybooster.core._private._solution import SYNC_SOLUTION
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -20,8 +20,8 @@ def copy_state() -> State:
         _CURRENT_VALUES: _CURRENT_VALUES.get(),
         _FULL_INFOS: _FULL_INFOS.get(),
         _SYNC_INFOS: _SYNC_INFOS.get(),
-        _FULL_SOLUTION: _FULL_SOLUTION.get(),
-        _SYNC_SOLUTION: _SYNC_SOLUTION.get(),
+        FULL_SOLUTION: FULL_SOLUTION.get(),
+        SYNC_SOLUTION: SYNC_SOLUTION.get(),
     }
     return state
 

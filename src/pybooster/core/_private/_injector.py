@@ -16,7 +16,6 @@ from anyio import create_task_group
 from pybooster.core._private._solution import get_full_solution
 from pybooster.core._private._solution import get_sync_solution
 from pybooster.core._private._utils import start_future
-from pybooster.core._private._utils import undefined
 from pybooster.core.types import ProviderMissingError
 
 if TYPE_CHECKING:
@@ -32,51 +31,43 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def sync_set_current_values(types: Sequence[type[R]], value: R) -> tuple[R, Callable[[], None]]:
-    if value is not undefined:
-        return value, _set_current_values(types, value)
+def sync_set_current_values(types: Sequence[type[R]]) -> tuple[R, Callable[[], None]]:
+    arguments: dict[str, R] = {}
+    dependencies: dict[str, Sequence[type[R]]] = {"result": types}
+    if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
+        stack = ExitStack()
+        sync_update_arguments_by_initializing_dependencies(stack, arguments, missing)
+
+        def reset():
+            stack.__exit__(*exc_info())
+
     else:
-        arguments: dict[str, R] = {}
-        dependencies: dict[str, Sequence[type[R]]] = {"result": types}
-        if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
-            stack = ExitStack()
-            sync_update_arguments_by_initializing_dependencies(stack, arguments, missing)
 
-            def reset():
-                stack.__exit__(*exc_info())
+        def reset():
+            pass
 
-        else:
-
-            def reset():
-                pass
-
+    value = arguments["result"]
+    _set_current_values(types, value)
     return value, reset
 
 
-async def async_set_current_values(types: Sequence[type[R]], value: R) -> tuple[R, Callable[[], Awaitable[None]]]:
-    if value is not undefined:
-        _reset = _set_current_values(types, value)
+async def async_set_current_values(types: Sequence[type[R]]) -> tuple[R, Callable[[], Awaitable[None]]]:
+    arguments: dict[str, R] = {}
+    dependencies: dict[str, Sequence[type[R]]] = {"result": types}
+    if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
+        stack = AsyncExitStack()
+        await async_update_arguments_by_initializing_dependencies(stack, arguments, missing)
 
-        async def reset():  # noqa: RUF029
-            _reset()
+        async def reset():
+            await stack.__aexit__(*exc_info())
 
     else:
-        arguments: dict[str, R] = {}
-        dependencies: dict[str, Sequence[type[R]]] = {"result": types}
-        if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
-            stack = AsyncExitStack()
-            await async_update_arguments_by_initializing_dependencies(stack, arguments, missing)
 
-            async def reset():
-                await stack.__aexit__(*exc_info())
+        async def reset():
+            pass
 
-        else:
-
-            async def reset():
-                pass
-
-        value = arguments["result"]
-
+    value = arguments["result"]
+    _set_current_values(types, value)
     return value, reset
 
 

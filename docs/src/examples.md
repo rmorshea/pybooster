@@ -18,6 +18,7 @@ from pybooster import injector
 from pybooster import provider
 from pybooster import required
 from pybooster import shared
+from pybooster import solved
 
 # This avoids importing mypy_boto3_s3 while still making S3Client available at runtime.
 if TYPE_CHECKING:
@@ -73,9 +74,8 @@ def get_user(
 def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
+            solved(client_provider[S3Client].bind("s3"), bucket_provider.bind("my-bucket")),
             shared(Session, value=Session()),
-            client_provider[S3Client].scope("s3"),
-            bucket_provider.scope("my-bucket"),
             shared(BucketName),
         ):
             user = User(id=1, name="Alice")
@@ -108,6 +108,7 @@ from starlette.testclient import TestClient
 from pybooster import injector
 from pybooster import required
 from pybooster import shared
+from pybooster import solved
 from pybooster.extra.asgi import PyBoosterMiddleware
 from pybooster.extra.sqlalchemy import async_engine_provider
 from pybooster.extra.sqlalchemy import async_session_provider
@@ -129,15 +130,11 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
-    with async_engine_provider.scope(DB_URL):  # set up the engine provider
-        async with shared(AsyncEngine) as engine:  # establish the engine as a singleton
-
-            # create tables if they don't exist
+    with solved(async_engine_provider.bind(DB_URL), async_session_provider):
+        async with shared(AsyncEngine) as engine:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-
-            with async_session_provider.scope():  # set up the transaction provider
-                yield
+            yield
 
 
 @injector.asyncfunction
@@ -200,6 +197,7 @@ from sqlalchemy.orm import mapped_column
 from pybooster import injector
 from pybooster import required
 from pybooster import shared
+from pybooster import solved
 from pybooster.extra.sqlalchemy import engine_provider
 from pybooster.extra.sqlalchemy import session_provider
 
@@ -236,9 +234,10 @@ def get_user(user_id: int, *, session: Session = required) -> User:
 def main():
     url = "sqlite:///:memory:"
     with (
-        engine_provider.scope(url),
+        solved(
+            engine_provider.bind(url), session_provider.bind(expire_on_commit=False)
+        ),
         shared(Engine),
-        session_provider.scope(expire_on_commit=False),
     ):
         create_tables()
         user_id = add_user("Alice")
@@ -264,6 +263,7 @@ from sqlalchemy.orm import mapped_column
 from pybooster import injector
 from pybooster import required
 from pybooster import shared
+from pybooster import solved
 from pybooster.extra.sqlalchemy import async_engine_provider
 from pybooster.extra.sqlalchemy import async_session_provider
 
@@ -300,13 +300,15 @@ async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
 
 async def main():
     url = "sqlite+aiosqlite:///:memory:"
-    with async_engine_provider.scope(url):
+    with solved(
+        async_engine_provider.bind(url),
+        async_session_provider.bind(expire_on_commit=False),
+    ):
         async with shared(AsyncEngine):
-            with async_session_provider.scope(expire_on_commit=False):
-                await create_tables()
-                user_id = await add_user("Alice")
-                user = await get_user(user_id)
-                assert user.name == "Alice"
+            await create_tables()
+            user_id = await add_user("Alice")
+            user = await get_user(user_id)
+            assert user.name == "Alice"
 
 
 asyncio.run(main())
@@ -325,6 +327,7 @@ from pybooster import injector
 from pybooster import provider
 from pybooster import required
 from pybooster import shared
+from pybooster import solved
 
 
 @provider.iterator
@@ -358,7 +361,7 @@ class User:
 
 def main():
     with (
-        sqlite_connection.scope(":memory:"),
+        solved(sqlite_connection.bind(":memory:")),
         # Reusing the same connection is only needed for in-memory databases.
         shared(sqlite3.Connection),
     ):

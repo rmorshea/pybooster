@@ -6,7 +6,7 @@ Common usage patterns with PyBooster.
 
 To create a provider that does not yield a value but which has side effects create a
 subtype of `None` with the `NewType` function from the `typing` module. This new subtype
-can then be used as a [dependency](features.md#dependencies).
+can then be used as a [dependency](concepts.md#dependencies).
 
 ```python
 from typing import Iterator
@@ -15,6 +15,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
+from pybooster import solved
 
 SwitchOn = NewType("SwitchOn", None)
 
@@ -37,7 +38,7 @@ def is_switch_on(*, _: SwitchOn = required) -> bool:
     return SWITCH
 
 
-with switch_on.scope():
+with solved(switch_on):
     assert not SWITCH
     assert is_switch_on()
     assert not SWITCH

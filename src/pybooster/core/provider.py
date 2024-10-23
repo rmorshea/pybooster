@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager as _asynccontextmanager
 from contextlib import contextmanager as _contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING
+from typing import Any
 from typing import Callable
 from typing import Generic
 from typing import ParamSpec
@@ -13,6 +14,7 @@ from typing import Self
 from typing import TypeAlias
 from typing import TypeVar
 from typing import cast
+from typing import overload
 
 from paramorator import paramorator
 
@@ -38,6 +40,24 @@ if TYPE_CHECKING:
 P = ParamSpec("P")
 R = TypeVar("R")
 G = TypeVar("G")
+
+
+@overload
+def static(provides: Callable[[G], R], value: G) -> SyncProvider[[], R]: ...
+
+
+@overload
+def static(provides: type[R], value: R) -> SyncProvider[[], R]: ...
+
+
+def static(provides: type[R] | Callable[[Any], R], value: R) -> SyncProvider[[], R]:
+    """Create a provider from a static value.
+
+    Args:
+        provides: The type that the value provides.
+        value: The value to provide
+    """
+    return function(lambda: value, provides=provides)
 
 
 @paramorator
@@ -162,7 +182,7 @@ class SyncProvider(Generic[P, R]):
 
     def __getitem__(self, provides: type[R]) -> Self:
         """Declare a specific type for a generic provider."""
-        return type(self)(self.manager, provides, self.dependencies)
+        return type(self)(self.producer, provides, self.dependencies)
 
 
 class AsyncProvider(Generic[P, R]):
@@ -191,7 +211,7 @@ class AsyncProvider(Generic[P, R]):
 
     def __getitem__(self, provides: type[R]) -> Self:
         """Declare a specific type for a generic provider."""
-        return type(self)(self.manager, provides, self.dependencies)
+        return type(self)(self.producer, provides, self.dependencies)
 
 
 Provider: TypeAlias = "SyncProvider[P, R] | AsyncProvider[P, R]"

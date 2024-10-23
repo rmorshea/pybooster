@@ -46,6 +46,7 @@ dependencies = [
   "pytest-examples==0.0.13",
   "pytest==8.3.3",
   "starlette[full]==0.39.2",
+  "sqlalchemy[asyncio]==2.0.36",
   "toml==0.10.2",                    # python 3.10 compatibility
 ]
 [tool.hatch.envs.default.scripts]

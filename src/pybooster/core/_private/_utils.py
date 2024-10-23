@@ -7,6 +7,8 @@ from collections.abc import Coroutine
 from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
+from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractContextManager
 from inspect import Parameter
 from inspect import isclass
 from inspect import signature
@@ -175,3 +177,21 @@ def get_iterator_yield_type(func: Callable, *, sync: bool) -> type:
 
 def _is_union(anno: Any) -> bool:
     return get_origin(anno) in (Union, UnionType)
+
+
+class StaticContextManager(AbstractAsyncContextManager[R], AbstractContextManager[R]):
+
+    def __init__(self, value: R) -> None:
+        self.value = value
+
+    def __enter__(self) -> R:
+        return self.value
+
+    def __exit__(self, *args) -> None:
+        pass
+
+    async def __aenter__(self) -> R:
+        return self.value
+
+    async def __aexit__(self, *args) -> None:
+        pass

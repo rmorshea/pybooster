@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 from typing import Any
 from typing import Callable
 from typing import Literal
-from typing import NoReturn
 from typing import ParamSpec
 from typing import TypedDict
 from typing import TypeVar
@@ -17,10 +16,8 @@ from typing import overload
 from pybooster.core._private._utils import is_type
 from pybooster.core.types import AsyncContextManagerCallable
 from pybooster.core.types import ContextManagerCallable
-from pybooster.core.types import ProviderMissingError
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
     from collections.abc import Sequence
 
     from pybooster.core._private._utils import NormDependencies
@@ -32,6 +29,25 @@ R = TypeVar("R")
 AnyContextManagerCallable = ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R]
 
 
+class SyncProviderInfo(TypedDict):
+    is_sync: Literal[True]
+    producer: ContextManagerCallable[[], Any]
+    provides: type
+    dependencies: set[type]
+    getter: Callable[[Any], Any]
+
+
+class AsyncProviderInfo(TypedDict):
+    is_sync: Literal[False]
+    producer: AsyncContextManagerCallable[[], Any]
+    provides: type
+    dependencies: set[type]
+    getter: Callable[[Any], Any]
+
+
+ProviderInfo = SyncProviderInfo | AsyncProviderInfo
+
+
 def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **kwargs: Any) -> type[R]:
     if is_type(provides):
         return cast(type[R], provides)
@@ -40,13 +56,6 @@ def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **
     else:
         msg = f"Expected a type, or function to infer one, but got {provides}."
         raise TypeError(msg)
-
-
-def raise_missing_provider(types: Collection[type], *, sync: bool) -> NoReturn:
-    sync_msg = "sync" if sync else "sync or async"
-    type_msg = f"any of {types}" if len(types) > 1 else f"{next(iter(types))}"
-    msg = f"No {sync_msg} provider for {type_msg}"
-    raise ProviderMissingError(msg)
 
 
 @overload
@@ -118,34 +127,31 @@ def _get_scalar_provider_infos(
     if get_origin(provides) is Union:
         msg = f"Cannot provide a union type {provides}."
         raise TypeError(msg)
-    return {
-        provides: cast(
-            ProviderInfo,
-            {
-                "is_sync": is_sync,
-                "producer": producer,
-                "provides": provides,
-                "dependencies": set(dependencies),
-                "getter": getter,
-            },
-        )
-    }
 
-
-class SyncProviderInfo(TypedDict):
-    is_sync: Literal[True]
-    producer: ContextManagerCallable[[], Any]
-    provides: type
-    dependencies: set[type]
-    getter: Callable[[Any], Any]
-
-
-class AsyncProviderInfo(TypedDict):
-    is_sync: Literal[False]
-    producer: AsyncContextManagerCallable[[], Any]
-    provides: type
-    dependencies: set[type]
-    getter: Callable[[Any], Any]
-
-
-ProviderInfo = SyncProviderInfo | AsyncProviderInfo
+    if hasattr(provides, "__mro__"):
+        return {
+            cls: cast(
+                ProviderInfo,
+                {
+                    "is_sync": is_sync,
+                    "producer": producer,
+                    "provides": cls,
+                    "dependencies": set(dependencies),
+                    "getter": getter,
+                },
+            )
+            for cls in provides.__mro__
+        }
+    else:
+        return {
+            provides: cast(
+                ProviderInfo,
+                {
+                    "is_sync": is_sync,
+                    "producer": producer,
+                    "provides": provides,
+                    "dependencies": set(dependencies),
+                    "getter": getter,
+                },
+            )
+        }
