@@ -26,7 +26,7 @@ from typing import Iterator
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @provider.iterator
@@ -40,7 +40,7 @@ def query_database(query: str, *, conn: sqlite3.Connection = required) -> None:
     conn.execute(query)
 
 
-with solved(sqlite_connection.bind(":memory:")):
+with solution(sqlite_connection.bind(":memory:")):
     query_database("CREATE TABLE example (id INTEGER PRIMARY KEY)")
 ```
 

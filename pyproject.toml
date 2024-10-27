@@ -37,8 +37,8 @@ path = "src/pybooster/__init__.py"
 [tool.hatch.envs.default]
 dependencies = [
   "aiosqlite==0.20.0",
-  "boto3-stubs[essential]==1.35.38",
-  "boto3==1.35.38",
+  "boto3-stubs[essential]==1.35.49",
+  "boto3==1.35.49",
   "coverage[toml]==7.6.1",
   "diff-cover==9.2.0",
   "moto==5.0.16",
@@ -80,11 +80,12 @@ extra-dependencies = [
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build -f docs/mkdocs.yml"
 publish = "mkdocs gh-deploy -f docs/mkdocs.yml"
-fix = "pytest tests/test_docs.py --update-examples"
+fix = "pytest tests/test_docs.py {args:} --update-examples"
 serve = "mkdocs serve -f docs/mkdocs.yml"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.black]
 preview = true

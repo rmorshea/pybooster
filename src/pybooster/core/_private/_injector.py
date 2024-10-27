@@ -47,7 +47,7 @@ def sync_set_current_values(types: Sequence[type[R]]) -> tuple[R, Callable[[], N
             pass
 
     value = arguments["result"]
-    _set_current_values(types, value)
+
     return value, reset
 
 
@@ -67,7 +67,7 @@ async def async_set_current_values(types: Sequence[type[R]]) -> tuple[R, Callabl
             pass
 
     value = arguments["result"]
-    _set_current_values(types, value)
+
     return value, reset
 
 
@@ -109,7 +109,7 @@ async def async_update_arguments_by_initializing_dependencies(
     arguments: dict[str, Any],
     dependencies: NormDependencies,
 ) -> None:
-    current_values = CURRENT_VALUES.get()
+    current_values = dict(CURRENT_VALUES.get())
     for provider_infos in get_full_solution(dependencies):
         sync_providers: list[SyncProviderInfo] = []
         async_providers: list[AsyncProviderInfo] = []

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 @contextmanager
-def solved(*providers: Provider[[], Any] | Sequence[Provider[[], Any]]) -> Iterator[None]:
+def solution(*providers: Provider[[], Any] | Sequence[Provider[[], Any]]) -> Iterator[None]:
     """Resolve the dependencies between the given providers and use them for the duration of the context."""
     sync_infos: dict[type, SyncProviderInfo] = {}
     async_infos: dict[type, AsyncProviderInfo] = {}

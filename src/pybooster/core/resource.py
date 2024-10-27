@@ -155,12 +155,12 @@ def asynccontextmanager(
     return _asynccontextmanager(asynciterator(func, dependencies=dependencies))
 
 
-def inline(cls: type[R]) -> _InlineContext[R]:
+def current(cls: type[R]) -> _CurrentContext[R]:
     """Get the current value of a dependency."""
-    return _InlineContext(normalize_dependency(cls))
+    return _CurrentContext(normalize_dependency(cls))
 
 
-class _InlineContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
+class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
     """A context manager to provide the current value of a dependency."""
 
     def __init__(self, types: Sequence[type[R]]) -> None:
