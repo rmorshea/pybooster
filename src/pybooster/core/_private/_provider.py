@@ -13,6 +13,8 @@ from typing import get_args
 from typing import get_origin
 from typing import overload
 
+from pybooster.core._private._utils import check_is_concrete_type
+from pybooster.core._private._utils import check_is_not_builtin_type
 from pybooster.core._private._utils import is_type
 from pybooster.core.types import AsyncContextManagerCallable
 from pybooster.core.types import ContextManagerCallable
@@ -127,6 +129,9 @@ def _get_scalar_provider_infos(
     if get_origin(provides) is Union:
         msg = f"Cannot provide a union type {provides}."
         raise TypeError(msg)
+
+    check_is_not_builtin_type(provides)
+    check_is_concrete_type(provides)
 
     if hasattr(provides, "__mro__"):
         return {

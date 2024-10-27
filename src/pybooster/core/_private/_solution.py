@@ -12,6 +12,7 @@ from typing import TypeVar
 
 from pybooster.core._private._provider import ProviderInfo
 from pybooster.core._private._provider import SyncProviderInfo
+from pybooster.core.types import ProviderMissingError
 
 if TYPE_CHECKING:
 
@@ -71,6 +72,7 @@ def _get_solution(
 
 def _set_solution(var: ContextVar[_Solution[P]], infos: Mapping[type, P]) -> Token:
     graph = {provides: info["dependencies"] for provides, info in infos.items()}
+    _check_all_dependencies_exist(var, graph)
     all_sorted_groups = _get_sorted_groups(graph)
     exe_orders = {cls: _intersect_sorted_groups(all_sorted_groups, _nodes_in_subgraph(graph, cls)) for cls in graph}
     return var.set(_Solution(infos, exe_orders))
@@ -85,6 +87,17 @@ def _get_sorted_groups(graph: Graph) -> Sequence[NodeSet]:
         sorted_groups.append(set(group))
         sorter.done(*group)
     return sorted_groups
+
+
+def _check_all_dependencies_exist(var: ContextVar, graph: Graph) -> None:
+    any_missing: set[type] = set()
+    for dependencies in graph.values():
+        if some_missing := dependencies - graph.keys():
+            any_missing.update(some_missing)
+    if any_missing:
+        sync = "sync" if var is _SYNC_SOLUTION else "sync or async"
+        msg = f"No {sync} providers for {any_missing}"
+        raise ProviderMissingError(msg)
 
 
 def _intersect_sorted_groups(groups: Sequence[NodeSet], subset: set[type]) -> Sequence[NodeSet]:

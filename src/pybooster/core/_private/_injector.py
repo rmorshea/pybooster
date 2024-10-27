@@ -71,11 +71,6 @@ async def async_set_current_values(types: Sequence[type[R]]) -> tuple[R, Callabl
     return value, reset
 
 
-def _set_current_values(types: Sequence[type[R]], value: R) -> Callable[[], None]:
-    token = CURRENT_VALUES.set({**CURRENT_VALUES.get(), **dict.fromkeys(types, value)})
-    return lambda: CURRENT_VALUES.reset(token)
-
-
 def setdefault_arguments_with_initialized_dependencies(
     arguments: dict[str, Any],
     dependencies: NormDependencies,
@@ -99,9 +94,13 @@ def sync_update_arguments_by_initializing_dependencies(
     dependencies: NormDependencies,
 ) -> None:
     current_values = dict(CURRENT_VALUES.get())
+    token = CURRENT_VALUES.set(current_values)
+    stack.callback(CURRENT_VALUES.reset, token)
     for providers in get_sync_solution(dependencies):
         _sync_add_current_values(stack, current_values, providers)
-    _set_current_values_and_arguments(stack, current_values, arguments, dependencies)
+    if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
+        msg = f"Missing providers for {missing}"
+        raise ProviderMissingError(msg)
 
 
 async def async_update_arguments_by_initializing_dependencies(
@@ -110,6 +109,8 @@ async def async_update_arguments_by_initializing_dependencies(
     dependencies: NormDependencies,
 ) -> None:
     current_values = dict(CURRENT_VALUES.get())
+    token = CURRENT_VALUES.set(current_values)
+    stack.callback(CURRENT_VALUES.reset, token)
     for provider_infos in get_full_solution(dependencies):
         sync_providers: list[SyncProviderInfo] = []
         async_providers: list[AsyncProviderInfo] = []
@@ -117,20 +118,9 @@ async def async_update_arguments_by_initializing_dependencies(
             (sync_providers if info["is_sync"] else async_providers).append(info)
         _sync_add_current_values(stack, current_values, sync_providers)
         await _async_add_current_values(stack, current_values, async_providers)
-    _set_current_values_and_arguments(stack, current_values, arguments, dependencies)
-
-
-def _set_current_values_and_arguments(
-    stack: ExitStack | AsyncExitStack,
-    current_values: dict[type, Any],
-    arguments: dict[str, Any],
-    dependencies: NormDependencies,
-) -> None:
-    token = CURRENT_VALUES.set(current_values)
     if missing := setdefault_arguments_with_initialized_dependencies(arguments, dependencies):
         msg = f"Missing providers for {missing}"
         raise ProviderMissingError(msg)
-    stack.callback(CURRENT_VALUES.reset, token)
 
 
 def _sync_add_current_values(

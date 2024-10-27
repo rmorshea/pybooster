@@ -117,7 +117,7 @@ async def test_sync_provider_cannot_depend_on_async_provider():
         raise AssertionError  # nocov
 
     with (
-        pytest.raises(ProviderMissingError, match=r"No sync provider for .*"),
+        pytest.raises(ProviderMissingError, match=r"No sync providers for .*"),
         solution(greeting, message),
     ):
         pass  # nocov
