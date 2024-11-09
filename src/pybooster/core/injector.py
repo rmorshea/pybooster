@@ -18,10 +18,11 @@ from paramorator import paramorator
 
 from pybooster.core._private._injector import async_set_current_values
 from pybooster.core._private._injector import async_update_arguments_by_initializing_dependencies
-from pybooster.core._private._injector import setdefault_arguments_with_initialized_dependencies
 from pybooster.core._private._injector import sync_set_current_values
 from pybooster.core._private._injector import sync_update_arguments_by_initializing_dependencies
+from pybooster.core._private._injector import update_argument_from_current_values
 from pybooster.core._private._utils import get_callable_dependencies
+from pybooster.core._private._utils import get_callable_fallbacks
 from pybooster.core._private._utils import normalize_dependency
 
 if TYPE_CHECKING:
@@ -53,14 +54,15 @@ def function(
         func: The function to inject dependencies into.
         dependencies: The dependencies to inject into the function.
     """
+    fallbacks = get_callable_fallbacks(func)
     dependencies = get_callable_dependencies(func, dependencies)
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
+        if not (missing := update_argument_from_current_values(kwargs, dependencies)):
             return func(*args, **kwargs)
         with ExitStack() as stack:
-            sync_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
+            sync_update_arguments_by_initializing_dependencies(stack, kwargs, missing, fallbacks)
             return func(*args, **kwargs)
 
     return wrapper
@@ -73,14 +75,15 @@ def asyncfunction(
     dependencies: Dependencies | None = None,
 ) -> Callable[P, Coroutine[Any, Any, R]]:
     """Inject dependencies into the given coroutine."""
+    fallbacks = get_callable_fallbacks(func)
     dependencies = get_callable_dependencies(func, dependencies)
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[reportReturnType]
-        if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
+        if not (missing := update_argument_from_current_values(kwargs, dependencies)):
             return await func(*args, **kwargs)
         async with AsyncExitStack() as stack:
-            await async_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
+            await async_update_arguments_by_initializing_dependencies(stack, kwargs, missing, fallbacks)
             return await func(*args, **kwargs)
 
     return wrapper
@@ -93,15 +96,16 @@ def iterator(
     dependencies: Dependencies | None = None,
 ) -> IteratorCallable[P, R]:
     """Inject dependencies into the given iterator."""
+    fallbacks = get_callable_fallbacks(func)
     dependencies = get_callable_dependencies(func, dependencies)
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
-        if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
+        if not (missing := update_argument_from_current_values(kwargs, dependencies)):
             yield from func(*args, **kwargs)
             return
         with ExitStack() as stack:
-            sync_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
+            sync_update_arguments_by_initializing_dependencies(stack, kwargs, missing, fallbacks)
             yield from func(*args, **kwargs)
             return
 
@@ -115,16 +119,17 @@ def asynciterator(
     dependencies: Dependencies | None = None,
 ) -> AsyncIteratorCallable[P, R]:
     """Inject dependencies into the given async iterator."""
+    fallbacks = get_callable_fallbacks(func)
     dependencies = get_callable_dependencies(func, dependencies)
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
-        if not (missing := setdefault_arguments_with_initialized_dependencies(kwargs, dependencies)):
+        if not (missing := update_argument_from_current_values(kwargs, dependencies)):
             async for value in func(*args, **kwargs):
                 yield value
             return
         async with AsyncExitStack() as stack:
-            await async_update_arguments_by_initializing_dependencies(stack, kwargs, missing)
+            await async_update_arguments_by_initializing_dependencies(stack, kwargs, missing, fallbacks)
             async for value in func(*args, **kwargs):
                 yield value
             return
@@ -169,7 +174,7 @@ class _InlineContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
             raise RuntimeError(msg)
 
         values: dict[Literal["dependency"], R] = {}
-        if not (missing := setdefault_arguments_with_initialized_dependencies(values, {"dependency": self.types})):  # type: ignore[reportArgumentType]
+        if not (missing := update_argument_from_current_values(values, {"dependency": self.types})):  # type: ignore[reportArgumentType]
             return values["dependency"]
 
         stack = self._sync_stack = ExitStack()
@@ -183,7 +188,7 @@ class _InlineContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
             raise RuntimeError(msg)
 
         values: dict[Literal["dependency"], R] = {}
-        if not (missing := setdefault_arguments_with_initialized_dependencies(values, {"dependency": self.types})):  # type: ignore[reportArgumentType]
+        if not (missing := update_argument_from_current_values(values, {"dependency": self.types})):  # type: ignore[reportArgumentType]
             return values["dependency"]
 
         stack = self._async_stack = AsyncExitStack()

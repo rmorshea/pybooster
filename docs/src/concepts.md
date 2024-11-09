@@ -3,27 +3,34 @@
 ## Solutions
 
 In order to [inject](#injectors) a set of [dependencies](#dependencies) PyBooster must
-resolve the execution order for a set of declared [providers](#providers). That
-execution order is determined by performing a topological sort on the dependency graph
-which gets saved as a "solution". You can declare a solution using the `solution`
-context manager.
+resolve the execution order their providers [providers](#providers). That execution
+order is determined by performing a topological sort on the dependency graph which gets
+saved as a "solution". You can declare a solution using the `solution` context manager.
 
 ```python
 from typing import NewType
 
+from pybooster import injector
 from pybooster import provider
+from pybooster import required
 from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
 
 @provider.function
-def alice() -> Recipient:
+def provide_alice() -> Recipient:
     return Recipient("Alice")
 
 
-with solution(alice):
-    ...  # alice is available to inject as a recipient
+@injector.function
+def make_message(*, recipient: Recipient = required) -> str:
+    return f"Hello, {recipient}!"
+
+
+with solution(provide_alice):
+    # alice is available to inject as a recipient
+    assert make_message() == "Hello, Alice!"
 ```
 
 ### Nesting Solutions
@@ -42,12 +49,12 @@ Recipient = NewType("Recipient", str)
 
 
 @provider.function
-def alice() -> Recipient:
+def provide_alice() -> Recipient:
     return Recipient("Alice")
 
 
 @provider.function
-def bob() -> Recipient:
+def provide_bob() -> Recipient:
     return Recipient("Bob")
 
 
@@ -56,9 +63,9 @@ def get_recipient(*, recipient: Recipient = required) -> str:
     return recipient
 
 
-with solution(alice):
+with solution(provide_alice):
     assert get_recipient() == "Alice"
-    with solution(bob):
+    with solution(provide_bob):
         assert get_recipient() == "Bob"
     assert get_recipient() == "Alice"
 ```
@@ -213,6 +220,49 @@ def alice() -> Recipient:
 
 with solution(alice), injector.inline(Recipient) as recipient:
     assert recipient == "Alice"
+```
+
+### Fallback Values
+
+You can provide a fallback value for a dependency if no provider exists using the
+`fallback` object as the default value for a parameter in a decorated function.
+
+```python
+from typing import NewType
+
+from pybooster import fallback
+from pybooster import injector
+
+Recipient = NewType("Recipient", str)
+WORLD = Recipient("World")
+
+
+@injector.function
+def hello_greeting(*, recipient: Recipient = fallback[WORLD]) -> str:
+    return f"Hello, {recipient}!"
+
+
+assert hello_greeting() == "Hello, World!"
+```
+
+You can use this with a union type if you want to provide a fallback that's different
+from the dependency's type:
+
+```python
+from typing import NewType
+
+from pybooster import fallback
+from pybooster import injector
+
+Recipient = NewType("Recipient", str)
+
+
+@injector.function
+def hello_greeting(*, recipient: Recipient | None = fallback[None]) -> str:
+    return f"Hello, {recipient}!"
+
+
+assert hello_greeting() == "Hello, None!"
 ```
 
 ## Providers

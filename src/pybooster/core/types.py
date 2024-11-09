@@ -7,7 +7,9 @@ from contextlib import AbstractContextManager
 from typing import Callable
 from typing import ParamSpec
 from typing import TypeVar
+from typing import cast
 
+from pybooster.core._private._utils import FallbackMarker as _FallbackMarker
 from pybooster.core._private._utils import make_sentinel_value
 
 P = ParamSpec("P")
@@ -31,6 +33,18 @@ Dependencies = Mapping[str, type | Sequence[type]]
 
 required = make_sentinel_value(__name__, "required")
 """A sentinel object used to indicate that a dependency is required."""
+
+
+class Fallback:
+    """A sentinel object used to indicate that a dependency should fallback to its default."""
+
+    def __getitem__(self, value: R) -> R:
+        return cast(R, _FallbackMarker(value))
+
+
+fallback = Fallback()
+"""Indicate that a dependency should fallback to its default by using `fallback[default]`."""
+del Fallback
 
 
 class ProviderMissingError(RuntimeError):

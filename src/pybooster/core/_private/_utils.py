@@ -80,6 +80,12 @@ def make_sentinel_value(module: str, name: str) -> Any:
 undefined = make_sentinel_value(__name__, "undefined")
 """Represents an undefined default."""
 
+
+class FallbackMarker:
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+
 NormDependencies = Mapping[str, Sequence[type]]
 """Dependencies normalized to a mapping of parameter names to their possible types."""
 
@@ -90,11 +96,19 @@ def get_callable_dependencies(func: Callable, dependencies: Dependencies | None 
     return _get_callable_dependencies(func)
 
 
+def get_callable_fallbacks(func: Callable) -> dict[str, Any]:
+    return {
+        param.name: param.default.value
+        for param in signature(func).parameters.values()
+        if isinstance(param.default, FallbackMarker)
+    }
+
+
 def _get_callable_dependencies(func: Callable[P, R]) -> NormDependencies:
     dependencies: dict[str, Sequence[type]] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in signature(func).parameters.values():
-        if param.default is pybooster.required:
+        if param.default is pybooster.required or isinstance(param.default, FallbackMarker):
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected dependant parameter {param!r} to be keyword-only."
                 raise TypeError(msg)

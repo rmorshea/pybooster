@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from contextvars import ContextVar
 from contextvars import Token
 from graphlib import TopologicalSorter
+from logging import getLogger
 from typing import TYPE_CHECKING
 from typing import Callable
 from typing import Generic
@@ -19,10 +20,12 @@ if TYPE_CHECKING:
     from pybooster.core._private._provider import AsyncProviderInfo
     from pybooster.core._private._provider import NormDependencies
 
+P = TypeVar("P", bound=ProviderInfo)
+
 Graph = Mapping[type, set[type]]
 NodeSet = set[type]
 
-P = TypeVar("P", bound=ProviderInfo)
+_log = getLogger(__name__)
 
 
 def get_sync_solution(dependencies: NormDependencies) -> Sequence[Sequence[SyncProviderInfo]]:
@@ -64,8 +67,7 @@ def _get_solution(
                 node_sets.append(s)
                 break
         else:
-            msg = f"Missing providers for any of {list(dep_options)}"
-            raise RuntimeError(msg)
+            _log.debug(f"Missing providers for any of {list(dep_options)}")
 
     return [[infos[cls] for cls in group] for sparse_groups in zip(*node_sets) if (group := set.union(*sparse_groups))]
 
@@ -126,5 +128,6 @@ class _Solution(Generic[P]):
         self.execution_orders = execution_orders
 
 
-_SYNC_SOLUTION = ContextVar[_Solution[SyncProviderInfo]]("SYNC_SOLUTION")
-_FULL_SOLUTION = ContextVar[_Solution[ProviderInfo]]("FULL_SOLUTION")
+_NO_SOLUTION = _Solution({}, {})
+_SYNC_SOLUTION = ContextVar[_Solution[SyncProviderInfo]]("SYNC_SOLUTION", default=_NO_SOLUTION)
+_FULL_SOLUTION = ContextVar[_Solution[ProviderInfo]]("FULL_SOLUTION", default=_NO_SOLUTION)

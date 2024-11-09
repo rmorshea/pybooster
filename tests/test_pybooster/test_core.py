@@ -159,7 +159,7 @@ def test_disallow_builtin_type_as_provided_depdency():
             raise AssertionError
 
 
-def test_disallow_builtin_type_as_injected_dependency():
+def test_disallow_builtin_type_as_injector_dependency():
     with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
 
         @injector.function
