@@ -15,6 +15,8 @@ from typing import overload
 
 from pybooster.core._private._utils import check_is_concrete_type
 from pybooster.core._private._utils import check_is_not_builtin_type
+from pybooster.core._private._utils import get_class_lineage
+from pybooster.core._private._utils import is_builtin_type
 from pybooster.core._private._utils import is_type
 from pybooster.core.types import AsyncContextManagerCallable
 from pybooster.core.types import ContextManagerCallable
@@ -133,30 +135,17 @@ def _get_scalar_provider_infos(
     check_is_not_builtin_type(provides)
     check_is_concrete_type(provides)
 
-    if hasattr(provides, "__mro__"):
-        return {
-            cls: cast(
-                ProviderInfo,
-                {
-                    "is_sync": is_sync,
-                    "producer": producer,
-                    "provides": cls,
-                    "dependencies": set(dependencies),
-                    "getter": getter,
-                },
-            )
-            for cls in provides.__mro__
-        }
-    else:
-        return {
-            provides: cast(
-                ProviderInfo,
-                {
-                    "is_sync": is_sync,
-                    "producer": producer,
-                    "provides": provides,
-                    "dependencies": set(dependencies),
-                    "getter": getter,
-                },
-            )
-        }
+    return {
+        cls: cast(
+            ProviderInfo,
+            {
+                "is_sync": is_sync,
+                "producer": producer,
+                "provides": cls,
+                "dependencies": set(dependencies),
+                "getter": getter,
+            },
+        )
+        for cls in get_class_lineage(provides)
+        if not is_builtin_type(cls)
+    }

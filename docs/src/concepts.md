@@ -383,6 +383,16 @@ async def example_reader() -> AsyncIterator[StreamReader]:
         await writer.wait_closed()
 ```
 
+Async providers are executed concurrently where possible.
+
+````python
+
+
+@dataclass
+class Auth:
+    username: str
+    password: str
+
 ### Generic Providers
 
 You can use a single provider to supply multiple dependencies by narrowing the return
@@ -428,7 +438,7 @@ config_json.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": tr
 
 with solution(load_json[ConfigDict].bind(config_json)):
     assert get_config() == {"app_name": "MyApp", "app_version": 1, "debug_mode": True}
-```
+````
 
 Since concrete types for `TypeVar`s cannot be automatically inferred from the arguments
 passed to the provider. You must always narrow the return type (as shown above) or pass
@@ -763,10 +773,9 @@ with solution(employee, contractor):
 
 ### Tuple Types
 
-You can provide a tuple of types from a provider in order to provide multiple
-dependencies at once. This is useful in async or threaded providers when it would be
-more efficient to gather dependencies in parallel. Or, as in the case below, if you need
-to destructure some data into separate dependencies.
+You can provide a tuple of types from a provider in order to supply multiple
+dependencies at once. This can be useful if you need to destructure some a value into
+separate dependencies.
 
 ```python
 import json

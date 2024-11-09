@@ -14,6 +14,7 @@ from inspect import isclass
 from inspect import signature
 from sys import version_info
 from types import UnionType
+from types import resolve_bases
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
@@ -77,6 +78,17 @@ def make_sentinel_value(module: str, name: str) -> Any:
     return type(name, (), {"__repr__": lambda _: f"{module}.{name}"})()
 
 
+def get_class_lineage(obj: Any) -> Sequence[type]:
+    """Get a sequence of classes that the given object is an instance of."""
+    if hasattr(obj, "__mro__"):
+        return obj.__mro__
+    elif isinstance(obj, NewType):
+        return (obj, *get_class_lineage(obj.__supertype__))
+    else:
+
+        return (obj, *resolve_bases((obj,)))
+
+
 undefined = make_sentinel_value(__name__, "undefined")
 """Represents an undefined default."""
 
@@ -126,9 +138,13 @@ def normalize_dependency(anno: type[R] | Sequence[type[R]]) -> Sequence[type[R]]
 
 
 def check_is_not_builtin_type(anno: Any) -> None:
-    if isinstance(anno, type) and anno.__module__ == "builtins" and getattr(builtins, anno.__name__, None) is anno:
+    if is_builtin_type(anno):
         msg = f"Cannot provide built-in type {anno.__module__}.{anno} - use NewType to make a distinct subtype."
         raise TypeError(msg)
+
+
+def is_builtin_type(anno: Any) -> bool:
+    return isinstance(anno, type) and anno.__module__ == "builtins" and getattr(builtins, anno.__name__, None) is anno
 
 
 class DependencyInfo(TypedDict):
