@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from contextlib import AsyncExitStack
-from contextlib import ExitStack
 from contextvars import ContextVar
-from sys import exc_info
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
 from typing import ParamSpec
 from typing import TypeVar
 
@@ -16,100 +12,59 @@ from anyio import create_task_group
 from pybooster.core._private._solution import get_full_solution
 from pybooster.core._private._solution import get_sync_solution
 from pybooster.core._private._utils import start_future
-from pybooster.core.types import ProviderMissingError
+from pybooster.types import ProviderMissingError
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable
     from collections.abc import Sequence
+    from contextlib import AsyncExitStack
+    from contextlib import ExitStack
 
     from pybooster.core._private._provider import AsyncProviderInfo
     from pybooster.core._private._provider import SyncProviderInfo
-    from pybooster.core._private._utils import NormDependencies
+    from pybooster.core._private._utils import NormParamTypes
 
 
 P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def sync_set_current_values(types: Sequence[type[R]]) -> tuple[R, Callable[[], None]]:
-    arguments: dict[str, R] = {}
-    dependencies: dict[str, Sequence[type[R]]] = {"result": types}
-    if missing := update_argument_from_current_values(arguments, dependencies):
-        stack = ExitStack()
-        sync_update_arguments_by_initializing_dependencies(stack, arguments, missing)
-
-        def reset():
-            stack.__exit__(*exc_info())
-
-    else:
-
-        def reset():
-            pass
-
-    value = arguments["result"]
-
-    return value, reset
+def update_argument_from_current_values(arguments: dict[str, Any], required_params: NormParamTypes) -> NormParamTypes:
+    return _try_update_arguments_from_current_values_or_fallbacks(
+        arguments, required_params, dict(CURRENT_VALUES.get())
+    )
 
 
-async def async_set_current_values(types: Sequence[type[R]]) -> tuple[R, Callable[[], Awaitable[None]]]:
-    arguments: dict[str, R] = {}
-    dependencies: dict[str, Sequence[type[R]]] = {"result": types}
-    if missing := update_argument_from_current_values(arguments, dependencies):
-        stack = AsyncExitStack()
-        await async_update_arguments_by_initializing_dependencies(stack, arguments, missing)
-
-        async def reset():
-            await stack.__aexit__(*exc_info())
-
-    else:
-
-        async def reset():
-            pass
-
-    value = arguments["result"]
-
-    return value, reset
-
-
-def update_argument_from_current_values(arguments: dict[str, Any], dependencies: NormDependencies) -> NormDependencies:
-    return _update_argument_from_current_values(arguments, dependencies, CURRENT_VALUES.get())
-
-
-def sync_update_arguments_by_initializing_dependencies(
+def sync_update_arguments_from_providers_or_fallbacks(
     stack: ExitStack | AsyncExitStack,
     arguments: dict[str, Any],
-    dependencies: NormDependencies,
-    fallbacks: Mapping[str, Any] = {},
+    required_params: NormParamTypes,
+    fallbacks: Mapping[str, Any],
 ) -> None:
     current_values = dict(CURRENT_VALUES.get())
     token = CURRENT_VALUES.set(current_values)
     stack.callback(CURRENT_VALUES.reset, token)
-    for providers in get_sync_solution(dependencies):
+    for providers in get_sync_solution(required_params):
         _sync_add_current_values(stack, current_values, providers)
-    if missing := _update_argument_from_current_values_or_fallbacks(arguments, dependencies, current_values, fallbacks):
-        msg = f"Missing providers for {missing}"
-        raise ProviderMissingError(msg)
+    _update_arguments_from_current_values_or_fallbacks(arguments, required_params, current_values, fallbacks)
 
 
-async def async_update_arguments_by_initializing_dependencies(
+async def async_update_arguments_from_providers_or_fallbacks(
     stack: AsyncExitStack,
     arguments: dict[str, Any],
-    dependencies: NormDependencies,
-    fallbacks: Mapping[str, Any] = {},
+    required_params: NormParamTypes,
+    fallbacks: Mapping[str, Any],
 ) -> None:
     current_values = dict(CURRENT_VALUES.get())
     token = CURRENT_VALUES.set(current_values)
     stack.callback(CURRENT_VALUES.reset, token)
-    for provider_infos in get_full_solution(dependencies):
+    for provider_infos in get_full_solution(required_params):
         sync_providers: list[SyncProviderInfo] = []
         async_providers: list[AsyncProviderInfo] = []
         for info in provider_infos:
             (sync_providers if info["is_sync"] else async_providers).append(info)
         _sync_add_current_values(stack, current_values, sync_providers)
         await _async_add_current_values(stack, current_values, async_providers)
-    if missing := _update_argument_from_current_values_or_fallbacks(arguments, dependencies, current_values, fallbacks):
-        msg = f"Missing providers for {missing}"
-        raise ProviderMissingError(msg)
+    _update_arguments_from_current_values_or_fallbacks(arguments, required_params, current_values, fallbacks)
 
 
 def _sync_add_current_values(
@@ -148,31 +103,30 @@ async def _async_enter_provider_context(stack: AsyncExitStack, provider_info: As
     return provider_info["getter"](await stack.enter_async_context(provider_info["producer"]()))
 
 
-def _update_argument_from_current_values(
+def _update_arguments_from_current_values_or_fallbacks(
     arguments: dict[str, Any],
-    dependencies: NormDependencies,
-    current_values: Mapping[type, Any],
-) -> NormDependencies:
-    missing: dict[str, Sequence[type]] = {}
-    for name, types in dependencies.items():
-        if name not in arguments:
-            for cls in types:
-                if cls in current_values:
-                    arguments[name] = current_values[cls]
-                    break
-            else:
-                missing[name] = types
-    return missing
-
-
-def _update_argument_from_current_values_or_fallbacks(
-    arguments: dict[str, Any],
-    dependencies: NormDependencies,
+    required_params: NormParamTypes,
     current_values: Mapping[type, Any],
     fallbacks: dict[str, Any],
-) -> NormDependencies:
+) -> None:
+    if missing := _try_update_arguments_from_current_values_or_fallbacks(
+        arguments,
+        required_params,
+        current_values,
+        fallbacks,
+    ):
+        msg = f"Missing providers for {missing}"
+        raise ProviderMissingError(msg)
+
+
+def _try_update_arguments_from_current_values_or_fallbacks(
+    arguments: dict[str, Any],
+    required_params: NormParamTypes,
+    current_values: Mapping[type, Any],
+    fallbacks: Mapping[str, Any] = {},
+) -> NormParamTypes:
     missing: dict[str, Sequence[type]] = {}
-    for name, types in dependencies.items():
+    for name, types in required_params.items():
         if name not in arguments:
             for cls in types:
                 if cls in current_values:

@@ -18,13 +18,13 @@ from pybooster.core._private._utils import check_is_not_builtin_type
 from pybooster.core._private._utils import get_class_lineage
 from pybooster.core._private._utils import is_builtin_type
 from pybooster.core._private._utils import is_type
-from pybooster.core.types import AsyncContextManagerCallable
-from pybooster.core.types import ContextManagerCallable
+from pybooster.types import AsyncContextManagerCallable
+from pybooster.types import ContextManagerCallable
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from pybooster.core._private._utils import NormDependencies
+    from pybooster.core._private._utils import NormParamTypes
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -66,7 +66,7 @@ def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **
 def get_provider_info(
     producer: ContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    dependencies: NormDependencies,
+    required_parameters: NormParamTypes,
     *,
     is_sync: Literal[True],
 ) -> SyncProviderInfo: ...
@@ -76,7 +76,7 @@ def get_provider_info(
 def get_provider_info(
     producer: AsyncContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    dependencies: NormDependencies,
+    required_parameters: NormParamTypes,
     *,
     is_sync: Literal[False],
 ) -> AsyncProviderInfo: ...
@@ -85,16 +85,16 @@ def get_provider_info(
 def get_provider_info(
     producer: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    dependencies: NormDependencies,
+    required_parameters: NormParamTypes,
     *,
     is_sync: bool,
 ) -> ProviderInfo:
     provides_type = get_provides_type(provides)
-    dependency_types = [t for types in dependencies.values() for t in types]
+    dependencies = [t for types in required_parameters.values() for t in types]
     if get_origin(provides_type) is tuple:
-        return _get_tuple_provider_infos(producer, provides_type, dependency_types, is_sync=is_sync)
+        return _get_tuple_provider_infos(producer, provides_type, dependencies, is_sync=is_sync)
     else:
-        return _get_scalar_provider_infos(producer, provides_type, dependency_types, is_sync=is_sync)
+        return _get_scalar_provider_infos(producer, provides_type, dependencies, is_sync=is_sync)
 
 
 def _get_tuple_provider_infos(

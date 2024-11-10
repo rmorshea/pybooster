@@ -3,9 +3,9 @@
 ## Solutions
 
 In order to [inject](#injectors) a set of [dependencies](#dependencies) PyBooster must
-resolve the execution order their providers [providers](#providers). That execution
-order is determined by performing a topological sort on the dependency graph which gets
-saved as a "solution". You can declare a solution using the `solution` context manager.
+resolve the execution order their [providers](#providers). That execution order is
+determined by performing a topological sort on the dependency graph that gets saved as a
+"solution". You can declare one using the `solution` context manager.
 
 ```python
 from typing import NewType
@@ -24,13 +24,13 @@ def provide_alice() -> Recipient:
 
 
 @injector.function
-def make_message(*, recipient: Recipient = required) -> str:
+def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
 with solution(provide_alice):
     # alice is available to inject as a recipient
-    assert make_message() == "Hello, Alice!"
+    assert get_message() == "Hello, Alice!"
 ```
 
 ### Nesting Solutions
@@ -91,7 +91,7 @@ Recipient = NewType("Recipient", str)
 
 
 @injector.function
-def hello_greeting(*, recipient: Recipient = required) -> str:
+def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 ```
 
@@ -113,28 +113,28 @@ from pybooster import solution
 Recipient = NewType("Recipient", str)
 
 
-@injector.function
-def hello_greeting(*, recipient: Recipient = required) -> str:
-    return f"Hello, {recipient}!"
-
-
 @provider.function
-def alice() -> Recipient:
+def provide_recipient() -> Recipient:
     return Recipient("Alice")
 
 
-with solution(alice):
-    assert hello_greeting() == "Hello, Alice!"
+@injector.function
+def get_message(*, recipient: Recipient = required) -> str:
+    return f"Hello, {recipient}!"
+
+
+with solution(provide_recipient):
+    assert get_message() == "Hello, Alice!"
 ```
 
 PyBooster supports decorators for the following types of functions:
 
--   `injector.function`
--   `injector.asyncfunction`
--   `injector.iterator`
--   `injector.asynciterator`
--   `injector.contextmanager`
--   `injector.asynccontextmanager`
+-   [injector.function](pybooster.injector.function)
+-   [injector.asyncfunction](pybooster.injector.asyncfunction)
+-   [injector.iterator](pybooster.injector.iterator)
+-   [injector.asynciterator](pybooster.injector.asynciterator)
+-   [injector.contextmanager](pybooster.injector.contextmanager)
+-   [injector.asynccontextmanager](pybooster.injector.asynccontextmanager)
 
 You can use all of these decorators on methods of a class as well.
 
@@ -143,19 +143,44 @@ You can use all of these decorators on methods of a class as well.
     You can always skip injecting a dependency by passing a value directly as an argument:
 
     ```python { test="false" }
-    assert hello_greeting(recipient="Bob") == "Hello, Bob!"
+    assert get_message(recipient="Bob") == "Hello, Bob!"
     ```
 
     This will not trigger the provider for `Recipient` and will use the value passed to the
     function instead. Doing so can be useful for re-using a dependency across multiple function
     calls without the indirection created by establishing a [`shared context or value`](#sharing).
 
-### Shared Injector
+### Current Injector
 
-By default, PyBooster will create a new instance of a dependency each time it is
-injected. To change this, use the `shared` context manager to declare that a dependency
-should be re-used across all injections for the duration of a context. This will
-immediately execute the provider and store the result for future use.
+You can access the current value of a dependency using the `current` context manager.
+
+```python
+from dataclasses import dataclass
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import solution
+
+
+@dataclass
+class Auth:
+    username: str
+    password: str
+
+
+@provider.function
+def provide_auth() -> Auth:
+    return Auth(username="alice", password="EGwVEo3y9E")
+
+
+with solution(provide_auth):
+    with injector.current(Auth) as auth:
+        assert auth.username == "alice"
+        assert auth.password == "EGwVEo3y9E"
+```
+
+The value yielded by the context manager will also be shared across all injections for
+the duration of the context.
 
 ```python
 from dataclasses import dataclass
@@ -186,43 +211,31 @@ with solution(auth):
 
     assert get_auth() is not get_auth()
 
-    with injector.shared(Auth):
+    with injector.current(Auth) as auth:
+        assert auth is get_auth()
         assert get_auth() is get_auth()
 ```
 
-!!! info
-
-    If the dependency's provider is, or could be asynchronous, enter the `shared()`
-    context manager using `async with` instead. This will ensure that async providers
-    can be executed successfully. Even if the provider is synchronous, using `async with`
-    will still work.
-
-### Inline Injector
-
-If you need to access the current value of a dependency outside of a function, you can
-use `injector.inline` by activating it either as a synchronous or asynchronous context
-manager.
+The current injector also supports [fallback values](#fallback-values). However, if the
+fallback is used, that value will not be shared across injections.
 
 ```python
 from typing import NewType
 
 from pybooster import injector
-from pybooster import provider
-from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
 
-@provider.function
-def alice() -> Recipient:
-    return Recipient("Alice")
-
-
-with solution(alice), injector.inline(Recipient) as recipient:
-    assert recipient == "Alice"
+with injector.current(Recipient, fallback="World") as recipient:
+    assert recipient == "World"
 ```
 
 ### Fallback Values
+
+!!! note
+
+    Fallbacks cannot be used in provider functions - only in injected functions.
 
 You can provide a fallback value for a dependency if no provider exists using the
 `fallback` object as the default value for a parameter in a decorated function.
@@ -238,11 +251,11 @@ WORLD = Recipient("World")
 
 
 @injector.function
-def hello_greeting(*, recipient: Recipient = fallback[WORLD]) -> str:
+def get_message(*, recipient: Recipient = fallback[WORLD]) -> str:
     return f"Hello, {recipient}!"
 
 
-assert hello_greeting() == "Hello, World!"
+assert get_message() == "Hello, World!"
 ```
 
 You can use this with a union type if you want to provide a fallback that's different
@@ -258,11 +271,11 @@ Recipient = NewType("Recipient", str)
 
 
 @injector.function
-def hello_greeting(*, recipient: Recipient | None = fallback[None]) -> str:
+def get_message(*, recipient: Recipient | None = fallback[None]) -> str:
     return f"Hello, {recipient}!"
 
 
-assert hello_greeting() == "Hello, None!"
+assert get_message() == "Hello, None!"
 ```
 
 ## Providers
@@ -270,32 +283,6 @@ assert hello_greeting() == "Hello, None!"
 A provider is a function that creates or yields a [dependency](#dependencies). What
 providers are available for, and thus what dependencies can be [injected](#injectors)
 are determined by whether they were included in the current [solution](#solutions).
-
-### Static Providers
-
-To provide a single static value as a dependency, you can use the `provider.static`
-function. This is useful when you have a value that doesn't need to be computed or
-cleaned up.
-
-```python
-from typing import NewType
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solution
-
-Recipient = NewType("Recipient", str)
-
-
-@injector.function
-def hello_greeting(*, recipient: Recipient = required) -> str:
-    return f"Hello, {recipient}!"
-
-
-with solution(provider.static(Recipient, "Alice")):
-    assert hello_greeting() == "Hello, Alice!"
-```
 
 ### Sync Providers
 
@@ -315,7 +302,7 @@ class Config:
 
 
 @provider.function
-def config() -> Config:
+def provide_config() -> Config:
     return Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
@@ -354,7 +341,7 @@ class Config:
 
 
 @provider.asyncfunction
-async def async_config() -> Config:
+async def async_provide_config() -> Config:
     await sleep(1)  # Do some async work here...
     return Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
@@ -385,13 +372,9 @@ async def example_reader() -> AsyncIterator[StreamReader]:
 
 Async providers are executed concurrently where possible.
 
-````python
-
-
-@dataclass
-class Auth:
-    username: str
-    password: str
+```python
+assert False
+```
 
 ### Generic Providers
 
@@ -416,7 +399,7 @@ from pybooster import solution
 
 
 @provider.function
-def load_json(path: str | Path) -> Any:
+def provide_json(path: str | Path) -> Any:
     with Path(path).open() as f:
         return json.load(f)
 
@@ -433,20 +416,25 @@ def get_config(*, config: ConfigDict = required) -> ConfigDict:
 
 
 tempfile = NamedTemporaryFile()
-config_json = Path(tempfile.name)
-config_json.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
+json_file = Path(tempfile.name)
+json_file.write_text(
+    '{"app_name": "MyApp", "app_version": 1, "debug_mode": true}'
+)
 
-with solution(load_json[ConfigDict].bind(config_json)):
-    assert get_config() == {"app_name": "MyApp", "app_version": 1, "debug_mode": True}
-````
+with solution(provide_json[ConfigDict].bind(json_file)):
+    assert get_config() == {
+        "app_name": "MyApp",
+        "app_version": 1,
+        "debug_mode": True,
+    }
+```
 
 Since concrete types for `TypeVar`s cannot be automatically inferred from the arguments
 passed to the provider. You must always narrow the return type (as shown above) or pass
 a `provides` inference function to the `@provider` decorator to specify how to figure
-out the concrete type. This function should can take all the non-dependency arguments of
-the provider and return the concrete type. In the example below the provider is generic
-on the `cls: type[T]` argument so the `provides` inference function will just return
-that:
+out the concrete type. This function should take all the non-dependency arguments of the
+provider and return the concrete type. In the example below the provider is generic on
+the `cls: type[T]` argument so the `provides` inference function will just return that:
 
 ```python
 import json
@@ -478,7 +466,7 @@ T = TypeVar("T")
 
 
 @provider.function(provides=lambda cls, *a, **kw: cls)
-def config_from_file(cls: type[T], path: str | Path) -> T:
+def provide_config_from_file(cls: type[T], path: str | Path) -> T:
     with Path(path).open() as f:
         return cls(**json.load(f))
 
@@ -489,16 +477,46 @@ def get_config(*, config: Config = required) -> Config:
 
 
 tempfile = NamedTemporaryFile()
-config_json = Path(tempfile.name)
-config_json.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
+json_file = Path(tempfile.name)
+json_file.write_text(
+    '{"app_name": "MyApp", "app_version": 1, "debug_mode": true}'
+)
 
-with solution(config_from_file.bind(Config, config_json)):
-    assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
+with solution(provide_config_from_file.bind(Config, json_file)):
+    assert get_config() == Config(
+        app_name="MyApp", app_version=1, debug_mode=True
+    )
 ```
 
 !!! tip
 
     This approach also works great for a provider that has `overload` implementations.
+
+### Singleton Providers
+
+To provide a single static value as a dependency, you can use the `provider.singleton`
+function. This is useful when you have a value that doesn't need to be computed or
+cleaned up.
+
+```python
+from typing import NewType
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import solution
+
+Recipient = NewType("Recipient", str)
+
+
+@injector.function
+def get_message(*, recipient: Recipient = required) -> str:
+    return f"Hello, {recipient}!"
+
+
+with solution(provider.singleton(Recipient, "Alice")):
+    assert get_message() == "Hello, Alice!"
+```
 
 ### Parameterizing Providers
 
@@ -546,7 +564,9 @@ def sqlite_database() -> Database:
 
 
 @provider.iterator
-def sqlite_connection(*, database: Database = required) -> Iterator[sqlite3.Connection]:
+def sqlite_connection(
+    *, database: Database = required
+) -> Iterator[sqlite3.Connection]:
     with sqlite3.connect(database) as conn:
         yield conn
 ```
@@ -573,12 +593,12 @@ class Auth:
 
 
 @provider.function
-def sync_auth() -> Auth:
+def sync_provide_auth() -> Auth:
     return Auth(username="sync-user", password="sync-pass")
 
 
 @provider.asyncfunction
-async def async_auth() -> Auth:
+async def async_provide_auth() -> Auth:
     await asyncio.sleep(0)  # Do some async work here...
     return Auth(username="async-user", password="async-pass")
 
@@ -589,13 +609,13 @@ def sync_get_auth(*, auth: Auth = required) -> str:
 
 
 @injector.asyncfunction
-async def get_async_auth(*, auth: Auth = required) -> str:
+async def async_get_auth(*, auth: Auth = required) -> str:
     return f"{auth.username}:{auth.password}"
 
 
-with solution(sync_auth, async_auth):
+with solution(sync_provide_auth, async_provide_auth):
     assert sync_get_auth() == "sync-user:sync-pass"
-    assert asyncio.run(get_async_auth()) == "async-user:async-pass"
+    assert asyncio.run(async_get_auth()) == "async-user:async-pass"
 ```
 
 ## Dependencies
@@ -629,17 +649,17 @@ Username = NewType("Username", str)
 
 
 @provider.function
-def username() -> Username:
+def provide_username() -> Username:
     return "alice"
 
 
 @injector.function
-def greeting(*, username: Username = required) -> str:
+def get_message(*, username: Username = required) -> str:
     return f"Hello, {username}!"
 
 
-with solution(username):
-    assert greeting() == "Hello, alice!"
+with solution(provide_username):
+    assert get_message() == "Hello, alice!"
 ```
 
 ### User-Defined Types
@@ -663,17 +683,17 @@ class Auth:
 
 
 @provider.function
-def auth() -> Auth:
+def provide_auth() -> Auth:
     return Auth(role="user", username="alice", password="EGwVEo3y9E")
 
 
 @injector.function
-def login_message(*, auth: Auth = required) -> str:
+def get_login_message(*, auth: Auth = required) -> str:
     return f"Logged in as {auth.username}"
 
 
-with solution(auth):
-    assert login_message() == "Logged in as alice"
+with solution(provide_auth):
+    assert get_login_message() == "Logged in as alice"
 ```
 
 ### Subclassed Types
@@ -705,17 +725,17 @@ class AdminAuth(Auth):
 
 
 @provider.function
-def admin_auth() -> AdminAuth:
+def provide_admin_auth() -> AdminAuth:
     return AdminAuth(role="admin", username="admin", password="admin")
 
 
 @injector.function
-def login_message(*, auth: Auth = required) -> str:
+def get_login_message(*, auth: Auth = required) -> str:
     return f"Logged in as {auth.username}"
 
 
-with solution(admin_auth):
-    assert login_message() == "Logged in as admin"
+with solution(provide_admin_auth):
+    assert get_login_message() == "Logged in as admin"
 ```
 
 ### Union Types
@@ -747,28 +767,28 @@ class Contractor:
 
 
 @provider.function
-def employee() -> Employee:
+def provide_employee() -> Employee:
     return Employee(name="Alice", employee_id=1)
 
 
 @provider.function
-def contractor() -> Contractor:
+def provide_contractor() -> Contractor:
     return Contractor(name="Bob", contractor_id=2)
 
 
 @injector.function
-def greet(*, person: Employee | Contractor = required) -> str:
+def get_message(*, person: Employee | Contractor = required) -> str:
     return f"Hello, {person.name}!"
 
 
-with solution(employee):
-    assert greet() == "Hello, Alice!"
+with solution(provide_employee):
+    assert get_message() == "Hello, Alice!"
 
-with solution(contractor):
-    assert greet() == "Hello, Bob!"
+with solution(provide_contractor):
+    assert get_message() == "Hello, Bob!"
 
-with solution(employee, contractor):
-    assert greet() == "Hello, Alice!"
+with solution(provide_employee, provide_contractor):
+    assert get_message() == "Hello, Alice!"
 ```
 
 ### Tuple Types
@@ -797,17 +817,17 @@ secrets_json.write_text('{"username": "alice", "password": "EGwVEo3y9E"}')
 
 
 @provider.function
-def username_and_password() -> tuple[Username, Password]:
+def provide_username_and_password() -> tuple[Username, Password]:
     with secrets_json.open() as f:
         secrets = json.load(f)
     return Username(secrets["username"]), Password(secrets["password"])
 
 
 @injector.function
-def login_message(*, username: Username = required) -> str:
+def get_login_message(*, username: Username = required) -> str:
     return f"Logged in as {username}"
 
 
-with solution(username_and_password):
-    assert login_message() == "Logged in as alice"
+with solution(provide_username_and_password):
+    assert get_login_message() == "Logged in as alice"
 ```

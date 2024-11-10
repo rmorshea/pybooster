@@ -1,6 +1,4 @@
-# Usages
-
-Common usage patterns with PyBooster.
+# Recipes
 
 ## Side Effects
 
@@ -44,9 +42,4 @@ with solution(switch_on):
     assert not SWITCH
 ```
 
-## Singleton
-
-To create a provider that yields a single value that is shared across all dependent
-functions
-
-## Paralleize Providers
+## Testing Providers

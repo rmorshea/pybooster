@@ -11,7 +11,7 @@ from pybooster import injector
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
-from pybooster.core.types import ProviderMissingError
+from pybooster.types import ProviderMissingError
 
 T = TypeVar("T")
 
@@ -24,92 +24,92 @@ SideEffect = NewType("SideEffect", None)
 def test_sync_injection():
 
     @provider.function
-    def greeting() -> Greeting:
+    def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
     @provider.function
-    def recipient() -> Recipient:
+    def provide_recipient() -> Recipient:
         return Recipient("World")
 
     @provider.function
-    def message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+    def provide_message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
         return Message(f"{greeting} {recipient}")
 
     @injector.function
     def use_message(*, message: Message = required):
         return message
 
-    with solution(greeting, recipient, message):
+    with solution(provide_greeting, provide_recipient, provide_message):
         assert use_message() == "Hello World"
 
 
 async def test_async_injection():
     @provider.asyncfunction
-    async def greeting() -> Greeting:
+    async def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
     @provider.asyncfunction
-    async def recipient() -> Recipient:
+    async def provide_recipient() -> Recipient:
         return Recipient("World")
 
     @provider.asyncfunction
-    async def message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+    async def provide_message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
         return Message(f"{greeting} {recipient}")
 
     @injector.asyncfunction
     async def use_message(*, message: Message = required):
         return message
 
-    with solution(greeting, recipient, message):
+    with solution(provide_greeting, provide_recipient, provide_message):
         assert await use_message() == "Hello World"
 
 
 async def test_sync_and_async_providers_do_not_overwrite_each_other():
     @provider.function
-    def sync_message() -> Message:
+    def sync_provide_message() -> Message:
         return Message("Hello, Sync")
 
     @provider.asyncfunction
-    async def async_message() -> Message:
+    async def async_provide_message() -> Message:
         return Message("World, Async")
 
     @injector.function
-    def use_sync_message(*, message: Message = required):
+    def sync_use_message(*, message: Message = required):
         return message
 
     @injector.asyncfunction
-    async def use_async_message(*, message: Message = required):
+    async def async_use_message(*, message: Message = required):
         return message
 
-    with solution(sync_message, async_message):
-        assert use_sync_message() == "Hello, Sync"
-        assert await use_async_message() == "World, Async"
+    with solution(sync_provide_message, async_provide_message):
+        assert sync_use_message() == "Hello, Sync"
+        assert await async_use_message() == "World, Async"
 
 
 async def test_async_provider_can_depend_on_sync_provider():
     @provider.function
-    def greeting() -> Greeting:
+    def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
     @provider.asyncfunction
-    async def message(*, greeting: Greeting = required) -> Message:
+    async def provide_message(*, greeting: Greeting = required) -> Message:
         return Message(f"{greeting} World")
 
     @injector.asyncfunction
     async def use_message(*, message: Message = required):
         return message
 
-    with solution(greeting, message):
+    with solution(provide_greeting, provide_message):
         assert await use_message() == "Hello World"
 
 
 async def test_sync_provider_cannot_depend_on_async_provider():
     @provider.asyncfunction
-    async def greeting() -> Greeting:
+    async def provide_greeting() -> Greeting:
         raise AssertionError  # nocov
 
     @provider.function
-    def message(*, _: Greeting = required) -> Message:
+    def provide_message(*, _: Greeting = required) -> Message:
         raise AssertionError  # nocov
 
     @injector.function
@@ -118,44 +118,53 @@ async def test_sync_provider_cannot_depend_on_async_provider():
 
     with (
         pytest.raises(ProviderMissingError, match=r"No sync providers for .*"),
-        solution(greeting, message),
+        solution(provide_greeting, provide_message),
     ):
         pass  # nocov
 
 
 def test_union_dependency_is_resolution_in_order():
     @provider.function
-    def greeting() -> Greeting:
+    def provide_greeting() -> Greeting:
         return Greeting("Hello")
 
     @provider.function
-    def recipient() -> Recipient:
+    def provide_recipient() -> Recipient:
         return Recipient("World")
 
     @injector.function
     def get_greeting_or_recipient(*, greeting_or_recipient: Greeting | Recipient = required):
         return greeting_or_recipient
 
-    with solution(greeting, recipient):
+    with solution(provide_greeting, provide_recipient):
         assert get_greeting_or_recipient() == "Hello"
 
-    with solution(recipient, greeting):
+    with solution(provide_recipient, provide_greeting):
         assert get_greeting_or_recipient() == "Hello"
 
-    with solution(greeting):
+    with solution(provide_greeting):
         assert get_greeting_or_recipient() == "Hello"
 
-    with solution(recipient):
+    with solution(provide_recipient):
         assert get_greeting_or_recipient() == "World"
 
 
-def test_disallow_builtin_type_as_provided_depdency():
+@pytest.mark.parametrize("returns", [str, list, list[str]], ids=str)
+def test_disallow_builtin_type_as_provided_depdency(returns):
+
+    def f():
+        raise AssertionError  # nocov
+
+    f.__annotations__["returns"] = returns
+
+    f_provider = provider.function(f)
+
     @provider.function
-    def greeting() -> str:
+    def provide_greeting() -> str:
         raise AssertionError  # nocov
 
     with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
-        with solution(greeting):  # nocov
+        with solution(provide_greeting):  # nocov
             raise AssertionError
 
 
@@ -168,7 +177,7 @@ def test_disallow_builtin_type_as_injector_dependency():
 
 
 @pytest.mark.parametrize("returns", [Any, object, TypeVar("T")], ids=str)
-def test_provider_must_have_concrete_type_when_entering_scope(returns):
+def test_solution_requires_provider_types_to_be_concrete(returns):
 
     def f():
         raise AssertionError  # nocov

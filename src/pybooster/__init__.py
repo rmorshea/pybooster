@@ -1,8 +1,8 @@
 from pybooster.core import injector
 from pybooster.core import provider
+from pybooster.core.injector import fallback
+from pybooster.core.injector import required
 from pybooster.core.solution import solution
-from pybooster.core.types import fallback
-from pybooster.core.types import required
 
 __version__ = "0.0.1"
 

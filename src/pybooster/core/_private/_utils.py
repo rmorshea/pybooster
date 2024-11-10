@@ -38,7 +38,7 @@ else:
 if TYPE_CHECKING:
     from anyio.abc import TaskGroup
 
-    from pybooster.core.types import Dependencies
+    from pybooster.types import ParamTypes
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -98,25 +98,31 @@ class FallbackMarker:
         self.value = value
 
 
-NormDependencies = Mapping[str, Sequence[type]]
+NormParamTypes = Mapping[str, Sequence[type]]
 """Dependencies normalized to a mapping of parameter names to their possible types."""
 
 
-def get_callable_dependencies(func: Callable, dependencies: Dependencies | None = None) -> NormDependencies:
-    if dependencies is not None:
-        return {name: cls if isinstance(cls, Sequence) else (cls,) for name, cls in dependencies.items()}
-    return _get_callable_dependencies(func)
+def get_callable_dependencies(func: Callable, dependencies: ParamTypes = None) -> NormParamTypes:
+    return (
+        {name: cls if isinstance(cls, Sequence) else (cls,) for name, cls in dependencies.items()}
+        if dependencies
+        else _get_callable_dependencies(func)
+    )
 
 
-def get_callable_fallbacks(func: Callable) -> dict[str, Any]:
-    return {
-        param.name: param.default.value
-        for param in signature(func).parameters.values()
-        if isinstance(param.default, FallbackMarker)
-    }
+def get_callable_fallbacks(func: Callable, fallbacks: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    return (
+        fallbacks
+        if fallbacks is not None
+        else {
+            param.name: param.default.value
+            for param in signature(func).parameters.values()
+            if isinstance(param.default, FallbackMarker)
+        }
+    )
 
 
-def _get_callable_dependencies(func: Callable[P, R]) -> NormDependencies:
+def _get_callable_dependencies(func: Callable[P, R]) -> NormParamTypes:
     dependencies: dict[str, Sequence[type]] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in signature(func).parameters.values():

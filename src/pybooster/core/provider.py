@@ -20,8 +20,9 @@ from paramorator import paramorator
 
 from pybooster import injector
 from pybooster.core._private._provider import get_provides_type
-from pybooster.core._private._utils import NormDependencies
+from pybooster.core._private._utils import NormParamTypes
 from pybooster.core._private._utils import get_callable_dependencies
+from pybooster.core._private._utils import get_callable_fallbacks
 from pybooster.core._private._utils import get_callable_return_type
 from pybooster.core._private._utils import get_coroutine_return_type
 from pybooster.core._private._utils import get_iterator_yield_type
@@ -31,11 +32,11 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable
     from collections.abc import Iterator
 
-    from pybooster.core.types import AsyncContextManagerCallable
-    from pybooster.core.types import AsyncIteratorCallable
-    from pybooster.core.types import ContextManagerCallable
-    from pybooster.core.types import Dependencies
-    from pybooster.core.types import IteratorCallable
+    from pybooster.types import AsyncContextManagerCallable
+    from pybooster.types import AsyncIteratorCallable
+    from pybooster.types import ContextManagerCallable
+    from pybooster.types import IteratorCallable
+    from pybooster.types import ParamTypes
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -43,15 +44,15 @@ G = TypeVar("G")
 
 
 @overload
-def static(provides: Callable[[G], R], value: G) -> SyncProvider[[], R]: ...
+def singleton(provides: Callable[[G], R], value: G) -> SyncProvider[[], R]: ...
 
 
 @overload
-def static(provides: type[R], value: R) -> SyncProvider[[], R]: ...
+def singleton(provides: type[R], value: R) -> SyncProvider[[], R]: ...
 
 
-def static(provides: type[R] | Callable[[Any], R], value: R) -> SyncProvider[[], R]:
-    """Create a provider from a static value.
+def singleton(provides: type[R] | Callable[[Any], R], value: R) -> SyncProvider[[], R]:
+    """Create a provider for a singleton value.
 
     Args:
         provides: The type that the value provides.
@@ -64,7 +65,7 @@ def static(provides: type[R] | Callable[[Any], R], value: R) -> SyncProvider[[],
 def function(
     func: Callable[P, R],
     *,
-    dependencies: Dependencies | None = None,
+    dependencies: ParamTypes | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given function.
@@ -87,7 +88,7 @@ def function(
 def asyncfunction(
     func: Callable[P, Awaitable[R]],
     *,
-    dependencies: Dependencies | None = None,
+    dependencies: ParamTypes | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given coroutine.
@@ -110,7 +111,7 @@ def asyncfunction(
 def iterator(
     func: IteratorCallable[P, R],
     *,
-    dependencies: Dependencies | None = None,
+    dependencies: ParamTypes | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given iterator function.
@@ -120,6 +121,9 @@ def iterator(
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
+    if fallbacks := get_callable_fallbacks(func):
+        msg = f"Providers cannot have fallbacks - found {fallbacks} in {func}"
+        raise TypeError(msg)
     provides = provides or get_iterator_yield_type(func, sync=True)
     norm_dependencies = get_callable_dependencies(func, dependencies)
     return SyncProvider(
@@ -133,7 +137,7 @@ def iterator(
 def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
-    dependencies: Dependencies | None = None,
+    dependencies: ParamTypes | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given async iterator function.
@@ -143,6 +147,9 @@ def asynciterator(
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
+    if fallbacks := get_callable_fallbacks(func):
+        msg = f"Providers cannot have fallbacks - found {fallbacks} in {func}"
+        raise TypeError(msg)
     provides = provides or get_iterator_yield_type(func, sync=False)
     norm_dependencies = get_callable_dependencies(func, dependencies)
     return AsyncProvider(
@@ -163,7 +170,7 @@ class SyncProvider(Generic[P, R]):
         self,
         producer: ContextManagerCallable[P, R],
         provides: type[R] | Callable[..., type[R]],
-        dependencies: NormDependencies,
+        dependencies: NormParamTypes,
     ) -> None:
         self.producer = producer
         self.provides = provides
@@ -192,7 +199,7 @@ class AsyncProvider(Generic[P, R]):
         self,
         producer: AsyncContextManagerCallable[P, R],
         provides: type[R] | Callable[..., type[R]],
-        dependencies: NormDependencies,
+        dependencies: NormParamTypes,
     ) -> None:
         self.producer = producer
         self.provides = provides

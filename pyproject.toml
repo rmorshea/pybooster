@@ -20,7 +20,11 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ["typing_extensions", "paramorator>=1.0.2,<2"]
+dependencies = [
+  "typing_extensions",
+  "paramorator>=1.0.2,<2",
+  "rustworkx>=0.15,<0.16",
+]
 
 [project.optional-dependencies]
 asgi = ["asgiref>=3.8.1,<4", "anyio>=4.6.0,<5"]

@@ -19,7 +19,7 @@ from pybooster import provider
 from pybooster import required
 from pybooster import solution
 
-# This avoids importing mypy_boto3_s3 while still making S3Client available at runtime.
+# Avoid importing mypy_boto3_s3 but still make S3Client available at runtime.
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
 else:
@@ -36,12 +36,16 @@ class User:
 
 
 @provider.function
-def client_provider(service_name: str, *, session: Session = required) -> BaseClient:
+def client_provider(
+    service_name: str, *, session: Session = required
+) -> BaseClient:
     return session.client(service_name)
 
 
 @provider.function
-def bucket_provider(bucket_name: str, *, client: S3Client = required) -> BucketName:
+def bucket_provider(
+    bucket_name: str, *, client: S3Client = required
+) -> BucketName:
     try:
         # Check if the bucket already exists
         client.head_bucket(Bucket=bucket_name)
@@ -56,7 +60,10 @@ def bucket_provider(bucket_name: str, *, client: S3Client = required) -> BucketN
 
 @injector.function
 def put_user(
-    user: User, *, bucket_name: BucketName = required, client: S3Client = required
+    user: User,
+    *,
+    bucket_name: BucketName = required,
+    client: S3Client = required,
 ) -> None:
     data = json.dumps(asdict(user)).encode()
     client.put_object(Bucket=bucket_name, Key=f"user/{user.id}", Body=data)
@@ -64,7 +71,10 @@ def put_user(
 
 @injector.function
 def get_user(
-    user_id: int, *, bucket_name: BucketName = required, client: S3Client = required
+    user_id: int,
+    *,
+    bucket_name: BucketName = required,
+    client: S3Client = required,
 ) -> User:
     response = client.get_object(Bucket=bucket_name, Key=f"user/{user_id}")
     return User(**json.loads(response["Body"].read()))
@@ -74,11 +84,11 @@ def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
             solution(
-                provider.static(Session, Session()),
+                provider.singleton(Session, Session()),
                 client_provider[S3Client].bind("s3"),
                 bucket_provider.bind("my-bucket"),
             ),
-            injector.shared(BucketName),
+            injector.current(BucketName),
         ):
             user = User(id=1, name="Alice")
             put_user(user)
@@ -132,7 +142,7 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
     with solution(async_engine_provider.bind(DB_URL), async_session_provider):
-        async with injector.shared(AsyncEngine) as engine:
+        async with injector.current(AsyncEngine) as engine:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             yield
@@ -154,7 +164,9 @@ async def get_user(
     request: Request, *, session: AsyncSession = required
 ) -> JSONResponse:
     user = await session.get(User, request.path_params["id"])
-    return JSONResponse(None if user is None else {"id": user.id, "name": user.name})
+    return JSONResponse(
+        None if user is None else {"id": user.id, "name": user.name}
+    )
 
 
 app = Starlette(
@@ -235,9 +247,10 @@ def main():
     url = "sqlite:///:memory:"
     with (
         solution(
-            engine_provider.bind(url), session_provider.bind(expire_on_commit=False)
+            engine_provider.bind(url),
+            session_provider.bind(expire_on_commit=False),
         ),
-        injector.shared(Engine),
+        injector.current(Engine),
     ):
         create_tables()
         user_id = add_user("Alice")
@@ -294,7 +307,9 @@ async def add_user(name: str, *, session: AsyncSession = required) -> int:
 
 @injector.asyncfunction
 async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
-    return (await session.execute(select(User).where(User.id == user_id))).scalar_one()
+    return (
+        await session.execute(select(User).where(User.id == user_id))
+    ).scalar_one()
 
 
 async def main():
@@ -303,7 +318,7 @@ async def main():
         async_engine_provider.bind(url),
         async_session_provider.bind(expire_on_commit=False),
     ):
-        async with injector.shared(AsyncEngine):
+        async with injector.current(AsyncEngine):
             await create_tables()
             user_id = await add_user("Alice")
             user = await get_user(user_id)
@@ -347,7 +362,9 @@ class User:
 
     @injector.function
     def save(self, *, conn: sqlite3.Connection = required) -> None:
-        conn.execute("INSERT INTO user (id, name) VALUES (?, ?)", (self.id, self.name))
+        conn.execute(
+            "INSERT INTO user (id, name) VALUES (?, ?)", (self.id, self.name)
+        )
 
     @classmethod
     @injector.function
@@ -361,7 +378,7 @@ def main():
     with (
         solution(sqlite_connection.bind(":memory:")),
         # Reusing the same connection is only needed for in-memory databases.
-        injector.shared(sqlite3.Connection),
+        injector.current(sqlite3.Connection),
     ):
         make_user_table()
         user = User(1, "Alice")
