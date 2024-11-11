@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import builtins
-from ast import TypeVarTuple
 from collections.abc import AsyncIterator
 from collections.abc import Awaitable
 from collections.abc import Callable
@@ -15,7 +14,6 @@ from dataclasses import dataclass
 from inspect import Parameter
 from inspect import isclass
 from inspect import signature
-from sys import version_info
 from types import UnionType
 from types import resolve_bases
 from typing import TYPE_CHECKING
@@ -25,6 +23,7 @@ from typing import NewType
 from typing import ParamSpec
 from typing import TypedDict
 from typing import TypeVar
+from typing import TypeVarTuple
 from typing import Union
 from typing import dataclass_transform
 from typing import get_args
@@ -32,11 +31,6 @@ from typing import get_origin
 from typing import get_type_hints
 
 import pybooster
-
-if version_info >= (3, 11):
-    from typing import TypeVarTuple
-else:
-    from typing_extensions import TypeVarTuple
 
 if TYPE_CHECKING:
     from anyio.abc import TaskGroup
