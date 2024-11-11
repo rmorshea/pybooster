@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable  # noqa: TCH003
 from typing import Any
-from typing import Callable
 from typing import NewType
 from typing import TypeVar
 
@@ -11,7 +11,7 @@ from pybooster import injector
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
-from pybooster.types import ProviderMissingError
+from pybooster.types import SolutionError
 
 T = TypeVar("T")
 
@@ -117,7 +117,7 @@ async def test_sync_provider_cannot_depend_on_async_provider():
         raise AssertionError  # nocov
 
     with (
-        pytest.raises(ProviderMissingError, match=r"No sync providers for .*"),
+        pytest.raises(SolutionError, match=r"No provider for .*"),
         solution(provide_greeting, provide_message),
     ):
         pass  # nocov
@@ -252,3 +252,11 @@ def test_dependency_reused_across_providers():
     with solution(greeting, provider_uses_greeting):
         get_greeting()
         assert call_count == 1
+
+
+def test_overwritten_value_is_used_by_providers():
+    assert False
+
+
+def test_overwritten_value_causes_descendant_providers_to_reevaluate():
+    assert False

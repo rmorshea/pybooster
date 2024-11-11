@@ -1,26 +1,30 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from collections.abc import Collection
 from collections.abc import Mapping
 from collections.abc import Sequence
+from collections.abc import Set
 from contextvars import ContextVar
 from contextvars import Token
-from logging import getLogger
+from itertools import starmap
 from typing import TYPE_CHECKING
-from typing import Callable
 from typing import Generic
+from typing import Self
 from typing import TypeVar
 
 from rustworkx import PyDiGraph
+from rustworkx import ancestors
 from rustworkx import topological_generations
 
 from pybooster.core._private._provider import ProviderInfo
 from pybooster.core._private._provider import SyncProviderInfo
-from pybooster.types import ProviderMissingError
+from pybooster.core._private._utils import frozenclass
+from pybooster.types import SolutionError
 
 if TYPE_CHECKING:
 
     from pybooster.core._private._provider import AsyncProviderInfo
-    from pybooster.core._private._provider import NormParamTypes
 
 P = TypeVar("P", bound=ProviderInfo)
 
@@ -28,115 +32,174 @@ DependencySet = set[type]
 DependencyMap = Mapping[type, DependencySet]
 
 
-_log = getLogger(__name__)
-
-
-def get_sync_solution(required_params: NormParamTypes) -> Sequence[Sequence[SyncProviderInfo]]:
-    return _get_solution(_SYNC_SOLUTION.get(), tuple(required_params.values()))
-
-
-def get_full_solution(required_params: NormParamTypes) -> Sequence[Sequence[ProviderInfo]]:
-    return _get_solution(_FULL_SOLUTION.get(), tuple(required_params.values()))
-
-
-def set_solution(
+def set_solutions(
     sync_infos: Mapping[type, SyncProviderInfo],
     async_infos: Mapping[type, AsyncProviderInfo],
 ) -> Callable[[], None]:
 
     full_infos = {**sync_infos, **async_infos}
 
-    sync_solution_token = _set_solution(_SYNC_SOLUTION, sync_infos)
-    full_solution_token = _set_solution(_FULL_SOLUTION, full_infos)
+    sync_solution_token = _set_solution(SYNC_SOLUTION, sync_infos)
+    full_solution_token = _set_solution(FULL_SOLUTION, full_infos)
 
     def reset() -> None:
-        _FULL_SOLUTION.reset(full_solution_token)
-        _SYNC_SOLUTION.reset(sync_solution_token)
+        FULL_SOLUTION.reset(full_solution_token)
+        SYNC_SOLUTION.reset(sync_solution_token)
 
     return reset
 
 
-def _get_solution(
-    solution: _Solution[P],
-    dependencies: Sequence[Sequence[type]],
-) -> Sequence[Sequence[P]]:
-    infos = solution.infos_by_type
-    execution_orders = solution.execution_orders
-
-    node_sets: list[DependencySet] = []
-    for dep_options in dependencies:
-        for d in dep_options:
-            if s := execution_orders.get(d):
-                node_sets.append(s)
-                break
-        else:
-            _log.debug(f"Missing providers for any of {list(dep_options)}")
-
-    return [[infos[cls] for cls in g] for sparse_gens in zip(*node_sets) if (g := set.union(*sparse_gens))]
-
-
-def _set_solution(var: ContextVar[_Solution[P]], infos: Mapping[type, P]) -> Token:
+def _set_solution(var: ContextVar[Solution[P]], infos: Mapping[type, P]) -> Token[Solution[P]]:
     dep_map = {cls: info["dependencies"] for cls, info in infos.items()}
-    _check_all_requirements_exist(var, dep_map)
-    sorted_gens = _get_sorted_generations(dep_map)
-    exe_orders = {cls: _intersect_sorted_generations(sorted_gens, _nodes_in_subgraph(dep_map, cls)) for cls in dep_map}
-    return var.set(_Solution(infos, exe_orders))
+    return var.set(Solution(infos=infos, graph=DependencyGraph.from_dependency_map(dep_map)))
 
 
-def _get_sorted_generations(dep_map: DependencyMap) -> Sequence[DependencySet]:
-    graph = PyDiGraph()
+@frozenclass
+class Solution(Generic[P]):
+    """A solution to the dependency graph."""
 
-    types_by_node_id: dict[int, type] = {}
-    node_ids_by_type: dict[type, int] = {}
-    for cls in dep_map:
-        node_id = graph.add_node(cls)
-        types_by_node_id[node_id] = cls
-        node_ids_by_type[cls] = node_id
+    infos: Mapping[type, P]
+    graph: DependencyGraph
 
-    for cls, deps in dep_map.items():
-        for dep in deps:
-            graph.add_edge(node_ids_by_type[dep], node_ids_by_type[cls], None)
+    def descendant_types(self, cls: type) -> Set[type]:
+        graph = self.graph
+        return {graph.type_by_index[i] for i in ancestors(graph.index_graph, graph.index_by_type[cls])}
 
-    return [[types_by_node_id[node_id] for node_id in gen] for gen in topological_generations(graph)]
+    def execution_order_for(self, types: Collection[type]) -> Sequence[Sequence[P]]:
+        infos = self.infos
+        i_by_t = self.graph.index_by_type
+        t_by_i = self.graph.type_by_index
 
+        sparse_topo_generations = [self.graph.index_sparse_topological_ancestor_generations[i_by_t[c]] for c in types]
+        merged_topo_generations = list(starmap(set.union, zip(*sparse_topo_generations, strict=False)))
 
-def _check_all_requirements_exist(var: ContextVar, dep_map: DependencyMap) -> None:
-    any_missing: set[type] = set()
-    for requirements in dep_map.values():
-        if some_missing := requirements - dep_map.keys():
-            any_missing.update(some_missing)
-    if any_missing:
-        sync = "sync" if var is _SYNC_SOLUTION else "sync or async"
-        msg = f"No {sync} providers for {any_missing}"
-        raise ProviderMissingError(msg)
+        return [[infos[t_by_i[i]] for i in gen] for gen in merged_topo_generations]
 
 
-def _intersect_sorted_generations(generations: Sequence[DependencySet], subset: set[type]) -> Sequence[DependencySet]:
-    return [subset.intersection(g) for g in generations]
+@frozenclass
+class DependencyGraph:
+
+    type_by_index: Mapping[int, type]
+    """Mapping graph index to types."""
+    index_by_type: Mapping[type, int]
+    """Mapping types to graph index."""
+    index_graph: PyDiGraph
+    """A directed graph of type IDs."""
+    index_sparse_topological_ancestor_generations: Mapping[int, Sequence[Set[int]]]
+    r"""Topologically sorted generations where generations have been intersected with each node and its ancestors.
+
+    For example, given the graph (directed from top to bottom)
+
+    ```
+        0
+       / \
+      1   2
+     / \   \
+    3   4   5
+    ```
+
+    The topological generations for the whole graph would be:
+
+    ```
+    topological_generations = [{0}, {1, 2}, {3, 4, 5}]
+    ```
+
+    And the ancestors (inclusive) for each node would be:
+
+    ```python
+    inclusive_ancestors = {
+        0: {0},
+        1: {0, 1},
+        2: {0, 2},
+        3: {0, 1, 3},
+        4: {0, 1, 4},
+        5: {0, 2, 5},
+    }
+    ```
+
+    If we define sparse topological generations with the following code:
+
+    ```python
+    def get_sparse_topological_generations(
+        topological_generations, inclusive_ancestors
+    ):
+        return [
+            {gen & inclusive_ancestors[i] for i in gen}
+            for gen in topological_generations
+        ]
+    ```
+
+    Then the sparse topological generations for node 4 would be:
+
+    ```
+    [{0}, {1}, {4}]
+    ```
+
+    That is, the each generation, but only node 4 and its ancestors. Thus, for all nodes, the generations are
+
+    ```python
+    {
+        0: [{0}, set(), set()],
+        1: [{0}, {1}, set()],
+        2: [{0}, {2}, set()],
+        3: [{0}, {1}, {3}],
+        4: [{0}, {1}, {4}],
+        5: [{0}, {2}, {5}],
+    }
+    ```
+
+    This makes it easy to construct the topological generations for arbitrary ancestral subgraphs. For example, if we
+    wanted the topological generations for the ancestral subgraphs of node 4 and 5. We would take the union of their
+    sparse generations:
+
+    ```python
+    from itertools import starmap
+
+    sparse_gens_4 = [{0}, {1}, {4}]
+    sparse_gens_5 = [{0}, {2}, {5}]
+    merged_gens = list(
+        starmap(set.union, zip(sparse_gens_4, sparse_gens_5, strict=False))
+    )
+    assert merged_gens == [{0}, {1, 2}, {4, 5}]
+    ```
+    """
+
+    @classmethod
+    def from_dependency_map(cls, dep_map: DependencyMap) -> Self:
+        type_by_index: dict[int, type] = {}
+        index_by_type: dict[type, int] = {}
+
+        index_graph = PyDiGraph()
+        for tp in dep_map:
+            index = index_graph.add_node(tp)
+            type_by_index[index] = tp
+            index_by_type[tp] = index
+
+        for tp, deps in dep_map.items():
+            for dep in deps:
+                try:
+                    parent_index = index_by_type[dep]
+                except KeyError:
+                    msg = f"No provider for {dep}"
+                    raise SolutionError(msg) from None
+                child_index = index_by_type[tp]
+                index_graph.add_edge(parent_index, child_index, None)
+
+        topological_id_generations = [set(gen) for gen in topological_generations(index_graph)]
+
+        sparse_generations_by_id: dict[int, list[set[int]]] = {}
+        for index in index_graph.node_indices():
+            subgraph_ids = {index, *ancestors(index_graph, index)}
+            sparse_generations_by_id[index] = [gen & subgraph_ids for gen in topological_id_generations]
+
+        return cls(
+            type_by_index=type_by_index,
+            index_by_type=index_by_type,
+            index_graph=index_graph,
+            index_sparse_topological_ancestor_generations=sparse_generations_by_id,
+        )
 
 
-def _nodes_in_subgraph(graph: DependencyMap, root: type) -> set[type]:
-    index = 0
-    visit = [root]
-    while index < len(visit):
-        node = visit[index]
-        if node in graph:
-            visit.extend(graph[node])
-        index += 1
-    return set(visit)
-
-
-class _Solution(Generic[P]):
-
-    def __init__(
-        self,
-        infos_by_type: Mapping[type, SyncProviderInfo],
-        execution_orders: Mapping[type, Sequence[DependencySet]],
-    ) -> None:
-        self.infos_by_type = infos_by_type
-        self.execution_orders = execution_orders
-
-
-_NO_SOLUTION = _Solution({}, {})
-_SYNC_SOLUTION = ContextVar[_Solution[SyncProviderInfo]]("SYNC_SOLUTION", default=_NO_SOLUTION)
-_FULL_SOLUTION = ContextVar[_Solution[ProviderInfo]]("FULL_SOLUTION", default=_NO_SOLUTION)
+_NO_SOLUTION = Solution(infos={}, graph=DependencyGraph.from_dependency_map({}))
+SYNC_SOLUTION = ContextVar[Solution[SyncProviderInfo]]("SYNC_SOLUTION", default=_NO_SOLUTION)
+FULL_SOLUTION = ContextVar[Solution[ProviderInfo]]("FULL_SOLUTION", default=_NO_SOLUTION)

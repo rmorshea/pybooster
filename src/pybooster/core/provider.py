@@ -7,7 +7,6 @@ from contextlib import contextmanager as _contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
 from typing import Generic
 from typing import ParamSpec
 from typing import Self
@@ -21,15 +20,16 @@ from paramorator import paramorator
 from pybooster import injector
 from pybooster.core._private._provider import get_provides_type
 from pybooster.core._private._utils import NormParamTypes
-from pybooster.core._private._utils import get_callable_dependencies
-from pybooster.core._private._utils import get_callable_fallbacks
 from pybooster.core._private._utils import get_callable_return_type
 from pybooster.core._private._utils import get_coroutine_return_type
+from pybooster.core._private._utils import get_fallback_parameters
 from pybooster.core._private._utils import get_iterator_yield_type
+from pybooster.core._private._utils import get_required_parameters
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from collections.abc import Awaitable
+    from collections.abc import Callable
     from collections.abc import Iterator
 
     from pybooster.types import AsyncContextManagerCallable
@@ -121,11 +121,11 @@ def iterator(
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
-    if fallbacks := get_callable_fallbacks(func):
+    if fallbacks := get_fallback_parameters(func):
         msg = f"Providers cannot have fallbacks - found {fallbacks} in {func}"
         raise TypeError(msg)
     provides = provides or get_iterator_yield_type(func, sync=True)
-    norm_dependencies = get_callable_dependencies(func, dependencies)
+    norm_dependencies = get_required_parameters(func, dependencies)
     return SyncProvider(
         injector.contextmanager(func, dependencies=norm_dependencies) if norm_dependencies else _contextmanager(func),
         cast(type[R], provides),
@@ -147,11 +147,11 @@ def asynciterator(
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
-    if fallbacks := get_callable_fallbacks(func):
+    if fallbacks := get_fallback_parameters(func):
         msg = f"Providers cannot have fallbacks - found {fallbacks} in {func}"
         raise TypeError(msg)
     provides = provides or get_iterator_yield_type(func, sync=False)
-    norm_dependencies = get_callable_dependencies(func, dependencies)
+    norm_dependencies = get_required_parameters(func, dependencies)
     return AsyncProvider(
         (
             injector.asynccontextmanager(func, dependencies=norm_dependencies)
@@ -179,6 +179,7 @@ class SyncProvider(Generic[P, R]):
     def bind(self, *args: P.args, **kwargs: P.kwargs) -> Self[[], R]:
         """Inject the dependencies and produce the dependency."""
         return type(self)(
+            # TODO: disallow binding required parameters - could lead to unexpected behavior
             lambda: self.producer(*args, **kwargs),
             get_provides_type(self.provides, *args, **kwargs),
             self.dependencies,

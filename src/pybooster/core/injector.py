@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from contextlib import AbstractAsyncContextManager
 from contextlib import AbstractContextManager
-from contextlib import AsyncExitStack
-from contextlib import ExitStack
 from contextlib import asynccontextmanager as _asynccontextmanager
 from contextlib import contextmanager as _contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
 from typing import Literal
 from typing import ParamSpec
 from typing import TypeVar
@@ -17,17 +14,19 @@ from typing import cast
 
 from paramorator import paramorator
 
-from pybooster.core._private._injector import async_update_arguments_from_providers_or_fallbacks
-from pybooster.core._private._injector import sync_update_arguments_from_providers_or_fallbacks
-from pybooster.core._private._injector import update_argument_from_current_values
+from pybooster.core._private._injector import async_inject_keywords
+from pybooster.core._private._injector import sync_inject_keywords
+from pybooster.core._private._utils import AsyncFastStack
 from pybooster.core._private._utils import FallbackMarker
-from pybooster.core._private._utils import get_callable_dependencies
-from pybooster.core._private._utils import get_callable_fallbacks
+from pybooster.core._private._utils import FastStack
+from pybooster.core._private._utils import get_fallback_parameters
+from pybooster.core._private._utils import get_required_parameters
 from pybooster.core._private._utils import make_sentinel_value
 from pybooster.core._private._utils import normalize_dependency
 from pybooster.core._private._utils import undefined
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from collections.abc import Mapping
     from collections.abc import Sequence
 
@@ -75,16 +74,17 @@ def function(
         dependencies: The dependencies to inject into the function. Otherwise infered from function signature.
         fallbacks: The values to use for missing dependencies. Otherwise infered from function signature.
     """
-    dependencies = get_callable_dependencies(func, dependencies)
-    fallbacks = get_callable_fallbacks(func, fallbacks)
+    required_params = get_required_parameters(func, dependencies)
+    fallback_values = get_fallback_parameters(func, fallbacks)
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        if not (missing := update_argument_from_current_values(kwargs, dependencies)):
+        stack = FastStack()
+        try:
+            sync_inject_keywords(stack, kwargs, required_params, fallback_values)
             return func(*args, **kwargs)
-        with ExitStack() as stack:
-            sync_update_arguments_from_providers_or_fallbacks(stack, kwargs, missing, fallbacks)
-            return func(*args, **kwargs)
+        finally:
+            stack.close()
 
     return wrapper
 
@@ -97,16 +97,17 @@ def asyncfunction(
     fallbacks: Mapping[str, Any] | None = None,
 ) -> Callable[P, Coroutine[Any, Any, R]]:
     """Inject dependencies into the given coroutine."""
-    dependencies = get_callable_dependencies(func, dependencies)
-    fallbacks = get_callable_fallbacks(func, fallbacks)
+    required_params = get_required_parameters(func, dependencies)
+    fallback_values = get_fallback_parameters(func, fallbacks)
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[reportReturnType]
-        if not (missing := update_argument_from_current_values(kwargs, dependencies)):
+        stack = AsyncFastStack()
+        try:
+            await async_inject_keywords(stack, kwargs, required_params, fallback_values)
             return await func(*args, **kwargs)
-        async with AsyncExitStack() as stack:
-            await async_update_arguments_from_providers_or_fallbacks(stack, kwargs, missing, fallbacks)
-            return await func(*args, **kwargs)
+        finally:
+            await stack.aclose()
 
     return wrapper
 
@@ -119,18 +120,17 @@ def iterator(
     fallbacks: Mapping[str, Any] | None = None,
 ) -> IteratorCallable[P, R]:
     """Inject dependencies into the given iterator."""
-    dependencies = get_callable_dependencies(func, dependencies)
-    fallbacks = get_callable_fallbacks(func, fallbacks)
+    required_params = get_required_parameters(func, dependencies)
+    fallback_values = get_fallback_parameters(func, fallbacks)
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
-        if not (missing := update_argument_from_current_values(kwargs, dependencies)):
+        stack = FastStack()
+        try:
+            sync_inject_keywords(stack, kwargs, required_params, fallback_values)
             yield from func(*args, **kwargs)
-            return
-        with ExitStack() as stack:
-            sync_update_arguments_from_providers_or_fallbacks(stack, kwargs, missing, fallbacks)
-            yield from func(*args, **kwargs)
-            return
+        finally:
+            stack.close()
 
     return wrapper
 
@@ -143,20 +143,18 @@ def asynciterator(
     fallbacks: Mapping[str, Any] | None = None,
 ) -> AsyncIteratorCallable[P, R]:
     """Inject dependencies into the given async iterator."""
-    dependencies = get_callable_dependencies(func, dependencies)
-    fallbacks = get_callable_fallbacks(func, fallbacks)
+    required_params = get_required_parameters(func, dependencies)
+    fallback_values = get_fallback_parameters(func, fallbacks)
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
-        if not (missing := update_argument_from_current_values(kwargs, dependencies)):
+        stack = AsyncFastStack()
+        try:
+            await async_inject_keywords(stack, kwargs, required_params, fallback_values)
             async for value in func(*args, **kwargs):
                 yield value
-            return
-        async with AsyncExitStack() as stack:
-            await async_update_arguments_from_providers_or_fallbacks(stack, kwargs, missing, fallbacks)
-            async for value in func(*args, **kwargs):
-                yield value
-            return
+        finally:
+            await stack.aclose()
 
     return wrapper
 
@@ -203,39 +201,41 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
 
+        self._sync_stack = FastStack()
         values: dict[_StaticKey, R] = {}
-        if not (missing := update_argument_from_current_values(values, self._required_params)):  # type: ignore[reportArgumentType]
-            return values["dependency"]
-
-        stack = self._sync_stack = ExitStack()
-
-        sync_update_arguments_from_providers_or_fallbacks(stack, values, missing, self._fallback_values)  # type: ignore[reportArgumentType]
+        sync_inject_keywords(
+            self._sync_stack,
+            values,
+            self._required_params,
+            self._fallback_values,
+        )
         return values["dependency"]
+
+    def __exit__(self, *_: Any) -> None:
+        if hasattr(self, "_sync_stack"):
+            try:
+                self._sync_stack.close()
+            finally:
+                del self._sync_stack
 
     async def __aenter__(self) -> R:
         if hasattr(self, "_async_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
 
-        values: dict[Literal["dependency"], R] = {}
-        if not (missing := update_argument_from_current_values(values, self._required_params)):  # type: ignore[reportArgumentType]
-            return values["dependency"]
-
-        stack = self._async_stack = AsyncExitStack()
-
-        await async_update_arguments_from_providers_or_fallbacks(stack, values, missing, self._fallback_values)  # type: ignore[reportArgumentType]
+        self._async_stack = AsyncFastStack()
+        values: dict[_StaticKey, R] = {}
+        await async_inject_keywords(
+            self._async_stack,
+            values,
+            self._required_params,
+            self._fallback_values,
+        )
         return values["dependency"]
-
-    def __exit__(self, *exc: Any) -> None:
-        if hasattr(self, "_sync_stack"):
-            try:
-                self._sync_stack.__exit__(*exc)
-            finally:
-                del self._sync_stack
 
     async def __aexit__(self, *exc: Any) -> None:
         if hasattr(self, "_async_stack"):
             try:
-                await self._async_stack.__aexit__(*exc)
+                await self._async_stack.aclose()
             finally:
                 del self._async_stack

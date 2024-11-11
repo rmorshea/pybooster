@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
 from typing import Literal
 from typing import ParamSpec
 from typing import TypedDict
@@ -22,9 +21,10 @@ from pybooster.types import AsyncContextManagerCallable
 from pybooster.types import ContextManagerCallable
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable
+    from collections.abc import Set
 
-    from pybooster.core._private._utils import NormParamTypes
+    from pybooster.core._private._utils import NormParamTypeMap
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -37,7 +37,7 @@ class SyncProviderInfo(TypedDict):
     is_sync: Literal[True]
     producer: ContextManagerCallable[[], Any]
     provides: type
-    dependencies: set[type]
+    dependencies: Set[type]
     getter: Callable[[Any], Any]
 
 
@@ -45,7 +45,7 @@ class AsyncProviderInfo(TypedDict):
     is_sync: Literal[False]
     producer: AsyncContextManagerCallable[[], Any]
     provides: type
-    dependencies: set[type]
+    dependencies: Set[type]
     getter: Callable[[Any], Any]
 
 
@@ -66,7 +66,7 @@ def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **
 def get_provider_info(
     producer: ContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: NormParamTypes,
+    required_parameters: NormParamTypeMap,
     *,
     is_sync: Literal[True],
 ) -> SyncProviderInfo: ...
@@ -76,7 +76,7 @@ def get_provider_info(
 def get_provider_info(
     producer: AsyncContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: NormParamTypes,
+    required_parameters: NormParamTypeMap,
     *,
     is_sync: Literal[False],
 ) -> AsyncProviderInfo: ...
@@ -85,12 +85,12 @@ def get_provider_info(
 def get_provider_info(
     producer: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: NormParamTypes,
+    required_parameters: NormParamTypeMap,
     *,
     is_sync: bool,
 ) -> ProviderInfo:
     provides_type = get_provides_type(provides)
-    dependencies = [t for types in required_parameters.values() for t in types]
+    dependencies = {t for types in required_parameters.values() for t in types}
     if get_origin(provides_type) is tuple:
         return _get_tuple_provider_infos(producer, provides_type, dependencies, is_sync=is_sync)
     else:
@@ -100,7 +100,7 @@ def get_provider_info(
 def _get_tuple_provider_infos(
     producer: AnyContextManagerCallable[R],
     provides: type[R],
-    dependencies: Sequence[type],
+    dependencies: Set[type],
     *,
     is_sync: bool,
 ) -> dict[type, ProviderInfo]:
@@ -123,7 +123,7 @@ def _get_tuple_provider_infos(
 def _get_scalar_provider_infos(
     producer: AnyContextManagerCallable[R],
     provides: type[R],
-    dependencies: Sequence[type],
+    dependencies: Set[type],
     *,
     is_sync: bool,
     getter: Callable[[R], Any] = lambda x: x,
@@ -142,7 +142,7 @@ def _get_scalar_provider_infos(
                 "is_sync": is_sync,
                 "producer": producer,
                 "provides": cls,
-                "dependencies": set(dependencies),
+                "dependencies": dependencies,
                 "getter": getter,
             },
         )

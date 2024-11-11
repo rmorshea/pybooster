@@ -3,12 +3,15 @@ from __future__ import annotations
 import builtins
 from ast import TypeVarTuple
 from collections.abc import AsyncIterator
+from collections.abc import Awaitable
+from collections.abc import Callable
 from collections.abc import Coroutine
 from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
 from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from inspect import Parameter
 from inspect import isclass
 from inspect import signature
@@ -18,12 +21,12 @@ from types import resolve_bases
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
-from typing import Callable
 from typing import NewType
 from typing import ParamSpec
 from typing import TypedDict
 from typing import TypeVar
 from typing import Union
+from typing import dataclass_transform
 from typing import get_args
 from typing import get_origin
 from typing import get_type_hints
@@ -102,15 +105,15 @@ NormParamTypes = Mapping[str, Sequence[type]]
 """Dependencies normalized to a mapping of parameter names to their possible types."""
 
 
-def get_callable_dependencies(func: Callable, dependencies: ParamTypes = None) -> NormParamTypes:
+def get_required_parameters(func: Callable, dependencies: ParamTypes = None) -> NormParamTypes:
     return (
         {name: cls if isinstance(cls, Sequence) else (cls,) for name, cls in dependencies.items()}
         if dependencies
-        else _get_callable_dependencies(func)
+        else _get_required_parameters(func)
     )
 
 
-def get_callable_fallbacks(func: Callable, fallbacks: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def get_fallback_parameters(func: Callable, fallbacks: Mapping[str, Any] | None = None) -> dict[str, Any]:
     return (
         fallbacks
         if fallbacks is not None
@@ -122,16 +125,16 @@ def get_callable_fallbacks(func: Callable, fallbacks: Mapping[str, Any] | None =
     )
 
 
-def _get_callable_dependencies(func: Callable[P, R]) -> NormParamTypes:
-    dependencies: dict[str, Sequence[type]] = {}
+def _get_required_parameters(func: Callable[P, R]) -> NormParamTypes:
+    required_params: dict[str, Sequence[type]] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in signature(func).parameters.values():
         if param.default is pybooster.required or isinstance(param.default, FallbackMarker):
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected dependant parameter {param!r} to be keyword-only."
                 raise TypeError(msg)
-            dependencies[param.name] = normalize_dependency(hints[param.name])
-    return dependencies
+            required_params[param.name] = normalize_dependency(hints[param.name])
+    return required_params
 
 
 def normalize_dependency(anno: type[R] | Sequence[type[R]]) -> Sequence[type[R]]:
@@ -223,7 +226,7 @@ class StaticContextManager(AbstractAsyncContextManager[R], AbstractContextManage
     def __enter__(self) -> R:
         return self.value
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *_) -> None:
         pass
 
     async def __aenter__(self) -> R:
@@ -231,3 +234,72 @@ class StaticContextManager(AbstractAsyncContextManager[R], AbstractContextManage
 
     async def __aexit__(self, *args) -> None:
         pass
+
+
+class _FastStack:
+    def __init__(self) -> None:
+        self._callbacks: list[tuple[Callable, tuple, dict]] = []
+
+    def push(self, func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> None:
+        self._callbacks.append((False, func, args, kwargs))
+
+    def enter_context(self, context: AbstractContextManager[R]) -> R:
+        result = context.__enter__()
+        self.push(context.__exit__, None, None, None)
+        return result
+
+
+class FastStack(_FastStack):
+    """A more performant alternative to using `contextlib.ExitStack` for callbacks.
+
+    Users must call `close` to ensure all callbacks are called.
+
+    Part of the reason this is faster is because it does not simulate nested with statements.
+    """
+
+    def close(self) -> None:
+        errors: list[BaseException] = []
+        for _, cb, a, kw in reversed(self._callbacks):
+            try:
+                cb(*a, **kw)
+            except BaseException as e:  # noqa: BLE001
+                errors.append(e)
+        if errors:
+            msg = f"Multiple exceptions occurred: {errors}"
+            raise ExceptionGroup(msg, errors)
+
+
+class AsyncFastStack(_FastStack):
+    """A more performant alternative to using `contextlib.AsyncExitStack` for callbacks.
+
+    Users must call `aclose` to ensure all callbacks are called.
+
+    Part of the reason this is faster is because it does not simulate nested with statements.
+    """
+
+    def push_async(self, func: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs) -> None:
+        self._callbacks.append((True, func, args, kwargs))
+
+    async def enter_async_context(self, context: AbstractAsyncContextManager[R]) -> R:
+        result = await context.__aenter__()
+        self.push_async(context.__aexit__, None, None, None)
+        return result
+
+    async def aclose(self) -> None:
+        errors: list[BaseException] = []
+        for is_async, cb, a, kw in reversed(self._callbacks):
+            try:
+                if is_async:
+                    await cb(*a, **kw)
+                else:
+                    cb(*a, **kw)
+            except BaseException as e:  # noqa: BLE001
+                errors.append(e)
+        if errors:
+            msg = f"Multiple exceptions occurred: {errors}"
+            raise ExceptionGroup(msg, errors)
+
+
+@dataclass_transform(frozen_default=True, kw_only_default=True)
+def frozenclass(cls: type[R]) -> type[R]:
+    return dataclass(frozen=True, kw_only=True)(cls)

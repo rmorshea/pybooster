@@ -7,7 +7,7 @@ name = "pybooster"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
-requires-python = ">=3.10,<4"
+requires-python = ">=3.11,<4"
 license = "MIT"
 keywords = []
 authors = [{ name = "Ryan Morshead", email = "ryan.morshead@gmail.com" }]
@@ -98,7 +98,6 @@ line-length = 120
 skip-string-normalization = true
 
 [tool.ruff]
-target-version = "py39"
 line-length = 120
 
 [tool.ruff.format]
@@ -165,20 +164,20 @@ ban-relative-imports = "all"
   "T201", # Print statements
 ]
 "**.md" = [
-  "D",      # Docstrings
   "ANN",    # Type annotations
+  "B018",   # Useless expression
+  "D",      # Docstrings
+  "FA102",  # Unsafe __futures__ annotations usage
+  "RUF029", # No await in async function
   "S101",   # Assert statements
   "S106",   # Possible passwords
-  "FA102",  # Unsafe __futures__ annotations usage
   "SIM115", # Use context manager for opening files
-  "RUF029", # No await in async function
   "TCH002", # Move third-party import into a type-checking block
 ]
 
 [tool.coverage.run]
 source_pkgs = ["pybooster", "tests"]
 branch = true
-parallel = true
 omit = []
 
 [tool.coverage.paths]

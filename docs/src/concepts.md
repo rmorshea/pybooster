@@ -704,6 +704,7 @@ functions that require `Auth`.
 
 ```python
 from dataclasses import dataclass
+from dataclasses import field
 from typing import Literal
 
 from pybooster import injector
@@ -721,12 +722,12 @@ class Auth:
 
 @dataclass
 class AdminAuth(Auth):
-    role: Literal["admin"]
+    role: Literal["admin"] = field(init=False, default="admin")
 
 
 @provider.function
 def provide_admin_auth() -> AdminAuth:
-    return AdminAuth(role="admin", username="admin", password="admin")
+    return AdminAuth(username="admin", password="admin")
 
 
 @injector.function

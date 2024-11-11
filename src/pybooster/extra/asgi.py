@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
 from typing import TypedDict
 
 from pybooster.core.state import copy_state
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
+    from collections.abc import Callable
     from collections.abc import MutableMapping
 
     Scope = MutableMapping[str, Any]
@@ -32,13 +32,13 @@ class PyBoosterMiddleware:
 
             async def send_wrapper(msg: MutableMapping[str, Any]) -> None:
                 if msg["type"] == "lifespan.startup.complete":
-                    _set_scope_state(scope, {"restore_state": copy_state()})
+                    _set_scope_state(scope, {"set_state": copy_state()})
                 await send(msg)
 
             await self.app(scope, receive, send_wrapper)
 
         elif (state := _get_scope_state(scope)) is not None:
-            state["restore_state"]()
+            state["set_state"]()
             await self.app(scope, receive, send)
         else:
             msg = "PyBooster's internal state is missing."
@@ -62,7 +62,7 @@ def _get_scope_state(scope: Scope) -> _ScopeState | None:
 
 
 class _ScopeState(TypedDict):
-    restore_state: Callable[[], None]
+    set_state: Callable[[], None]
 
 
 _SCOPE_STATE_NAME = "pybooster"

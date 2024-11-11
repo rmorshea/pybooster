@@ -28,5 +28,9 @@ ParamTypes = Mapping[str, type | Sequence[type]]
 """A mapping of parameter names to their possible type or types."""
 
 
-class ProviderMissingError(RuntimeError):
-    """An error raised when a provider is missing."""
+class InjectionError(RuntimeError):
+    """An error raised when an injection fails."""
+
+
+class SolutionError(RuntimeError):
+    """An error raised when a solution fails."""

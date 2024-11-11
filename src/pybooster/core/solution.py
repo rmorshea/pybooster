@@ -8,7 +8,7 @@ from typing import Any
 from pybooster.core._private._provider import AsyncProviderInfo
 from pybooster.core._private._provider import SyncProviderInfo
 from pybooster.core._private._provider import get_provider_info
-from pybooster.core._private._solution import set_solution
+from pybooster.core._private._solution import set_solutions
 from pybooster.core.provider import Provider
 from pybooster.core.provider import SyncProvider
 
@@ -26,7 +26,7 @@ def solution(*providers: Provider[[], Any] | Sequence[Provider[[], Any]]) -> Ite
             sync_infos.update(get_provider_info(p.producer, p.provides, p.dependencies, is_sync=True))
         else:
             async_infos.update(get_provider_info(p.producer, p.provides, p.dependencies, is_sync=False))
-    reset = set_solution(sync_infos, async_infos)
+    reset = set_solutions(sync_infos, async_infos)
     try:
         yield
     finally:
