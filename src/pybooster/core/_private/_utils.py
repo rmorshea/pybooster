@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from inspect import Parameter
 from inspect import isclass
 from inspect import signature
-from types import UnionType
 from types import resolve_bases
 from typing import TYPE_CHECKING
 from typing import Annotated
@@ -35,7 +34,7 @@ import pybooster
 if TYPE_CHECKING:
     from anyio.abc import TaskGroup
 
-    from pybooster.types import ParamTypes
+    from pybooster.types import HintMap
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -82,7 +81,6 @@ def get_class_lineage(obj: Any) -> Sequence[type]:
     elif isinstance(obj, NewType):
         return (obj, *get_class_lineage(obj.__supertype__))
     else:
-
         return (obj, *resolve_bases((obj,)))
 
 
@@ -95,16 +93,8 @@ class FallbackMarker:
         self.value = value
 
 
-NormParamTypes = Mapping[str, Sequence[type]]
-"""Dependencies normalized to a mapping of parameter names to their possible types."""
-
-
-def get_required_parameters(func: Callable, dependencies: ParamTypes = None) -> NormParamTypes:
-    return (
-        {name: cls if isinstance(cls, Sequence) else (cls,) for name, cls in dependencies.items()}
-        if dependencies
-        else _get_required_parameters(func)
-    )
+def get_required_parameters(func: Callable, dependencies: HintMap = None) -> HintMap:
+    return dependencies if dependencies is not None else _get_required_parameters(func)
 
 
 def get_fallback_parameters(func: Callable, fallbacks: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -119,35 +109,48 @@ def get_fallback_parameters(func: Callable, fallbacks: Mapping[str, Any] | None 
     )
 
 
-def _get_required_parameters(func: Callable[P, R]) -> NormParamTypes:
-    required_params: dict[str, Sequence[type]] = {}
+def _get_required_parameters(func: Callable[P, R]) -> HintMap:
+    required_params: dict[str, type] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in signature(func).parameters.values():
         if param.default is pybooster.required or isinstance(param.default, FallbackMarker):
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected dependant parameter {param!r} to be keyword-only."
                 raise TypeError(msg)
-            required_params[param.name] = normalize_dependency(hints[param.name])
+            check_is_valid_dependency_type(param_hint := hints[param.name])
+            required_params[param.name] = param_hint
     return required_params
 
 
-def normalize_dependency(anno: type[R] | Sequence[type[R]]) -> Sequence[type[R]]:
-    if isinstance(anno, Sequence):
-        return [c for cls in anno for c in normalize_dependency(cls)]
-
+def check_is_valid_dependency_type(anno: Any) -> None:
+    anno = strip_annotated(anno)
     check_is_not_builtin_type(anno)
+    check_is_not_union_type(anno)
 
-    return normalize_dependency(get_args(anno)) if _is_union(anno) else (anno,)
+
+def check_is_not_union_type(anno: Any) -> None:
+    if get_origin(strip_annotated(anno)) is Union:
+        msg = f"Cannot use Union type {anno} as a dependency."
+        raise TypeError(msg)
+
+
+def strip_annotated(anno: Any) -> Any:
+    return get_args(anno)[0] if get_origin(anno) is Annotated else anno
 
 
 def check_is_not_builtin_type(anno: Any) -> None:
-    if is_builtin_type(anno):
-        msg = f"Cannot provide built-in type {anno.__module__}.{anno} - use NewType to make a distinct subtype."
+    if is_builtin_type(get_origin(strip_annotated(anno)) or anno):
+        msg = (
+            f"Cannot use built-in type {anno.__module__}.{anno} as a dependency"
+            " - use NewType to make a distinct subtype."
+        )
         raise TypeError(msg)
 
 
 def is_builtin_type(anno: Any) -> bool:
-    return isinstance(anno, type) and anno.__module__ == "builtins" and getattr(builtins, anno.__name__, None) is anno
+    return anno is None or (
+        isinstance(anno, type) and anno.__module__ == "builtins" and getattr(builtins, anno.__name__, None) is anno
+    )
 
 
 class DependencyInfo(TypedDict):
@@ -176,7 +179,10 @@ def _recurse_type(cls: Any) -> Iterator[Any]:
 
 
 def get_callable_return_type(func: Callable) -> type:
-    return get_type_hints(func).get("return", Any)
+    hint = get_type_hints(func, include_extras=True).get("return", Any)
+    check_is_not_builtin_type(hint)
+    check_is_not_union_type(hint)
+    return hint
 
 
 def get_coroutine_return_type(func: Callable) -> type:
@@ -206,10 +212,6 @@ def get_iterator_yield_type(func: Callable, *, sync: bool) -> type:
     except IndexError:
         msg = f"Expected return type {return_type} to have a single argument"
         raise TypeError(msg) from None
-
-
-def _is_union(anno: Any) -> bool:
-    return get_origin(anno) in (Union, UnionType)
 
 
 class StaticContextManager(AbstractAsyncContextManager[R], AbstractContextManager[R]):

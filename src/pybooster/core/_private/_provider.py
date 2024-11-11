@@ -19,12 +19,12 @@ from pybooster.core._private._utils import is_builtin_type
 from pybooster.core._private._utils import is_type
 from pybooster.types import AsyncContextManagerCallable
 from pybooster.types import ContextManagerCallable
+from pybooster.types import HintMap
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from collections.abc import Set
 
-    from pybooster.core._private._utils import NormParamTypeMap
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -58,7 +58,8 @@ def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **
     elif callable(provides):
         return provides(*args, **kwargs)
     else:
-        msg = f"Expected a type, or function to infer one, but got {provides}."
+        check_is_concrete_type(provides)  # might be a TypeVar
+        msg = f"Expected a type, or function to infer one, but got {provides!r}."
         raise TypeError(msg)
 
 
@@ -66,7 +67,7 @@ def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **
 def get_provider_info(
     producer: ContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: NormParamTypeMap,
+    required_parameters: HintMap,
     *,
     is_sync: Literal[True],
 ) -> SyncProviderInfo: ...
@@ -76,7 +77,7 @@ def get_provider_info(
 def get_provider_info(
     producer: AsyncContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: NormParamTypeMap,
+    required_parameters: HintMap,
     *,
     is_sync: Literal[False],
 ) -> AsyncProviderInfo: ...
@@ -85,12 +86,12 @@ def get_provider_info(
 def get_provider_info(
     producer: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: NormParamTypeMap,
+    required_parameters: HintMap,
     *,
     is_sync: bool,
 ) -> ProviderInfo:
     provides_type = get_provides_type(provides)
-    dependencies = {t for types in required_parameters.values() for t in types}
+    dependencies = set(required_parameters.values())
     if get_origin(provides_type) is tuple:
         return _get_tuple_provider_infos(producer, provides_type, dependencies, is_sync=is_sync)
     else:

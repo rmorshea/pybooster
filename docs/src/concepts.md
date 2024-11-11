@@ -136,7 +136,7 @@ PyBooster supports decorators for the following types of functions or methods:
 -   [injector.contextmanager](pybooster.injector.contextmanager)
 -   [injector.asynccontextmanager](pybooster.injector.asynccontextmanager)
 
-#### Skipping Providers
+### Overwriting Values
 
 You can always skip injecting a dependency by passing a value directly as an argument:
 
@@ -199,6 +199,53 @@ with solution(provide_auth, provide_profile):
         assert get_profile_string() == "Alice (alice@example.com)"
         new_auth = Auth(email="other@example.com", password="EGwVEo3y9E")
         assert get_profile_string(auth=new_auth) == "Alice (other@example.com)"
+```
+
+### Fallback Values
+
+!!! note
+
+    Fallbacks cannot be used in provider functions - only in injected functions.
+
+You can provide a fallback value for a dependency if no provider exists using the
+`fallback` object as the default value for a parameter in a decorated function.
+
+```python
+from typing import NewType
+
+from pybooster import fallback
+from pybooster import injector
+
+Recipient = NewType("Recipient", str)
+WORLD = Recipient("World")
+
+
+@injector.function
+def get_message(*, recipient: Recipient = fallback[WORLD]) -> str:
+    return f"Hello, {recipient}!"
+
+
+assert get_message() == "Hello, World!"
+```
+
+You can use this with a union type if you want to provide a fallback that's different
+from the dependency's type:
+
+```python
+from typing import NewType
+
+from pybooster import fallback
+from pybooster import injector
+
+Recipient = NewType("Recipient", str)
+
+
+@injector.function
+def get_message(*, recipient: Recipient | None = fallback[None]) -> str:
+    return f"Hello, {recipient}!"
+
+
+assert get_message() == "Hello, None!"
 ```
 
 ### Current Injector
@@ -280,53 +327,6 @@ Recipient = NewType("Recipient", str)
 
 with injector.current(Recipient, fallback="World") as recipient:
     assert recipient == "World"
-```
-
-### Fallback Values
-
-!!! note
-
-    Fallbacks cannot be used in provider functions - only in injected functions.
-
-You can provide a fallback value for a dependency if no provider exists using the
-`fallback` object as the default value for a parameter in a decorated function.
-
-```python
-from typing import NewType
-
-from pybooster import fallback
-from pybooster import injector
-
-Recipient = NewType("Recipient", str)
-WORLD = Recipient("World")
-
-
-@injector.function
-def get_message(*, recipient: Recipient = fallback[WORLD]) -> str:
-    return f"Hello, {recipient}!"
-
-
-assert get_message() == "Hello, World!"
-```
-
-You can use this with a union type if you want to provide a fallback that's different
-from the dependency's type:
-
-```python
-from typing import NewType
-
-from pybooster import fallback
-from pybooster import injector
-
-Recipient = NewType("Recipient", str)
-
-
-@injector.function
-def get_message(*, recipient: Recipient | None = fallback[None]) -> str:
-    return f"Hello, {recipient}!"
-
-
-assert get_message() == "Hello, None!"
 ```
 
 ## Providers
@@ -788,59 +788,6 @@ def get_login_message(*, auth: Auth = required) -> str:
 
 with solution(provide_admin_auth):
     assert get_login_message() == "Logged in as admin"
-```
-
-### Union Types
-
-You can require a union of types by using the `Union` type or the `|` operator (where
-supported). Doing so will resolve the first dependency that has a provider available in
-the order declared by the union (left-to-right). This could be useful in case, as below,
-where you have an `Employee` or `Contractor` class that are not related by inheritance.
-
-```python
-from dataclasses import dataclass
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solution
-
-
-@dataclass
-class Employee:
-    name: str
-    employee_id: int
-
-
-@dataclass
-class Contractor:
-    name: str
-    contractor_id: int
-
-
-@provider.function
-def provide_employee() -> Employee:
-    return Employee(name="Alice", employee_id=1)
-
-
-@provider.function
-def provide_contractor() -> Contractor:
-    return Contractor(name="Bob", contractor_id=2)
-
-
-@injector.function
-def get_message(*, person: Employee | Contractor = required) -> str:
-    return f"Hello, {person.name}!"
-
-
-with solution(provide_employee):
-    assert get_message() == "Hello, Alice!"
-
-with solution(provide_contractor):
-    assert get_message() == "Hello, Bob!"
-
-with solution(provide_employee, provide_contractor):
-    assert get_message() == "Hello, Alice!"
 ```
 
 ### Tuple Types

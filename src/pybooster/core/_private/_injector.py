@@ -16,6 +16,8 @@ from pybooster.core._private._solution import SYNC_SOLUTION
 from pybooster.core._private._solution import Solution
 from pybooster.core._private._utils import start_future
 from pybooster.core._private._utils import undefined
+from pybooster.types import HintDict
+from pybooster.types import HintMap
 from pybooster.types import InjectionError
 
 if TYPE_CHECKING:
@@ -25,7 +27,6 @@ if TYPE_CHECKING:
     from pybooster.core._private._provider import SyncProviderInfo
     from pybooster.core._private._utils import AsyncFastStack
     from pybooster.core._private._utils import FastStack
-    from pybooster.core._private._utils import NormParamTypes
 
 
 P = ParamSpec("P")
@@ -35,7 +36,7 @@ R = TypeVar("R")
 def sync_inject_keywords(
     stack: FastStack,
     kwargs: dict[str, Any],
-    required_params: NormParamTypes,
+    required_params: HintMap,
     fallback_values: Mapping[str, Any],
 ) -> None:
     solution = SYNC_SOLUTION.get()
@@ -62,7 +63,7 @@ def sync_inject_keywords(
 async def async_inject_keywords(
     stack: AsyncFastStack,
     kwargs: dict[str, Any],
-    required_params: NormParamTypes,
+    required_params: HintMap,
     fallback_values: Mapping[str, Any],
 ) -> None:
     solution = FULL_SOLUTION.get()
@@ -88,48 +89,40 @@ async def async_inject_keywords(
 
 def inject_given_values(
     kwargs: dict[str, Any],
-    required_params: dict[str, Sequence[type]],
+    required_params: HintMap,
     current_values: dict[type, Any],
     solution: Solution,
 ) -> None:
     to_invalidate: set[type] = set()
     for name in required_params.keys() & kwargs:
-        match required_params[name]:
-            case [cls]:
-                if (cur_val := current_values.get(cls, undefined)) is not (new_val := kwargs[name]):
-                    current_values[cls] = new_val
-                    if cur_val is not undefined:
-                        to_invalidate.update(solution.descendant_types(cls))
-            case types:
-                union_msg = " | ".join(t.__name__ for t in types)
-                msg = f"Cannot overwrite parameter {name!r} because union {union_msg} makes it ambiguous."
-                raise TypeError(msg)
+        if (cur_val := current_values.get(cls := required_params[name], undefined)) is not (new_val := kwargs[name]):
+            current_values[cls] = new_val
+            if cur_val is not undefined:
+                to_invalidate.update(solution.descendant_types(cls))
     for cls in to_invalidate:
         current_values.pop(cls, None)
 
 
 def inject_current_values(
     kwargs: dict[str, Any],
-    missing_params: dict[str, Sequence[type]],
+    missing_params: HintDict,
     current_values: Mapping[type, Any],
 ) -> None:
-    for name, types in tuple(missing_params.items()):
-        for cls in types:
-            if cls in current_values:
-                kwargs[name] = current_values[cls]
-                del missing_params[name]
-                break
+    for name, cls in tuple(missing_params.items()):
+        if cls in current_values:
+            kwargs[name] = current_values[cls]
+            del missing_params[name]
 
 
 def sync_inject_provider_values(
     stack: AsyncFastStack,
     kwargs: dict[str, Any],
-    missing_params: NormParamTypes,
+    missing_params: HintDict,
     current_values: dict[type, Any],
     solution: Solution[SyncProviderInfo],
 ) -> None:
     param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
-    for provider_generation in solution.execution_order_for(param_name_by_type.keys()):
+    for provider_generation in solution.execution_order_for(param_name_by_type):
         for provider_info in provider_generation:
             value = _sync_enter_provider_context(stack, provider_info)
             for name in param_name_by_type[cls := provider_info["provides"]]:
@@ -140,12 +133,12 @@ def sync_inject_provider_values(
 async def async_inject_provider_values(
     stack: AsyncFastStack,
     kwargs: dict[str, Any],
-    missing_params: dict[str, Sequence[type]],
+    missing_params: HintDict,
     current_values: dict[type, Any],
     solution: Solution[ProviderInfo],
 ) -> None:
     param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
-    for provider_generation in solution.execution_order_for(param_name_by_type.keys()):
+    for provider_generation in solution.execution_order_for(param_name_by_type):
         match provider_generation:
             case [provider_info]:
                 if provider_info["is_sync"]:
@@ -177,14 +170,12 @@ async def async_inject_provider_values(
                         del missing_params[name]
 
 
-def _get_param_name_by_type_map(solution: Solution, missing_params: NormParamTypes) -> dict[type, list[str]]:
+def _get_param_name_by_type_map(solution: Solution, missing_params: HintMap) -> dict[type, list[str]]:
     solution_infos = solution.infos
     param_name_by_type: defaultdict[type, list[str]] = defaultdict(list)
-    for name, types in missing_params.items():
-        for cls in types:
-            if cls in solution_infos:
-                param_name_by_type[cls].append(name)
-                break
+    for name, cls in missing_params.items():
+        if cls in solution_infos:
+            param_name_by_type[cls].append(name)
     return param_name_by_type
 
 

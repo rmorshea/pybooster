@@ -70,9 +70,10 @@ class Solution(Generic[P]):
         infos = self.infos
         i_by_t = self.graph.index_by_type
         t_by_i = self.graph.type_by_index
+        print(types)
 
         sparse_topo_generations = [self.graph.index_sparse_topological_ancestor_generations[i_by_t[c]] for c in types]
-        merged_topo_generations = list(starmap(set.union, zip(*sparse_topo_generations, strict=False)))
+        merged_topo_generations = list(starmap(set.union, zip(*sparse_topo_generations, strict=True)))
 
         return [[infos[t_by_i[i]] for i in gen] for gen in merged_topo_generations]
 

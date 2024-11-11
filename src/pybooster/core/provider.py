@@ -19,7 +19,6 @@ from paramorator import paramorator
 
 from pybooster import injector
 from pybooster.core._private._provider import get_provides_type
-from pybooster.core._private._utils import NormParamTypes
 from pybooster.core._private._utils import get_callable_return_type
 from pybooster.core._private._utils import get_coroutine_return_type
 from pybooster.core._private._utils import get_fallback_parameters
@@ -35,8 +34,8 @@ if TYPE_CHECKING:
     from pybooster.types import AsyncContextManagerCallable
     from pybooster.types import AsyncIteratorCallable
     from pybooster.types import ContextManagerCallable
+    from pybooster.types import HintMap
     from pybooster.types import IteratorCallable
-    from pybooster.types import ParamTypes
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -65,7 +64,7 @@ def singleton(provides: type[R] | Callable[[Any], R], value: R) -> SyncProvider[
 def function(
     func: Callable[P, R],
     *,
-    dependencies: ParamTypes | None = None,
+    dependencies: HintMap | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given function.
@@ -88,7 +87,7 @@ def function(
 def asyncfunction(
     func: Callable[P, Awaitable[R]],
     *,
-    dependencies: ParamTypes | None = None,
+    dependencies: HintMap | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given coroutine.
@@ -111,7 +110,7 @@ def asyncfunction(
 def iterator(
     func: IteratorCallable[P, R],
     *,
-    dependencies: ParamTypes | None = None,
+    dependencies: HintMap | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given iterator function.
@@ -137,7 +136,7 @@ def iterator(
 def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
-    dependencies: ParamTypes | None = None,
+    dependencies: HintMap | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given async iterator function.
@@ -170,7 +169,7 @@ class SyncProvider(Generic[P, R]):
         self,
         producer: ContextManagerCallable[P, R],
         provides: type[R] | Callable[..., type[R]],
-        dependencies: NormParamTypes,
+        dependencies: HintMap,
     ) -> None:
         self.producer = producer
         self.provides = provides
@@ -200,7 +199,7 @@ class AsyncProvider(Generic[P, R]):
         self,
         producer: AsyncContextManagerCallable[P, R],
         provides: type[R] | Callable[..., type[R]],
-        dependencies: NormParamTypes,
+        dependencies: HintMap,
     ) -> None:
         self.producer = producer
         self.provides = provides

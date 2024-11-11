@@ -123,30 +123,12 @@ async def test_sync_provider_cannot_depend_on_async_provider():
         pass  # nocov
 
 
-def test_union_dependency_is_resolution_in_order():
-    @provider.function
-    def provide_greeting() -> Greeting:
-        return Greeting("Hello")
+def test_union_dependency_is_disallowed():
+    with pytest.raises(TypeError, match=r"Cannot use Union type"):
 
-    @provider.function
-    def provide_recipient() -> Recipient:
-        return Recipient("World")
-
-    @injector.function
-    def get_greeting_or_recipient(*, greeting_or_recipient: Greeting | Recipient = required):
-        return greeting_or_recipient
-
-    with solution(provide_greeting, provide_recipient):
-        assert get_greeting_or_recipient() == "Hello"
-
-    with solution(provide_recipient, provide_greeting):
-        assert get_greeting_or_recipient() == "Hello"
-
-    with solution(provide_greeting):
-        assert get_greeting_or_recipient() == "Hello"
-
-    with solution(provide_recipient):
-        assert get_greeting_or_recipient() == "World"
+        @provider.function
+        def provide_greeting() -> Greeting | Recipient:
+            raise AssertionError
 
 
 @pytest.mark.parametrize("returns", [str, list, list[str]], ids=str)
@@ -155,34 +137,27 @@ def test_disallow_builtin_type_as_provided_depdency(returns):
     def f():
         raise AssertionError  # nocov
 
-    f.__annotations__["returns"] = returns
+    f.__annotations__["return"] = returns
 
-    f_provider = provider.function(f)
-
-    @provider.function
-    def provide_greeting() -> str:
-        raise AssertionError  # nocov
-
-    with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
-        with solution(provide_greeting):  # nocov
-            raise AssertionError
+    with pytest.raises(TypeError, match=r"Cannot use built-in type"):
+        provider.function(f)
 
 
 def test_disallow_builtin_type_as_injector_dependency():
-    with pytest.raises(TypeError, match=r"Cannot provide built-in type"):
+    with pytest.raises(TypeError, match=r"Cannot use built-in type"):
 
         @injector.function
         def use_greeting(*, _: str = required):  # nocov
             raise AssertionError
 
 
-@pytest.mark.parametrize("returns", [Any, object, TypeVar("T")], ids=str)
+@pytest.mark.parametrize("returns", [Any, TypeVar("T")], ids=str)
 def test_solution_requires_provider_types_to_be_concrete(returns):
 
     def f():
         raise AssertionError  # nocov
 
-    f.__annotations__["returns"] = returns
+    f.__annotations__["return"] = returns
 
     f_provider = provider.function(f)
 
@@ -236,20 +211,20 @@ def test_dependency_reused_across_providers():
     call_count = 0
 
     @provider.function
-    def greeting() -> Greeting:
+    def provide_greeting() -> Greeting:
         nonlocal call_count
         call_count += 1
         return Greeting("Hello")
 
     @provider.function
-    def provider_uses_greeting(*, _: Greeting = required) -> SideEffect:
+    def provider_side_effect(*, _: Greeting = required) -> SideEffect:
         return SideEffect(None)
 
     @injector.function
     def get_greeting(*, greeting: Greeting = required, _: SideEffect = required) -> Greeting:
         return greeting
 
-    with solution(greeting, provider_uses_greeting):
+    with solution(provide_greeting, provider_side_effect):
         get_greeting()
         assert call_count == 1
 
