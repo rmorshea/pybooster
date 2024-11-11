@@ -263,8 +263,6 @@ class FastStack(_FastStack):
     """A more performant alternative to using `contextlib.ExitStack` for callbacks.
 
     Users must call `close` to ensure all callbacks are called.
-
-    Part of the reason this is faster is because it does not simulate nested with statements.
     """
 
     def close(self) -> None:
@@ -276,8 +274,6 @@ class AsyncFastStack(_FastStack):
     """A more performant alternative to using `contextlib.AsyncExitStack` for callbacks.
 
     Users must call `aclose` to ensure all callbacks are called.
-
-    Part of the reason this is faster is because it does not simulate nested with statements.
     """
 
     def push_async_callback(self, func: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs) -> None:
