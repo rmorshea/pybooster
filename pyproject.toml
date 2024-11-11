@@ -93,7 +93,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.black]
 preview = true
-target-version = ["py39"]
+target-version = ["py311"]
 line-length = 120
 skip-string-normalization = true
 

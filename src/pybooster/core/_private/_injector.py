@@ -52,7 +52,9 @@ def sync_inject_keywords(
     inject_fallback_values(kwargs, missing_params, fallback_values)
 
     if missing_params:
-        msg = "Missing providers for parameters: " + ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
+        msg = "Missing providers for parameters: " + ", ".join(
+            f"{k!r} with types {v}" for k, v in missing_params.items()
+        )
         raise InjectionError(msg)
 
 
@@ -77,7 +79,8 @@ async def async_inject_keywords(
     inject_fallback_values(kwargs, missing_params, fallback_values)
 
     if missing_params:
-        msg = "Missing providers for parameters: " + ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
+        params_msg = ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
+        msg = f"Missing providers for parameters: {params_msg}"
         raise InjectionError(msg)
 
 
@@ -95,17 +98,17 @@ def inject_given_values(
     kwargs: dict[str, Any],
     missing_params: dict[str, Sequence[type]],
     current_values: dict[type, Any],
-    solution: Solution
+    solution: Solution,
 ) -> None:
     for name in missing_params.keys() & kwargs:
-        match types := missing_params[name]:
-            case (cls,):
+        match missing_params[name]:
+            case [cls]:
                 current_values[cls] = kwargs[name]
                 # clear any current values that are impacted by this overwrite
                 for descendant_cls in solution.descendant_types(cls):
                     if descendant_cls in current_values:
                         del current_values[descendant_cls]
-            case _:
+            case types:
                 union_msg = " | ".join(t.__name__ for t in types)
                 msg = f"Cannot overwrite parameter {name!r} because union {union_msg} makes it ambiguous."
                 raise TypeError(msg)
@@ -116,7 +119,7 @@ def sync_inject_provider_values(
     kwargs: dict[str, Any],
     missing_params: NormParamTypes,
     current_values: dict[type, Any],
-    solution: Solution[SyncProviderInfo]
+    solution: Solution[SyncProviderInfo],
 ) -> None:
     param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
     for provider_generation in solution.execution_order_for(param_name_by_type.keys()):
@@ -132,7 +135,7 @@ async def async_inject_provider_values(
     kwargs: dict[str, Any],
     missing_params: dict[str, Sequence[type]],
     current_values: dict[type, Any],
-    solution: Solution[ProviderInfo]
+    solution: Solution[ProviderInfo],
 ) -> None:
     param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
     for provider_generation in solution.execution_order_for(param_name_by_type.keys()):
@@ -157,7 +160,9 @@ async def async_inject_provider_values(
                         async_infos.append(provider_info)
 
                 async with create_task_group() as tg:
-                    provider_futures = [(p, start_future(tg, _async_enter_provider_context(stack, p))) for p in async_infos]
+                    provider_futures = [
+                        (p, start_future(tg, _async_enter_provider_context(stack, p))) for p in async_infos
+                    ]
                 for p, f in provider_futures:
                     value = f()
                     for name in param_name_by_type[cls := p["provides"]]:
@@ -176,7 +181,11 @@ def _get_param_name_by_type_map(solution: Solution, missing_params: NormParamTyp
     return param_name_by_type
 
 
-def inject_fallback_values(kwargs: dict[str, Any], missing_params: dict[str, Sequence[type]], fallback_values: Mapping[str, Any],) -> None:
+def inject_fallback_values(
+    kwargs: dict[str, Any],
+    missing_params: dict[str, Sequence[type]],
+    fallback_values: Mapping[str, Any],
+) -> None:
     for name in fallback_values.keys() & missing_params:
         kwargs[name] = fallback_values[name]
         del missing_params[name]
