@@ -7,7 +7,6 @@ from contextlib import contextmanager as _contextmanager
 from functools import wraps
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Literal
 from typing import ParamSpec
 from typing import TypeVar
 from typing import cast
@@ -183,16 +182,16 @@ def current(cls: type[R], *, fallback: R = undefined, overwrite: R = undefined) 
     return _CurrentContext(cls, fallback, overwrite)
 
 
-_StaticKey = Literal["dependency"]
+_KEY = ""
 
 
 class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
     """A context manager to provide the current value of a dependency."""
 
     def __init__(self, cls: type[R], fallback: R, overwrite: R) -> None:
-        self._required_params: dict[_StaticKey, type[R]] = {"dependency": cls}
-        self._fallback_values: dict[_StaticKey, R] = {"dependency": fallback} if fallback is not undefined else {}
-        self._overwrite_values: dict[_StaticKey, R] = {"dependency": overwrite} if overwrite is not undefined else {}
+        self._required_params: dict[str, type[R]] = {_KEY: cls}
+        self._fallback_values: dict[str, R] = {_KEY: fallback} if fallback is not undefined else {}
+        self._overwrite_values: dict[str, R] = {_KEY: overwrite} if overwrite is not undefined else {}
 
     def __enter__(self) -> R:
         if hasattr(self, "_sync_stack"):
@@ -207,7 +206,7 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             values,
             self._fallback_values,
         )
-        return values["dependency"]
+        return values[_KEY]
 
     def __exit__(self, *_: Any) -> None:
         if hasattr(self, "_sync_stack"):
@@ -229,7 +228,7 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             values,
             self._fallback_values,
         )
-        return values["dependency"]
+        return values[_KEY]
 
     async def __aexit__(self, *exc: Any) -> None:
         if hasattr(self, "_async_stack"):

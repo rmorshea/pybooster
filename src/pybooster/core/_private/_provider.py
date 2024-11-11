@@ -15,6 +15,7 @@ from typing import overload
 from pybooster.core._private._utils import check_is_concrete_type
 from pybooster.core._private._utils import check_is_not_builtin_type
 from pybooster.core._private._utils import get_class_lineage
+from pybooster.core._private._utils import get_raw_annotation
 from pybooster.core._private._utils import is_builtin_type
 from pybooster.core._private._utils import is_type
 from pybooster.types import AsyncContextManagerCallable
@@ -23,6 +24,7 @@ from pybooster.types import HintMap
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Mapping
     from collections.abc import Set
 
 
@@ -70,7 +72,7 @@ def get_provider_info(
     required_parameters: HintMap,
     *,
     is_sync: Literal[True],
-) -> SyncProviderInfo: ...
+) -> Mapping[type, SyncProviderInfo]: ...
 
 
 @overload
@@ -80,7 +82,7 @@ def get_provider_info(
     required_parameters: HintMap,
     *,
     is_sync: Literal[False],
-) -> AsyncProviderInfo: ...
+) -> Mapping[type, AsyncProviderInfo]: ...
 
 
 def get_provider_info(
@@ -89,7 +91,7 @@ def get_provider_info(
     required_parameters: HintMap,
     *,
     is_sync: bool,
-) -> ProviderInfo:
+) -> Mapping[type, ProviderInfo]:
     provides_type = get_provides_type(provides)
     dependencies = set(required_parameters.values())
     if get_origin(provides_type) is tuple:
@@ -133,8 +135,9 @@ def _get_scalar_provider_infos(
         msg = f"Cannot provide a union type {provides}."
         raise TypeError(msg)
 
-    check_is_not_builtin_type(provides)
-    check_is_concrete_type(provides)
+    raw_anno = get_raw_annotation(provides)
+    check_is_not_builtin_type(raw_anno)
+    check_is_concrete_type(raw_anno)
 
     return {
         cls: cast(

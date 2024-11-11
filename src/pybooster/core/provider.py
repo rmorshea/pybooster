@@ -43,21 +43,31 @@ G = TypeVar("G")
 
 
 @overload
-def singleton(provides: Callable[[G], R], value: G) -> SyncProvider[[], R]: ...
-
-
-@overload
 def singleton(provides: type[R], value: R) -> SyncProvider[[], R]: ...
 
 
-def singleton(provides: type[R] | Callable[[Any], R], value: R) -> SyncProvider[[], R]:
+@overload
+def singleton(provides: Callable[[G], R], value: G) -> SyncProvider[[], R]: ...
+
+
+def singleton(provides: type[R] | Callable[[G], R], value: R | G) -> SyncProvider[[], Any]:
     """Create a provider for a singleton value.
 
     Args:
         provides: The type that the value provides.
         value: The value to provide
     """
-    return function(lambda: value, provides=provides)
+    if isinstance(provides, type):
+
+        def get_value() -> R:
+            return value  # type: ignore[reportReturnType]
+
+    else:
+
+        def get_value() -> R:
+            return provides(value)  # type: ignore[reportArgumentType]
+
+    return function(provides=cast(type, provides))(get_value)
 
 
 @paramorator
@@ -175,9 +185,9 @@ class SyncProvider(Generic[P, R]):
         self.provides = provides
         self.dependencies = dependencies
 
-    def bind(self, *args: P.args, **kwargs: P.kwargs) -> Self[[], R]:
+    def bind(self, *args: P.args, **kwargs: P.kwargs) -> SyncProvider[[], R]:
         """Inject the dependencies and produce the dependency."""
-        return type(self)(
+        return SyncProvider(
             # TODO: disallow binding required parameters - could lead to unexpected behavior
             lambda: self.producer(*args, **kwargs),
             get_provides_type(self.provides, *args, **kwargs),
@@ -205,9 +215,9 @@ class AsyncProvider(Generic[P, R]):
         self.provides = provides
         self.dependencies = dependencies
 
-    def bind(self, *args: P.args, **kwargs: P.kwargs) -> Self[[], R]:
+    def bind(self, *args: P.args, **kwargs: P.kwargs) -> AsyncProvider[[], R]:
         """Inject the dependencies and produce the dependency."""
-        return type(self)(
+        return AsyncProvider(
             lambda: self.producer(*args, **kwargs),
             get_provides_type(self.provides, *args, **kwargs),
             self.dependencies,

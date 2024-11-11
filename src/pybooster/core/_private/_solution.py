@@ -166,7 +166,7 @@ class DependencyGraph:
     """
 
     @classmethod
-    def from_dependency_map(cls, dep_map: DependencyMap) -> Self:
+    def from_dependency_map(cls, dep_map: Mapping[type, Set[type]]) -> Self:
         type_by_index: dict[int, type] = {}
         index_by_type: dict[type, int] = {}
 

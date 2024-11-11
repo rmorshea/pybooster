@@ -26,10 +26,13 @@ from typing import TypedDict
 from typing import TypeVar
 from typing import TypeVarTuple
 from typing import Union
+from typing import cast
 from typing import dataclass_transform
 from typing import get_args
 from typing import get_origin
 from typing import get_type_hints
+
+from typing_extensions import TypeIs
 
 import pybooster
 
@@ -43,6 +46,9 @@ R = TypeVar("R")
 C = TypeVar("C", bound=Callable)
 D = TypeVar("D", bound=Callable)
 T = TypeVarTuple("T")
+
+RawAnnotation = NewType("RawAnnotation", object)
+"""A type annotation without any "extras" (e.g. `Annotated` metadata)."""
 
 
 def start_future(task_group: TaskGroup, coro: Coroutine[None, None, R]) -> Callable[[], R]:
@@ -68,7 +74,7 @@ def start_future(task_group: TaskGroup, coro: Coroutine[None, None, R]) -> Calla
     return resolve
 
 
-def is_type(value: Any) -> bool:
+def is_type(value: Any) -> TypeIs[type]:
     return get_origin(value) is not None or isclass(value) or isinstance(value, NewType)
 
 
@@ -76,12 +82,12 @@ def make_sentinel_value(module: str, name: str) -> Any:
     return type(name, (), {"__repr__": lambda _: f"{module}.{name}"})()
 
 
-def get_class_lineage(obj: Any) -> Sequence[type]:
+def get_class_lineage(obj: Any) -> Sequence[Any]:
     """Get a sequence of classes that the given object is an instance of."""
     if hasattr(obj, "__mro__"):
         return obj.__mro__
     elif isinstance(obj, NewType):
-        return (obj, *get_class_lineage(obj.__supertype__))
+        return (cast(type, obj), *get_class_lineage(obj.__supertype__))
     else:
         return (obj, *resolve_bases((obj,)))
 
@@ -95,11 +101,11 @@ class FallbackMarker:
         self.value = value
 
 
-def get_required_parameters(func: Callable, dependencies: HintMap = None) -> HintMap:
+def get_required_parameters(func: Callable, dependencies: HintMap | None = None) -> HintMap:
     return dependencies if dependencies is not None else _get_required_parameters(func)
 
 
-def get_fallback_parameters(func: Callable, fallbacks: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def get_fallback_parameters(func: Callable, fallbacks: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
     return (
         fallbacks
         if fallbacks is not None
@@ -115,33 +121,41 @@ def _get_required_parameters(func: Callable[P, R]) -> HintMap:
     required_params: dict[str, type] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in signature(func).parameters.values():
-        if param.default is pybooster.required or isinstance(param.default, FallbackMarker):
+        if (is_required := param.default is pybooster.required) or isinstance(param.default, FallbackMarker):
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected dependant parameter {param!r} to be keyword-only."
                 raise TypeError(msg)
-            check_is_valid_dependency_type(param_hint := hints[param.name])
-            required_params[param.name] = param_hint
+            required_params[param.name] = get_dependency_type(hints[param.name], is_required=is_required)
     return required_params
 
 
-def check_is_valid_dependency_type(anno: Any) -> None:
-    anno = strip_annotated(anno)
-    check_is_not_builtin_type(anno)
-    check_is_not_union_type(anno)
+def get_raw_annotation(anno: Any) -> RawAnnotation:
+    return RawAnnotation(get_args(anno)[0] if get_origin(anno) is Annotated else anno)
 
 
-def check_is_not_union_type(anno: Any) -> None:
-    if get_origin(strip_annotated(anno)) is Union:
+def get_dependency_type(anno: Any, *, is_required: bool = True) -> Any:
+    raw_anno = get_raw_annotation(anno)
+    check_is_not_builtin_type(raw_anno)
+    if is_required:
+        check_is_not_union_type(raw_anno)
+        return anno
+    elif get_origin(raw_anno) is Union:
+        return get_args(raw_anno)[0]
+    else:
+        return anno
+
+
+def check_is_not_union_type(anno: RawAnnotation) -> None:
+    if get_origin(get_raw_annotation(anno)) is Union:
         msg = f"Cannot use Union type {anno} as a dependency."
         raise TypeError(msg)
 
 
-def strip_annotated(anno: Any) -> Any:
-    return get_args(anno)[0] if get_origin(anno) is Annotated else anno
-
-
-def check_is_not_builtin_type(anno: Any) -> None:
-    if is_builtin_type(get_origin(strip_annotated(anno)) or anno):
+def check_is_not_builtin_type(anno: RawAnnotation) -> None:
+    if get_origin(anno) is tuple and (tuple_args := get_args(anno)):
+        for a in tuple_args:
+            check_is_not_builtin_type(a)
+    elif is_builtin_type(anno):
         msg = (
             f"Cannot use built-in type {anno.__module__}.{anno} as a dependency"
             " - use NewType to make a distinct subtype."
@@ -149,9 +163,12 @@ def check_is_not_builtin_type(anno: Any) -> None:
         raise TypeError(msg)
 
 
-def is_builtin_type(anno: Any) -> bool:
-    return anno is None or (
-        isinstance(anno, type) and anno.__module__ == "builtins" and getattr(builtins, anno.__name__, None) is anno
+def is_builtin_type(anno: RawAnnotation) -> bool:
+    final_anno = get_origin(anno) if get_args(anno) else anno
+    return final_anno is None or (
+        isinstance(final_anno, type)
+        and final_anno.__module__ == "builtins"
+        and getattr(builtins, final_anno.__name__, None) is final_anno
     )
 
 
@@ -160,10 +177,7 @@ class DependencyInfo(TypedDict):
     new: bool
 
 
-def check_is_concrete_type(cls: Any) -> None:
-    if get_origin(cls) is Annotated:
-        cls = get_args(cls)[0]
-
+def check_is_concrete_type(cls: RawAnnotation) -> None:
     if cls is Any or cls is object:
         msg = f"Can only provide concrete type, but found ambiguous type {cls}"
         raise TypeError(msg)
@@ -181,10 +195,11 @@ def _recurse_type(cls: Any) -> Iterator[Any]:
 
 
 def get_callable_return_type(func: Callable) -> type:
-    hint = get_type_hints(func, include_extras=True).get("return", Any)
-    check_is_not_builtin_type(hint)
-    check_is_not_union_type(hint)
-    return hint
+    anno = get_type_hints(func, include_extras=True).get("return", Any)
+    raw_anno = get_raw_annotation(anno)
+    check_is_not_builtin_type(raw_anno)
+    check_is_not_union_type(raw_anno)
+    return anno
 
 
 def get_coroutine_return_type(func: Callable) -> type:
@@ -325,4 +340,5 @@ async def _async_unravel_stack(callbacks: Sequence[_Callback], position: int) ->
 
 @dataclass_transform(frozen_default=True, kw_only_default=True)
 def frozenclass(cls: type[R]) -> type[R]:
+    """Returm a frozen dataclass."""
     return dataclass(frozen=True, kw_only=True)(cls)

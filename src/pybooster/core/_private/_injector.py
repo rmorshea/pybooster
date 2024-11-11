@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping
-from collections.abc import Sequence
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 from typing import Any
@@ -115,7 +114,7 @@ def inject_current_values(
 
 
 def sync_inject_provider_values(
-    stack: AsyncFastStack,
+    stack: FastStack,
     kwargs: dict[str, Any],
     missing_params: HintDict,
     current_values: dict[type, Any],
@@ -141,7 +140,7 @@ async def async_inject_provider_values(
     for provider_generation in solution.execution_order_for(param_name_by_type):
         match provider_generation:
             case [provider_info]:
-                if provider_info["is_sync"]:
+                if provider_info["is_sync"] is True:
                     value = _sync_enter_provider_context(stack, provider_info)
                 else:
                     value = await _async_enter_provider_context(stack, provider_info)
@@ -151,7 +150,7 @@ async def async_inject_provider_values(
             case [*provider_infos]:
                 async_infos: list[AsyncProviderInfo] = []
                 for provider_info in provider_infos:
-                    if provider_info["is_sync"]:
+                    if provider_info["is_sync"] is True:
                         value = _sync_enter_provider_context(stack, provider_info)
                         for name in param_name_by_type[cls := provider_info["provides"]]:
                             kwargs[name] = current_values[cls] = value
@@ -181,7 +180,7 @@ def _get_param_name_by_type_map(solution: Solution, missing_params: HintMap) -> 
 
 def inject_fallback_values(
     kwargs: dict[str, Any],
-    missing_params: dict[str, Sequence[type]],
+    missing_params: dict[str, type],
     fallback_values: Mapping[str, Any],
 ) -> None:
     for name in fallback_values.keys() & missing_params:
