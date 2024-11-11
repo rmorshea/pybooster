@@ -14,10 +14,12 @@ from dataclasses import dataclass
 from inspect import Parameter
 from inspect import isclass
 from inspect import signature
+from sys import exc_info
 from types import resolve_bases
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
+from typing import Literal
 from typing import NewType
 from typing import ParamSpec
 from typing import TypedDict
@@ -232,16 +234,28 @@ class StaticContextManager(AbstractAsyncContextManager[R], AbstractContextManage
         pass
 
 
+_Callback = (
+    # sync callback
+    tuple[Literal[False], Callable[..., Any], tuple, dict]
+    # sync exit callback
+    | tuple[Literal[False], Callable[[Any, Any, Any], Any]]
+    # async callback
+    | tuple[Literal[True], Callable[..., Awaitable], tuple, dict]
+    # async exit callback
+    | tuple[Literal[True], Callable[[Any, Any, Any], Awaitable]]
+)
+
+
 class _FastStack:
     def __init__(self) -> None:
-        self._callbacks: list[tuple[Callable, tuple, dict]] = []
+        self._callbacks: list[_Callback] = []
 
-    def push(self, func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> None:
+    def push_callback(self, func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> None:
         self._callbacks.append((False, func, args, kwargs))
 
     def enter_context(self, context: AbstractContextManager[R]) -> R:
         result = context.__enter__()
-        self.push(context.__exit__, None, None, None)
+        self._callbacks.append((False, context.__exit__))
         return result
 
 
@@ -254,15 +268,8 @@ class FastStack(_FastStack):
     """
 
     def close(self) -> None:
-        errors: list[BaseException] = []
-        for _, cb, a, kw in reversed(self._callbacks):
-            try:
-                cb(*a, **kw)
-            except BaseException as e:  # noqa: BLE001
-                errors.append(e)
-        if errors:
-            msg = f"Multiple exceptions occurred: {errors}"
-            raise ExceptionGroup(msg, errors)
+        if cb_len := len(self._callbacks):
+            _sync_unravel_stack(self._callbacks, cb_len - 1)
 
 
 class AsyncFastStack(_FastStack):
@@ -273,27 +280,51 @@ class AsyncFastStack(_FastStack):
     Part of the reason this is faster is because it does not simulate nested with statements.
     """
 
-    def push_async(self, func: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs) -> None:
+    def push_async_callback(self, func: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs) -> None:
         self._callbacks.append((True, func, args, kwargs))
 
     async def enter_async_context(self, context: AbstractAsyncContextManager[R]) -> R:
         result = await context.__aenter__()
-        self.push_async(context.__aexit__, None, None, None)
+        self._callbacks.append((True, context.__aexit__))
         return result
 
     async def aclose(self) -> None:
-        errors: list[BaseException] = []
-        for is_async, cb, a, kw in reversed(self._callbacks):
-            try:
-                if is_async:
-                    await cb(*a, **kw)
-                else:
-                    cb(*a, **kw)
-            except BaseException as e:  # noqa: BLE001
-                errors.append(e)
-        if errors:
-            msg = f"Multiple exceptions occurred: {errors}"
-            raise ExceptionGroup(msg, errors)
+        if cb_len := len(self._callbacks):
+            await _async_unravel_stack(self._callbacks, cb_len - 1)
+
+
+def _sync_unravel_stack(callbacks: Sequence[_Callback], position: int) -> None:
+    try:
+        match callbacks[position]:
+            case [False, func, args, kwargs]:
+                func(*args, **kwargs)
+            case [False, exit]:
+                exit(*exc_info())
+            case _:
+                msg = "Unexpected callback type"
+                raise AssertionError(msg)
+    finally:
+        if position > 0:
+            _sync_unravel_stack(callbacks, position - 1)
+
+
+async def _async_unravel_stack(callbacks: Sequence[_Callback], position: int) -> None:
+    try:
+        match callbacks[position]:
+            case [True, func, args, kwargs]:
+                await func(*args, **kwargs)
+            case [False, func, args, kwargs]:
+                func(*args, **kwargs)
+            case [True, exit]:
+                await exit(*exc_info())
+            case [False, exit]:
+                exit(*exc_info())
+            case _:
+                msg = "Unexpected callback type"
+                raise AssertionError(msg)
+    finally:
+        if position > 0:
+            await _async_unravel_stack(callbacks, position - 1)
 
 
 @dataclass_transform(frozen_default=True, kw_only_default=True)

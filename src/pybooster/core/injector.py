@@ -78,7 +78,7 @@ def function(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         stack = FastStack()
         try:
-            sync_inject_keywords(stack, kwargs, required_params, fallback_values)
+            sync_inject_keywords(stack, required_params, kwargs, fallback_values)
             return func(*args, **kwargs)
         finally:
             stack.close()
@@ -101,7 +101,7 @@ def asyncfunction(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[reportReturnType]
         stack = AsyncFastStack()
         try:
-            await async_inject_keywords(stack, kwargs, required_params, fallback_values)
+            await async_inject_keywords(stack, required_params, kwargs, fallback_values)
             return await func(*args, **kwargs)
         finally:
             await stack.aclose()
@@ -124,7 +124,7 @@ def iterator(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
         stack = FastStack()
         try:
-            sync_inject_keywords(stack, kwargs, required_params, fallback_values)
+            sync_inject_keywords(stack, required_params, kwargs, fallback_values)
             yield from func(*args, **kwargs)
         finally:
             stack.close()
@@ -147,7 +147,7 @@ def asynciterator(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         stack = AsyncFastStack()
         try:
-            await async_inject_keywords(stack, kwargs, required_params, fallback_values)
+            await async_inject_keywords(stack, required_params, kwargs, fallback_values)
             async for value in func(*args, **kwargs):
                 yield value
         finally:
@@ -178,9 +178,9 @@ def asynccontextmanager(
     return _asynccontextmanager(asynciterator(func, dependencies=dependencies, fallbacks=fallbacks))
 
 
-def current(cls: type[R], *, fallback: R = undefined) -> _CurrentContext[R]:
+def current(cls: type[R], *, fallback: R = undefined, overwrite: R = undefined) -> _CurrentContext[R]:
     """Get the current value of a dependency."""
-    return _CurrentContext(cls, fallback)
+    return _CurrentContext(cls, fallback, overwrite)
 
 
 _StaticKey = Literal["dependency"]
@@ -189,9 +189,10 @@ _StaticKey = Literal["dependency"]
 class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
     """A context manager to provide the current value of a dependency."""
 
-    def __init__(self, cls: type[R], fallback: R) -> None:
+    def __init__(self, cls: type[R], fallback: R, overwrite: R) -> None:
         self._required_params: dict[_StaticKey, type[R]] = {"dependency": cls}
         self._fallback_values: dict[_StaticKey, R] = {"dependency": fallback} if fallback is not undefined else {}
+        self._overwrite_values: dict[_StaticKey, R] = {"dependency": overwrite} if overwrite is not undefined else {}
 
     def __enter__(self) -> R:
         if hasattr(self, "_sync_stack"):
@@ -199,11 +200,11 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             raise RuntimeError(msg)
 
         self._sync_stack = FastStack()
-        values: dict[_StaticKey, R] = {}
+        values = self._overwrite_values.copy()
         sync_inject_keywords(
             self._sync_stack,
-            values,
             self._required_params,
+            values,
             self._fallback_values,
         )
         return values["dependency"]
@@ -221,11 +222,11 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             raise RuntimeError(msg)
 
         self._async_stack = AsyncFastStack()
-        values: dict[_StaticKey, R] = {}
+        values = self._overwrite_values.copy()
         await async_inject_keywords(
             self._async_stack,
-            values,
             self._required_params,
+            values,
             self._fallback_values,
         )
         return values["dependency"]

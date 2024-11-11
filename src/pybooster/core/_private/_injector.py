@@ -35,24 +35,24 @@ R = TypeVar("R")
 
 def sync_inject_keywords(
     stack: FastStack,
-    kwargs: dict[str, Any],
     required_params: HintMap,
+    overwrite_values: dict[str, Any],
     fallback_values: Mapping[str, Any],
 ) -> None:
     solution = SYNC_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
-    inject_given_values(kwargs, required_params, current_values, solution)
-    missing_params = {k: required_params[k] for k in required_params.keys() - kwargs}
-    inject_current_values(kwargs, missing_params, current_values)
+    inject_overwrite_values(overwrite_values, required_params, current_values, solution)
+    missing_params = {k: required_params[k] for k in required_params.keys() - overwrite_values}
+    inject_current_values(overwrite_values, missing_params, current_values)
 
     if not missing_params:
         return
 
-    stack.push(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
+    stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
 
-    sync_inject_provider_values(stack, kwargs, missing_params, current_values, solution)
-    inject_fallback_values(kwargs, missing_params, fallback_values)
+    sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
+    inject_fallback_values(overwrite_values, missing_params, fallback_values)
 
     if missing_params:
         params_msg = ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
@@ -62,24 +62,24 @@ def sync_inject_keywords(
 
 async def async_inject_keywords(
     stack: AsyncFastStack,
-    kwargs: dict[str, Any],
     required_params: HintMap,
+    overwrite_values: dict[str, Any],
     fallback_values: Mapping[str, Any],
 ) -> None:
     solution = FULL_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
-    inject_given_values(kwargs, required_params, current_values, solution)
-    missing_params = {k: required_params[k] for k in required_params.keys() - kwargs}
-    inject_current_values(kwargs, missing_params, current_values)
+    inject_overwrite_values(overwrite_values, required_params, current_values, solution)
+    missing_params = {k: required_params[k] for k in required_params.keys() - overwrite_values}
+    inject_current_values(overwrite_values, missing_params, current_values)
 
     if not missing_params:
         return
 
-    stack.push(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
+    stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
 
-    await async_inject_provider_values(stack, kwargs, missing_params, current_values, solution)
-    inject_fallback_values(kwargs, missing_params, fallback_values)
+    await async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
+    inject_fallback_values(overwrite_values, missing_params, fallback_values)
 
     if missing_params:
         params_msg = ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
@@ -87,7 +87,7 @@ async def async_inject_keywords(
         raise InjectionError(msg)
 
 
-def inject_given_values(
+def inject_overwrite_values(
     kwargs: dict[str, Any],
     required_params: HintMap,
     current_values: dict[type, Any],
