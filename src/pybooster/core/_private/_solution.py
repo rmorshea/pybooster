@@ -15,6 +15,7 @@ from typing import TypeVar
 
 from rustworkx import PyDiGraph
 from rustworkx import ancestors
+from rustworkx import descendants
 from rustworkx import topological_generations
 
 from pybooster.core._private._provider import ProviderInfo
@@ -63,7 +64,7 @@ class Solution(Generic[P]):
 
     def descendant_types(self, cls: type) -> Set[type]:
         graph = self.graph
-        return {graph.type_by_index[i] for i in ancestors(graph.index_graph, graph.index_by_type[cls])}
+        return {graph.type_by_index[i] for i in descendants(graph.index_graph, graph.index_by_type[cls])}
 
     def execution_order_for(self, types: Collection[type]) -> Sequence[Sequence[P]]:
         infos = self.infos

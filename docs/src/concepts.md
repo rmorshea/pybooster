@@ -127,7 +127,7 @@ with solution(provide_recipient):
     assert get_message() == "Hello, Alice!"
 ```
 
-PyBooster supports decorators for the following types of functions:
+PyBooster supports decorators for the following types of functions or methods:
 
 -   [injector.function](pybooster.injector.function)
 -   [injector.asyncfunction](pybooster.injector.asyncfunction)
@@ -136,19 +136,70 @@ PyBooster supports decorators for the following types of functions:
 -   [injector.contextmanager](pybooster.injector.contextmanager)
 -   [injector.asynccontextmanager](pybooster.injector.asynccontextmanager)
 
-You can use all of these decorators on methods of a class as well.
+#### Skipping Providers
 
-!!! tip
+You can always skip injecting a dependency by passing a value directly as an argument:
 
-    You can always skip injecting a dependency by passing a value directly as an argument:
+```python { test="false" }
+assert get_message(recipient="Bob") == "Hello, Bob!"
+```
 
-    ```python { test="false" }
-    assert get_message(recipient="Bob") == "Hello, Bob!"
-    ```
+While doing so will not trigger the provider for the dependency, instead opting to use
+the passed value, any other unfulfilled requirements which themselves rely on the passed
+dependency must be reevaluated. This is demonstrated in the example below where
+overwriting an `Auth` dependency causes the `provide_profile` provider is rerun even
+though it would already have had a shared value due to the
+[`current` context](#current-injector):
 
-    This will not trigger the provider for `Recipient` and will use the value passed to the
-    function instead. Doing so can be useful for re-using a dependency across multiple function
-    calls without the indirection created by establishing a [`shared context or value`](#sharing).
+```python
+from dataclasses import dataclass
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import solution
+
+
+@dataclass
+class Auth:
+    email: str
+    password: str
+
+
+@dataclass
+class Profile:
+    name: str
+    email: str
+
+
+@provider.function
+def provide_auth() -> Auth:
+    return Auth(email="alice@example.com", password="EGwVEo3y9E")
+
+
+@provider.function
+def provide_profile(*, auth: Auth = required) -> Profile:
+    return Profile(name="Alice", email=auth.email)
+
+
+@injector.function
+def get_profile_string(
+    *, profile: Profile = required, auth: Auth = required
+) -> str:
+    do_something_with_auth(auth)
+    return f"{profile.name} ({profile.email})"
+
+
+def do_something_with_auth(_: Auth) -> None:
+    pass
+
+
+with solution(provide_auth, provide_profile):
+    with injector.current(Profile) as profile:
+        assert get_profile_string() == "Alice (alice@example.com)"
+        new_auth = Auth(email="other@example.com", password="EGwVEo3y9E")
+        assert get_profile_string(auth=new_auth) == "Alice (other@example.com)"
+```
 
 ### Current Injector
 
@@ -795,7 +846,7 @@ with solution(provide_employee, provide_contractor):
 ### Tuple Types
 
 You can provide a tuple of types from a provider in order to supply multiple
-dependencies at once. This can be useful if you need to destructure some a value into
+dependencies at once. This can be useful if you need to destructure some value into
 separate dependencies.
 
 ```python

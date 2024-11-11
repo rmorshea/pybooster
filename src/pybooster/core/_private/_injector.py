@@ -15,6 +15,7 @@ from pybooster.core._private._solution import FULL_SOLUTION
 from pybooster.core._private._solution import SYNC_SOLUTION
 from pybooster.core._private._solution import Solution
 from pybooster.core._private._utils import start_future
+from pybooster.core._private._utils import undefined
 from pybooster.types import InjectionError
 
 if TYPE_CHECKING:
@@ -37,24 +38,24 @@ def sync_inject_keywords(
     required_params: NormParamTypes,
     fallback_values: Mapping[str, Any],
 ) -> None:
+    solution = SYNC_SOLUTION.get()
+    current_values = dict(_CURRENT_VALUES.get())
+
+    inject_given_values(kwargs, required_params, current_values, solution)
     missing_params = {k: required_params[k] for k in required_params.keys() - kwargs}
-    inject_current_values(kwargs, missing_params)
+    inject_current_values(kwargs, missing_params, current_values)
 
     if not missing_params:
         return
 
-    solution = SYNC_SOLUTION.get()
-    current_values = dict(_CURRENT_VALUES.get())
     stack.push(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
 
-    inject_given_values(kwargs, missing_params, current_values, solution)
     sync_inject_provider_values(stack, kwargs, missing_params, current_values, solution)
     inject_fallback_values(kwargs, missing_params, fallback_values)
 
     if missing_params:
-        msg = "Missing providers for parameters: " + ", ".join(
-            f"{k!r} with types {v}" for k, v in missing_params.items()
-        )
+        params_msg = ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
+        msg = f"Missing providers for parameters: {params_msg}"
         raise InjectionError(msg)
 
 
@@ -64,17 +65,18 @@ async def async_inject_keywords(
     required_params: NormParamTypes,
     fallback_values: Mapping[str, Any],
 ) -> None:
+    solution = FULL_SOLUTION.get()
+    current_values = dict(_CURRENT_VALUES.get())
+
+    inject_given_values(kwargs, required_params, current_values, solution)
     missing_params = {k: required_params[k] for k in required_params.keys() - kwargs}
-    inject_current_values(kwargs, missing_params)
+    inject_current_values(kwargs, missing_params, current_values)
 
     if not missing_params:
         return
 
-    solution = FULL_SOLUTION.get()
-    current_values = dict(_CURRENT_VALUES.get())
     stack.push(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
 
-    inject_given_values(kwargs, missing_params, current_values, solution)
     await async_inject_provider_values(stack, kwargs, missing_params, current_values, solution)
     inject_fallback_values(kwargs, missing_params, fallback_values)
 
@@ -84,34 +86,39 @@ async def async_inject_keywords(
         raise InjectionError(msg)
 
 
-def inject_current_values(kwargs: dict[str, Any], missing_params: dict[str, Sequence[type]]) -> None:
-    current_values = _CURRENT_VALUES.get()
+def inject_given_values(
+    kwargs: dict[str, Any],
+    required_params: dict[str, Sequence[type]],
+    current_values: dict[type, Any],
+    solution: Solution,
+) -> None:
+    to_invalidate: set[type] = set()
+    for name in required_params.keys() & kwargs:
+        match required_params[name]:
+            case [cls]:
+                if (cur_val := current_values.get(cls, undefined)) is not (new_val := kwargs[name]):
+                    current_values[cls] = new_val
+                    if cur_val is not undefined:
+                        to_invalidate.update(solution.descendant_types(cls))
+            case types:
+                union_msg = " | ".join(t.__name__ for t in types)
+                msg = f"Cannot overwrite parameter {name!r} because union {union_msg} makes it ambiguous."
+                raise TypeError(msg)
+    for cls in to_invalidate:
+        current_values.pop(cls, None)
+
+
+def inject_current_values(
+    kwargs: dict[str, Any],
+    missing_params: dict[str, Sequence[type]],
+    current_values: Mapping[type, Any],
+) -> None:
     for name, types in tuple(missing_params.items()):
         for cls in types:
             if cls in current_values:
                 kwargs[name] = current_values[cls]
                 del missing_params[name]
                 break
-
-
-def inject_given_values(
-    kwargs: dict[str, Any],
-    missing_params: dict[str, Sequence[type]],
-    current_values: dict[type, Any],
-    solution: Solution,
-) -> None:
-    for name in missing_params.keys() & kwargs:
-        match missing_params[name]:
-            case [cls]:
-                current_values[cls] = kwargs[name]
-                # clear any current values that are impacted by this overwrite
-                for descendant_cls in solution.descendant_types(cls):
-                    if descendant_cls in current_values:
-                        del current_values[descendant_cls]
-            case types:
-                union_msg = " | ".join(t.__name__ for t in types)
-                msg = f"Cannot overwrite parameter {name!r} because union {union_msg} makes it ambiguous."
-                raise TypeError(msg)
 
 
 def sync_inject_provider_values(
