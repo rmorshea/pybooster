@@ -6,7 +6,6 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Coroutine
 from collections.abc import Iterator
-from collections.abc import Mapping
 from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
 from contextlib import AbstractContextManager
@@ -96,36 +95,20 @@ undefined = make_sentinel_value(__name__, "undefined")
 """Represents an undefined default."""
 
 
-class FallbackMarker:
-    def __init__(self, value: Any) -> None:
-        self.value = value
-
-
 def get_required_parameters(func: Callable, dependencies: HintMap | None = None) -> HintMap:
     return dependencies if dependencies is not None else _get_required_parameters(func)
-
-
-def get_fallback_parameters(func: Callable, fallbacks: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-    return (
-        fallbacks
-        if fallbacks is not None
-        else {
-            param.name: param.default.value
-            for param in signature(func).parameters.values()
-            if isinstance(param.default, FallbackMarker)
-        }
-    )
 
 
 def _get_required_parameters(func: Callable[P, R]) -> HintMap:
     required_params: dict[str, type] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in signature(func).parameters.values():
-        if (is_required := param.default is pybooster.required) or isinstance(param.default, FallbackMarker):
+        if param.default is pybooster.required:
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected dependant parameter {param!r} to be keyword-only."
                 raise TypeError(msg)
-            required_params[param.name] = get_dependency_type(hints[param.name], is_required=is_required)
+            check_is_required_type(hint := hints[param.name])
+            required_params[param.name] = hint
     return required_params
 
 
@@ -133,16 +116,11 @@ def get_raw_annotation(anno: Any) -> RawAnnotation:
     return RawAnnotation(get_args(anno)[0] if get_origin(anno) is Annotated else anno)
 
 
-def get_dependency_type(anno: Any, *, is_required: bool = True) -> Any:
+def check_is_required_type(anno: Any) -> Any:
     raw_anno = get_raw_annotation(anno)
     check_is_not_builtin_type(raw_anno)
-    if is_required:
-        check_is_not_union_type(raw_anno)
-        return anno
-    elif get_origin(raw_anno) is Union:
-        return get_args(raw_anno)[0]
-    else:
-        return anno
+    check_is_not_union_type(raw_anno)
+    return anno
 
 
 def check_is_not_union_type(anno: RawAnnotation) -> None:

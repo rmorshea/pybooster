@@ -9,23 +9,19 @@ from typing import TYPE_CHECKING
 from typing import Any
 from typing import ParamSpec
 from typing import TypeVar
-from typing import cast
 
 from paramorator import paramorator
 
 from pybooster.core._private._injector import async_inject_keywords
 from pybooster.core._private._injector import sync_inject_keywords
 from pybooster.core._private._utils import AsyncFastStack
-from pybooster.core._private._utils import FallbackMarker
 from pybooster.core._private._utils import FastStack
-from pybooster.core._private._utils import get_fallback_parameters
 from pybooster.core._private._utils import get_required_parameters
 from pybooster.core._private._utils import make_sentinel_value
 from pybooster.core._private._utils import undefined
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from collections.abc import Mapping
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -44,40 +40,25 @@ required = make_sentinel_value(__name__, "required")
 """A sentinel object used to indicate that a dependency is required."""
 
 
-class Fallback:
-    """A sentinel object used to indicate that a dependency should fallback to its default."""
-
-    def __getitem__(self, value: R) -> R:
-        return cast(R, FallbackMarker(value))
-
-
-fallback = Fallback()
-"""Indicate that a dependency should fallback to its default by using `fallback[default]`."""
-del Fallback
-
-
 @paramorator
 def function(
     func: Callable[P, R],
     *,
     dependencies: HintMap | None = None,
-    fallbacks: Mapping[str, Any] | None = None,
 ) -> Callable[P, R]:
     """Inject dependencies into the given function.
 
     Args:
         func: The function to inject dependencies into.
         dependencies: The dependencies to inject into the function. Otherwise infered from function signature.
-        fallbacks: The values to use for missing dependencies. Otherwise infered from function signature.
     """
     required_params = get_required_parameters(func, dependencies)
-    fallback_values = get_fallback_parameters(func, fallbacks)
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         stack = FastStack()
         try:
-            sync_inject_keywords(stack, required_params, kwargs, fallback_values)
+            sync_inject_keywords(stack, required_params, kwargs)
             return func(*args, **kwargs)
         finally:
             stack.close()
@@ -90,17 +71,15 @@ def asyncfunction(
     func: Callable[P, Coroutine[Any, Any, R]],
     *,
     dependencies: HintMap | None = None,
-    fallbacks: Mapping[str, Any] | None = None,
 ) -> Callable[P, Coroutine[Any, Any, R]]:
     """Inject dependencies into the given coroutine."""
     required_params = get_required_parameters(func, dependencies)
-    fallback_values = get_fallback_parameters(func, fallbacks)
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[reportReturnType]
         stack = AsyncFastStack()
         try:
-            await async_inject_keywords(stack, required_params, kwargs, fallback_values)
+            await async_inject_keywords(stack, required_params, kwargs)
             return await func(*args, **kwargs)
         finally:
             await stack.aclose()
@@ -113,17 +92,15 @@ def iterator(
     func: IteratorCallable[P, R],
     *,
     dependencies: HintMap | None = None,
-    fallbacks: Mapping[str, Any] | None = None,
 ) -> IteratorCallable[P, R]:
     """Inject dependencies into the given iterator."""
     required_params = get_required_parameters(func, dependencies)
-    fallback_values = get_fallback_parameters(func, fallbacks)
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
         stack = FastStack()
         try:
-            sync_inject_keywords(stack, required_params, kwargs, fallback_values)
+            sync_inject_keywords(stack, required_params, kwargs)
             yield from func(*args, **kwargs)
         finally:
             stack.close()
@@ -136,17 +113,15 @@ def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
     dependencies: HintMap | None = None,
-    fallbacks: Mapping[str, Any] | None = None,
 ) -> AsyncIteratorCallable[P, R]:
     """Inject dependencies into the given async iterator."""
     required_params = get_required_parameters(func, dependencies)
-    fallback_values = get_fallback_parameters(func, fallbacks)
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         stack = AsyncFastStack()
         try:
-            await async_inject_keywords(stack, required_params, kwargs, fallback_values)
+            await async_inject_keywords(stack, required_params, kwargs)
             async for value in func(*args, **kwargs):
                 yield value
         finally:
@@ -160,10 +135,9 @@ def contextmanager(
     func: IteratorCallable[P, R],
     *,
     dependencies: HintMap | None = None,
-    fallbacks: Mapping[str, Any] | None = None,
 ) -> Callable[P, AbstractContextManager[R]]:
     """Inject dependencies into the given context manager function."""
-    return _contextmanager(iterator(func, dependencies=dependencies, fallbacks=fallbacks))
+    return _contextmanager(iterator(func, dependencies=dependencies))
 
 
 @paramorator
@@ -171,15 +145,14 @@ def asynccontextmanager(
     func: AsyncIteratorCallable[P, R],
     *,
     dependencies: HintMap | None = None,
-    fallbacks: Mapping[str, Any] | None = None,
 ) -> Callable[P, AbstractAsyncContextManager[R]]:
     """Inject dependencies into the given async context manager function."""
-    return _asynccontextmanager(asynciterator(func, dependencies=dependencies, fallbacks=fallbacks))
+    return _asynccontextmanager(asynciterator(func, dependencies=dependencies))
 
 
-def current(cls: type[R], *, fallback: R = undefined, overwrite: R = undefined) -> _CurrentContext[R]:
+def current(cls: type[R], *, overwrite: R = undefined) -> _CurrentContext[R]:
     """Get the current value of a dependency."""
-    return _CurrentContext(cls, fallback, overwrite)
+    return _CurrentContext(cls, overwrite)
 
 
 _KEY = ""
@@ -188,24 +161,17 @@ _KEY = ""
 class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
     """A context manager to provide the current value of a dependency."""
 
-    def __init__(self, cls: type[R], fallback: R, overwrite: R) -> None:
+    def __init__(self, cls: type[R], overwrite: R) -> None:
         self._required_params: dict[str, type[R]] = {_KEY: cls}
-        self._fallback_values: dict[str, R] = {_KEY: fallback} if fallback is not undefined else {}
         self._overwrite_values: dict[str, R] = {_KEY: overwrite} if overwrite is not undefined else {}
 
     def __enter__(self) -> R:
         if hasattr(self, "_sync_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
-
         self._sync_stack = FastStack()
         values = self._overwrite_values.copy()
-        sync_inject_keywords(
-            self._sync_stack,
-            self._required_params,
-            values,
-            self._fallback_values,
-        )
+        sync_inject_keywords(self._sync_stack, self._required_params, values)
         return values[_KEY]
 
     def __exit__(self, *_: Any) -> None:
@@ -219,15 +185,9 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
         if hasattr(self, "_async_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
-
         self._async_stack = AsyncFastStack()
         values = self._overwrite_values.copy()
-        await async_inject_keywords(
-            self._async_stack,
-            self._required_params,
-            values,
-            self._fallback_values,
-        )
+        await async_inject_keywords(self._async_stack, self._required_params, values)
         return values[_KEY]
 
     async def __aexit__(self, *exc: Any) -> None:

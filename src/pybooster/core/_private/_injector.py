@@ -36,22 +36,19 @@ def sync_inject_keywords(
     stack: FastStack,
     required_params: HintMap,
     overwrite_values: dict[str, Any],
-    fallback_values: Mapping[str, Any],
 ) -> None:
     solution = SYNC_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
-    inject_overwrite_values(overwrite_values, required_params, current_values, solution)
+    _inject_overwrite_values(overwrite_values, required_params, current_values, solution)
     missing_params = {k: required_params[k] for k in required_params.keys() - overwrite_values}
-    inject_current_values(overwrite_values, missing_params, current_values)
+    _inject_current_values(overwrite_values, missing_params, current_values)
 
     if not missing_params:
         return
 
     stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
-
-    sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
-    inject_fallback_values(overwrite_values, missing_params, fallback_values)
+    _sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
 
     if missing_params:
         params_msg = ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
@@ -63,22 +60,19 @@ async def async_inject_keywords(
     stack: AsyncFastStack,
     required_params: HintMap,
     overwrite_values: dict[str, Any],
-    fallback_values: Mapping[str, Any],
 ) -> None:
     solution = FULL_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
-    inject_overwrite_values(overwrite_values, required_params, current_values, solution)
+    _inject_overwrite_values(overwrite_values, required_params, current_values, solution)
     missing_params = {k: required_params[k] for k in required_params.keys() - overwrite_values}
-    inject_current_values(overwrite_values, missing_params, current_values)
+    _inject_current_values(overwrite_values, missing_params, current_values)
 
     if not missing_params:
         return
 
     stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
-
-    await async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
-    inject_fallback_values(overwrite_values, missing_params, fallback_values)
+    await _async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
 
     if missing_params:
         params_msg = ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
@@ -86,7 +80,7 @@ async def async_inject_keywords(
         raise InjectionError(msg)
 
 
-def inject_overwrite_values(
+def _inject_overwrite_values(
     kwargs: dict[str, Any],
     required_params: HintMap,
     current_values: dict[type, Any],
@@ -102,7 +96,7 @@ def inject_overwrite_values(
         current_values.pop(cls, None)
 
 
-def inject_current_values(
+def _inject_current_values(
     kwargs: dict[str, Any],
     missing_params: HintDict,
     current_values: Mapping[type, Any],
@@ -113,7 +107,7 @@ def inject_current_values(
             del missing_params[name]
 
 
-def sync_inject_provider_values(
+def _sync_inject_provider_values(
     stack: FastStack,
     kwargs: dict[str, Any],
     missing_params: HintDict,
@@ -129,7 +123,7 @@ def sync_inject_provider_values(
                 del missing_params[name]
 
 
-async def async_inject_provider_values(
+async def _async_inject_provider_values(
     stack: AsyncFastStack,
     kwargs: dict[str, Any],
     missing_params: HintDict,
@@ -176,16 +170,6 @@ def _get_param_name_by_type_map(solution: Solution, missing_params: HintMap) -> 
         if cls in solution_infos:
             param_name_by_type[cls].append(name)
     return param_name_by_type
-
-
-def inject_fallback_values(
-    kwargs: dict[str, Any],
-    missing_params: dict[str, type],
-    fallback_values: Mapping[str, Any],
-) -> None:
-    for name in fallback_values.keys() & missing_params:
-        kwargs[name] = fallback_values[name]
-        del missing_params[name]
 
 
 def _sync_enter_provider_context(stack: FastStack | AsyncFastStack, provider_info: SyncProviderInfo) -> Any:

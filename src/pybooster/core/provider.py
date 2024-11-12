@@ -21,7 +21,6 @@ from pybooster import injector
 from pybooster.core._private._provider import get_provides_type
 from pybooster.core._private._utils import get_callable_return_type
 from pybooster.core._private._utils import get_coroutine_return_type
-from pybooster.core._private._utils import get_fallback_parameters
 from pybooster.core._private._utils import get_iterator_yield_type
 from pybooster.core._private._utils import get_required_parameters
 
@@ -130,9 +129,6 @@ def iterator(
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
-    if fallbacks := get_fallback_parameters(func):
-        msg = f"Providers cannot have fallbacks - found {fallbacks} in {func}"
-        raise TypeError(msg)
     provides = provides or get_iterator_yield_type(func, sync=True)
     norm_dependencies = get_required_parameters(func, dependencies)
     return SyncProvider(
@@ -156,9 +152,6 @@ def asynciterator(
         dependencies: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
-    if fallbacks := get_fallback_parameters(func):
-        msg = f"Providers cannot have fallbacks - found {fallbacks} in {func}"
-        raise TypeError(msg)
     provides = provides or get_iterator_yield_type(func, sync=False)
     norm_dependencies = get_required_parameters(func, dependencies)
     return AsyncProvider(

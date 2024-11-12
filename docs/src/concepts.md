@@ -136,118 +136,6 @@ PyBooster supports decorators for the following types of functions or methods:
 -   [injector.contextmanager](pybooster.injector.contextmanager)
 -   [injector.asynccontextmanager](pybooster.injector.asynccontextmanager)
 
-### Overwriting Values
-
-You can always skip injecting a dependency by passing a value directly as an argument:
-
-```python { test="false" }
-assert get_message(recipient="Bob") == "Hello, Bob!"
-```
-
-While doing so will not trigger the provider for the dependency, instead opting to use
-the passed value, any other unfulfilled requirements which themselves rely on the passed
-dependency must be reevaluated. This is demonstrated in the example below where
-overwriting an `Auth` dependency causes the `provide_profile` provider is rerun even
-though it would already have had a shared value due to the
-[`current` context](#current-injector):
-
-```python
-from dataclasses import dataclass
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solution
-
-
-@dataclass
-class Auth:
-    email: str
-    password: str
-
-
-@dataclass
-class Profile:
-    name: str
-    email: str
-
-
-@provider.function
-def provide_auth() -> Auth:
-    return Auth(email="alice@example.com", password="EGwVEo3y9E")
-
-
-@provider.function
-def provide_profile(*, auth: Auth = required) -> Profile:
-    return Profile(name="Alice", email=auth.email)
-
-
-@injector.function
-def get_profile_string(
-    *, profile: Profile = required, auth: Auth = required
-) -> str:
-    do_something_with_auth(auth)
-    return f"{profile.name} ({profile.email})"
-
-
-def do_something_with_auth(_: Auth) -> None:
-    pass
-
-
-with solution(provide_auth, provide_profile):
-    with injector.current(Profile) as profile:
-        assert get_profile_string() == "Alice (alice@example.com)"
-        new_auth = Auth(email="other@example.com", password="EGwVEo3y9E")
-        assert get_profile_string(auth=new_auth) == "Alice (other@example.com)"
-```
-
-### Fallback Values
-
-!!! note
-
-    Fallbacks cannot be used in provider functions - only in injected functions.
-
-You can provide a fallback value for a dependency if no provider exists using the
-`fallback` object as the default value for a parameter in a decorated function.
-
-```python
-from typing import NewType
-
-from pybooster import fallback
-from pybooster import injector
-
-Recipient = NewType("Recipient", str)
-WORLD = Recipient("World")
-
-
-@injector.function
-def get_message(*, recipient: Recipient = fallback[WORLD]) -> str:
-    return f"Hello, {recipient}!"
-
-
-assert get_message() == "Hello, World!"
-```
-
-You can use this with a union type if you want to provide a fallback that's different
-from the dependency's type:
-
-```python
-from typing import NewType
-
-from pybooster import fallback
-from pybooster import injector
-
-Recipient = NewType("Recipient", str)
-
-
-@injector.function
-def get_message(*, recipient: Recipient | None = fallback[None]) -> str:
-    return f"Hello, {recipient}!"
-
-
-assert get_message() == "Hello, None!"
-```
-
 ### Current Injector
 
 You can access the current value of a dependency using the `current` context manager.
@@ -314,19 +202,69 @@ with solution(auth):
         assert get_auth() is get_auth()
 ```
 
-The current injector also supports [fallback values](#fallback-values). However, if the
-fallback is used, that value will not be shared across injections.
+### Overwriting Values
+
+You can always skip injecting a dependency by passing a value directly as an argument:
+
+```python { test="false" }
+assert get_message(recipient="Bob") == "Hello, Bob!"
+```
+
+While doing so will not trigger the provider for the dependency, instead opting to use
+the passed value, any other unfulfilled requirements which themselves rely on the passed
+dependency must be reevaluated. This is demonstrated in the example below where
+overwriting an `Auth` dependency causes the `provide_profile` provider is rerun even
+though it would already have had a shared value due to the
+[`current` context](#current-injector):
 
 ```python
-from typing import NewType
+from dataclasses import dataclass
 
 from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import solution
 
-Recipient = NewType("Recipient", str)
+
+@dataclass
+class Auth:
+    email: str
+    password: str
 
 
-with injector.current(Recipient, fallback="World") as recipient:
-    assert recipient == "World"
+@dataclass
+class Profile:
+    name: str
+    email: str
+
+
+@provider.function
+def provide_auth() -> Auth:
+    return Auth(email="alice@example.com", password="EGwVEo3y9E")
+
+
+@provider.function
+def provide_profile(*, auth: Auth = required) -> Profile:
+    return Profile(name="Alice", email=auth.email)
+
+
+@injector.function
+def get_profile_string(
+    *, profile: Profile = required, auth: Auth = required
+) -> str:
+    do_something_with_auth(auth)
+    return f"{profile.name} ({profile.email})"
+
+
+def do_something_with_auth(_: Auth) -> None:
+    pass
+
+
+with solution(provide_auth, provide_profile):
+    with injector.current(Profile) as profile:
+        assert get_profile_string() == "Alice (alice@example.com)"
+        new_auth = Auth(email="other@example.com", password="EGwVEo3y9E")
+        assert get_profile_string(auth=new_auth) == "Alice (other@example.com)"
 ```
 
 ## Providers
