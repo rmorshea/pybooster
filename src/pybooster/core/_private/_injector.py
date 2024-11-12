@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from collections.abc import Mapping
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
@@ -32,6 +33,13 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+def overwrite_values(values: Mapping[type, Any]) -> Callable[[], None]:
+    """Overwrite the current values of the given dependencies."""
+    new_values = {**_CURRENT_VALUES.get(), **values}
+    token = _CURRENT_VALUES.set(new_values)
+    return lambda: _CURRENT_VALUES.reset(token)
+
+
 def sync_inject_keywords(
     stack: FastStack,
     required_params: HintMap,
@@ -46,8 +54,9 @@ def sync_inject_keywords(
 
     if not missing_params:
         return
+    else:
+        stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
 
-    stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
     _sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
 
     if missing_params:
@@ -70,8 +79,8 @@ async def async_inject_keywords(
 
     if not missing_params:
         return
-
     stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
+
     await _async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
 
     if missing_params:
@@ -81,14 +90,16 @@ async def async_inject_keywords(
 
 
 def _inject_overwrite_values(
-    kwargs: dict[str, Any],
+    overwrite_values: dict[str, Any],
     required_params: HintMap,
     current_values: dict[type, Any],
     solution: Solution,
 ) -> None:
     to_invalidate: set[type] = set()
-    for name in required_params.keys() & kwargs:
-        if (cur_val := current_values.get(cls := required_params[name], undefined)) is not (new_val := kwargs[name]):
+    for name in required_params.keys() & overwrite_values:
+        if (cur_val := current_values.get(cls := required_params[name], undefined)) is not (
+            new_val := overwrite_values[name]
+        ):
             current_values[cls] = new_val
             if cur_val is not undefined:
                 to_invalidate.update(solution.descendant_types(cls))

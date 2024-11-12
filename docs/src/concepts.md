@@ -136,6 +136,59 @@ PyBooster supports decorators for the following types of functions or methods:
 -   [injector.contextmanager](pybooster.injector.contextmanager)
 -   [injector.asynccontextmanager](pybooster.injector.asynccontextmanager)
 
+#### Overwrite Parameters
+
+You can pass values to a required parameter of a function with an
+[injector decorator](#decorator-injectors). The value will be passed as-is to the
+function and be used when other providers are called to fulfill the function's remaining
+dependencies:
+
+```python
+from dataclasses import dataclass
+from typing import NewType
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import solution
+
+UserId = NewType("UserId", int)
+
+
+@dataclass
+class Profile:
+    name: str
+    bio: str
+
+
+DB = {
+    1: Profile(name="Alice", bio="Alice's bio"),
+    2: Profile(name="Bob", bio="Bob's bio"),
+}
+
+
+@provider.function
+def provide_user_id() -> UserId:
+    return UserId(1)
+
+
+@provider.function
+def provide_profile(*, user_id: UserId = required) -> Profile:
+    return DB[user_id]
+
+
+@injector.function
+def get_profile_summary(
+    *, user_id: UserId = required, profile: Profile = required
+) -> str:
+    return f"#{user_id} {profile.name}: {profile.bio}"
+
+
+with solution(provide_user_id, provide_profile):
+    assert get_profile_summary() == "#1 Alice: Alice's bio"
+    assert get_profile_summary(user_id=UserId(2)) == "#2 Bob: Bob's bio"
+```
+
 ### Current Injector
 
 You can access the current value of a dependency using the `current` context manager.
@@ -202,69 +255,57 @@ with solution(auth):
         assert get_auth() is get_auth()
 ```
 
-### Overwriting Values
+### Overwrite Injector
 
-You can always skip injecting a dependency by passing a value directly as an argument:
-
-```python { test="false" }
-assert get_message(recipient="Bob") == "Hello, Bob!"
-```
-
-While doing so will not trigger the provider for the dependency, instead opting to use
-the passed value, any other unfulfilled requirements which themselves rely on the passed
-dependency must be reevaluated. This is demonstrated in the example below where
-overwriting an `Auth` dependency causes the `provide_profile` provider is rerun even
-though it would already have had a shared value due to the
-[`current` context](#current-injector):
+You can overwrite the current values of dependencies by using the `overwrite` context
+manager. Pass a mapping of dependency types to thir new values to establish them for the
+duration of the context.
 
 ```python
 from dataclasses import dataclass
+from typing import NewType
 
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
 
-
-@dataclass
-class Auth:
-    email: str
-    password: str
+UserId = NewType("UserId", int)
 
 
 @dataclass
 class Profile:
     name: str
-    email: str
+    bio: str
+
+
+DB = {
+    1: Profile(name="Alice", bio="Alice's bio"),
+    2: Profile(name="Bob", bio="Bob's bio"),
+}
 
 
 @provider.function
-def provide_auth() -> Auth:
-    return Auth(email="alice@example.com", password="EGwVEo3y9E")
+def provide_user_id() -> UserId:
+    return UserId(1)
 
 
 @provider.function
-def provide_profile(*, auth: Auth = required) -> Profile:
-    return Profile(name="Alice", email=auth.email)
+def provide_profile(*, user_id: UserId = required) -> Profile:
+    return DB[user_id]
 
 
 @injector.function
-def get_profile_string(
-    *, profile: Profile = required, auth: Auth = required
+def get_profile_summary(
+    *, user_id: UserId = required, profile: Profile = required
 ) -> str:
-    do_something_with_auth(auth)
-    return f"{profile.name} ({profile.email})"
+    return f"#{user_id} {profile.name}: {profile.bio}"
 
 
-def do_something_with_auth(_: Auth) -> None:
-    pass
-
-
-with solution(provide_auth, provide_profile):
-    with injector.current(Profile) as profile:
-        assert get_profile_string() == "Alice (alice@example.com)"
-        new_auth = Auth(email="other@example.com", password="EGwVEo3y9E")
-        assert get_profile_string(auth=new_auth) == "Alice (other@example.com)"
+with solution(provide_user_id, provide_profile):
+    assert get_profile_summary() == "#1 Alice: Alice's bio"
+    with injector.overwrite({UserId: UserId(2)}):
+        assert get_profile_summary() == "#2 Bob: Bob's bio"
 ```
 
 ## Providers

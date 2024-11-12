@@ -13,15 +13,16 @@ from typing import TypeVar
 from paramorator import paramorator
 
 from pybooster.core._private._injector import async_inject_keywords
+from pybooster.core._private._injector import overwrite_values
 from pybooster.core._private._injector import sync_inject_keywords
 from pybooster.core._private._utils import AsyncFastStack
 from pybooster.core._private._utils import FastStack
 from pybooster.core._private._utils import get_required_parameters
 from pybooster.core._private._utils import make_sentinel_value
-from pybooster.core._private._utils import undefined
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Mapping
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -150,9 +151,32 @@ def asynccontextmanager(
     return _asynccontextmanager(asynciterator(func, dependencies=dependencies))
 
 
-def current(cls: type[R], *, overwrite: R = undefined) -> _CurrentContext[R]:
+def overwrite(values: Mapping[type, Any]) -> _OverwriteContext:
+    """Overwrite the current values of the given dependencies."""
+    return _OverwriteContext(values)
+
+
+class _OverwriteContext(AbstractContextManager[None]):
+
+    def __init__(self, values: Mapping[type, Any]) -> None:
+        self._values = values
+
+    def __enter__(self) -> None:
+        if hasattr(self, "_reset"):
+            msg = "Cannot reuse a context manager."
+            raise RuntimeError(msg)
+        self._reset = overwrite_values(self._values)
+
+    def __exit__(self, *_: Any) -> None:
+        try:
+            self._reset()
+        finally:
+            del self._reset
+
+
+def current(cls: type[R]) -> _CurrentContext[R]:
     """Get the current value of a dependency."""
-    return _CurrentContext(cls, overwrite)
+    return _CurrentContext(cls)
 
 
 _KEY = ""
@@ -161,38 +185,35 @@ _KEY = ""
 class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
     """A context manager to provide the current value of a dependency."""
 
-    def __init__(self, cls: type[R], overwrite: R) -> None:
+    def __init__(self, cls: type[R]) -> None:
         self._required_params: dict[str, type[R]] = {_KEY: cls}
-        self._overwrite_values: dict[str, R] = {_KEY: overwrite} if overwrite is not undefined else {}
 
     def __enter__(self) -> R:
         if hasattr(self, "_sync_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
         self._sync_stack = FastStack()
-        values = self._overwrite_values.copy()
+        values = {}
         sync_inject_keywords(self._sync_stack, self._required_params, values)
         return values[_KEY]
 
     def __exit__(self, *_: Any) -> None:
-        if hasattr(self, "_sync_stack"):
-            try:
-                self._sync_stack.close()
-            finally:
-                del self._sync_stack
+        try:
+            self._sync_stack.close()
+        finally:
+            del self._sync_stack
 
     async def __aenter__(self) -> R:
         if hasattr(self, "_async_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
         self._async_stack = AsyncFastStack()
-        values = self._overwrite_values.copy()
+        values = {}
         await async_inject_keywords(self._async_stack, self._required_params, values)
         return values[_KEY]
 
     async def __aexit__(self, *exc: Any) -> None:
-        if hasattr(self, "_async_stack"):
-            try:
-                await self._async_stack.aclose()
-            finally:
-                del self._async_stack
+        try:
+            await self._async_stack.aclose()
+        finally:
+            del self._async_stack
