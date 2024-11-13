@@ -40,7 +40,7 @@ class PyBoosterMiddleware:
         elif (state := _get_scope_state(scope)) is not None:
             state["set_state"]()
             await self.app(scope, receive, send)
-        else:
+        else:  # nocov
             msg = "PyBooster's internal state is missing."
             raise RuntimeError(msg)
 
@@ -48,7 +48,7 @@ class PyBoosterMiddleware:
 def _set_scope_state(scope: Scope, state: _ScopeState) -> None:
     try:
         scope["state"][_SCOPE_STATE_NAME] = state
-    except KeyError:
+    except KeyError:  # nocov
         msg = "Server does not support lifespan state."
         raise RuntimeError(msg) from None
 
@@ -56,7 +56,7 @@ def _set_scope_state(scope: Scope, state: _ScopeState) -> None:
 def _get_scope_state(scope: Scope) -> _ScopeState | None:
     try:
         return scope["state"].get(_SCOPE_STATE_NAME)
-    except KeyError:
+    except KeyError:  # nocov
         msg = "Server does not support lifespan state."
         raise RuntimeError(msg) from None
 

@@ -365,3 +365,30 @@ def test_cannot_enter_overwrite_context_more_than_once():
         with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
             with ctx:
                 raise AssertionError  # nocov
+
+
+def test_cannot_bind_required_provider_parameters():
+    @provider.function
+    def provide_message(*, greeting: Greeting = required) -> Message:
+        raise AssertionError(greeting)  # nocov
+
+    with pytest.raises(TypeError, match="Cannot bind dependency parameters"):
+        provide_message.bind(greeting=Greeting("Hello"))
+
+
+def test_can_call_provider_directly():
+    @provider.function
+    def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    with provide_greeting() as greeting:
+        assert greeting == "Hello"
+
+
+async def test_can_call_async_provider_directly():
+    @provider.asyncfunction
+    async def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    async with provide_greeting() as greeting:
+        assert greeting == "Hello"

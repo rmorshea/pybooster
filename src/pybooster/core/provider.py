@@ -161,6 +161,23 @@ def asynciterator(
     )
 
 
+def _bind(
+    provider: SyncProvider[P, R] | AsyncProvider[P, R],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> SyncProvider[P, R] | AsyncProvider[P, R]:
+
+    if disallowed := (provider.dependencies.keys() & kwargs):
+        msg = f"Cannot bind dependency parameters: {disallowed}"
+        raise TypeError(msg)
+    producer = provider.producer
+    return type(provider)(
+        lambda: producer(*args, **kwargs),  # type: ignore[reportArgumentType]
+        get_provides_type(provider.provides, *args, **kwargs),
+        provider.dependencies,
+    )
+
+
 class SyncProvider(Generic[P, R]):
     """A provider for a dependency."""
 
@@ -174,16 +191,14 @@ class SyncProvider(Generic[P, R]):
         self.provides = provides
         self.dependencies = dependencies
 
-    def bind(self, *args: P.args, **kwargs: P.kwargs) -> SyncProvider[[], R]:
-        """Inject the dependencies and produce the dependency."""
-        if disallowed := (self.dependencies.keys() & kwargs):
-            msg = f"Cannot bind dependency parameters: {disallowed}"
-            raise TypeError(msg)
-        return SyncProvider(
-            lambda: self.producer(*args, **kwargs),
-            get_provides_type(self.provides, *args, **kwargs),
-            self.dependencies,
-        )
+    if TYPE_CHECKING:
+
+        def bind(self, *args: P.args, **kwargs: P.kwargs) -> SyncProvider[[], R]:
+            """Inject the dependencies and produce the dependency."""
+            ...
+
+    else:
+        bind = _bind
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractContextManager[R]:  # noqa: D102
         return self.producer(*args, **kwargs)
@@ -206,16 +221,14 @@ class AsyncProvider(Generic[P, R]):
         self.provides = provides
         self.dependencies = dependencies
 
-    def bind(self, *args: P.args, **kwargs: P.kwargs) -> AsyncProvider[[], R]:
-        """Inject the dependencies and produce the dependency."""
-        if disallowed := (self.dependencies.keys() & kwargs):
-            msg = f"Cannot bind dependency parameters: {disallowed}"
-            raise TypeError(msg)
-        return AsyncProvider(
-            lambda: self.producer(*args, **kwargs),
-            get_provides_type(self.provides, *args, **kwargs),
-            self.dependencies,
-        )
+    if TYPE_CHECKING:
+
+        def bind(self, *args: P.args, **kwargs: P.kwargs) -> AsyncProvider[[], R]:
+            """Inject the dependencies and produce the dependency."""
+            ...
+
+    else:
+        bind = _bind
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractAsyncContextManager[R]:  # noqa: D102
         return self.producer(*args, **kwargs)
