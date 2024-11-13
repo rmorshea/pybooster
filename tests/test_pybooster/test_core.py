@@ -15,6 +15,7 @@ from pybooster import provider
 from pybooster import required
 from pybooster import solution
 from pybooster.core.injector import current
+from pybooster.core.injector import overwrite
 from pybooster.types import InjectionError
 from pybooster.types import SolutionError
 
@@ -330,3 +331,37 @@ async def test_async_providers_are_executed_concurrently_if_possible():
 
     with solution(provide_greeting, provide_recipient, provide_message):
         assert await wait_for(use_message(), 3) == "Hello World"
+
+
+def test_cannot_enter_current_context_more_than_once():
+    @provider.function
+    def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    with solution(provide_greeting):
+        ctx = current(Greeting)
+        with ctx:
+            with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
+                with ctx:
+                    raise AssertionError  # nocov
+
+
+async def test_cannot_async_enter_current_context_more_than_once():
+    @provider.function
+    def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    with solution(provide_greeting):
+        ctx = current(Greeting)
+        async with ctx:
+            with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
+                async with ctx:
+                    raise AssertionError  # nocov
+
+
+def test_cannot_enter_overwrite_context_more_than_once():
+    ctx = overwrite({Greeting: "Hi"})
+    with ctx:
+        with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
+            with ctx:
+                raise AssertionError  # nocov

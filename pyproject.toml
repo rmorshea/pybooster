@@ -184,12 +184,7 @@ pybooster = ["src"]
 tests = ["tests"]
 
 [tool.coverage.report]
-exclude_lines = [
-  "no ?cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-  '\.\.\.',
-]
+exclude_lines = ["no ?cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 show_missing = true
 skip_covered = true
 sort = "Name"

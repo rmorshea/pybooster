@@ -6,6 +6,7 @@ from anyio import create_task_group
 
 from pybooster import injector
 from pybooster import required
+from pybooster._private._provider import get_provides_type
 from pybooster._private._utils import AsyncFastStack
 from pybooster._private._utils import FastStack
 from pybooster._private._utils import start_future
@@ -25,8 +26,8 @@ def test_required_parameter_must_be_kw_only():
     with pytest.raises(TypeError, match=r"Expected dependant parameter .* to be keyword-only."):
 
         @injector.function
-        def func(a: int = required):
-            pass
+        def func(_: int = required):
+            raise AssertionError  # nocov
 
 
 def test_fast_stack_callback():
@@ -153,3 +154,8 @@ async def test_async_fast_stack_exception_stack_preserved():
             await stack.aclose()
 
     assert [e.value for e in errors] == [4, 3, 2]  # the last error isn't appended
+
+
+def test_get_provides_type_raises_for_invalid_type():
+    with pytest.raises(TypeError, match=r"xpected a type, or function to infer one, but got 1."):
+        get_provides_type(1)  # type: ignore[reportArgumentType]
