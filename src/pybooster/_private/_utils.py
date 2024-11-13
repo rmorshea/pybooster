@@ -7,8 +7,6 @@ from collections.abc import Callable
 from collections.abc import Coroutine
 from collections.abc import Iterator
 from collections.abc import Sequence
-from contextlib import AbstractAsyncContextManager
-from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from inspect import Parameter
 from inspect import isclass
@@ -36,6 +34,9 @@ from typing_extensions import TypeIs
 import pybooster
 
 if TYPE_CHECKING:
+    from contextlib import AbstractAsyncContextManager
+    from contextlib import AbstractContextManager
+
     from anyio.abc import TaskGroup
 
     from pybooster.types import HintMap
@@ -209,24 +210,6 @@ def get_iterator_yield_type(func: Callable, *, sync: bool) -> type:
         raise TypeError(msg) from None
 
 
-class StaticContextManager(AbstractAsyncContextManager[R], AbstractContextManager[R]):
-
-    def __init__(self, value: R) -> None:
-        self.value = value
-
-    def __enter__(self) -> R:
-        return self.value
-
-    def __exit__(self, *_) -> None:
-        pass
-
-    async def __aenter__(self) -> R:
-        return self.value
-
-    async def __aexit__(self, *args) -> None:
-        pass
-
-
 _Callback = (
     # sync callback
     tuple[Literal[False], Callable[..., Any], tuple, dict]
@@ -289,7 +272,7 @@ def _sync_unravel_stack(callbacks: Sequence[_Callback], position: int) -> None:
                 func(*args, **kwargs)
             case [False, exit]:
                 exit(*exc_info())
-            case _:
+            case _:  # nocov
                 msg = "Unexpected callback type"
                 raise AssertionError(msg)
     finally:
@@ -308,7 +291,7 @@ async def _async_unravel_stack(callbacks: Sequence[_Callback], position: int) ->
                 await exit(*exc_info())
             case [False, exit]:
                 exit(*exc_info())
-            case _:
+            case _:  # nocov
                 msg = "Unexpected callback type"
                 raise AssertionError(msg)
     finally:

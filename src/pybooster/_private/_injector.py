@@ -57,11 +57,7 @@ def sync_inject_keywords(
 
     stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
     _sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
-
-    if missing_params:
-        params_msg = ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
-        msg = f"Missing providers for parameters: {params_msg}"
-        raise InjectionError(msg)
+    _check_for_missing_params(missing_params)
 
 
 async def async_inject_keywords(
@@ -81,11 +77,7 @@ async def async_inject_keywords(
 
     stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
     await _async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
-
-    if missing_params:
-        params_msg = ", ".join(f"{k!r} with types {v}" for k, v in missing_params.items())
-        msg = f"Missing providers for parameters: {params_msg}"
-        raise InjectionError(msg)
+    _check_for_missing_params(missing_params)
 
 
 def _inject_overwrite_values(
@@ -186,6 +178,13 @@ def _sync_enter_provider_context(stack: FastStack | AsyncFastStack, provider_inf
 
 async def _async_enter_provider_context(stack: AsyncFastStack, provider_info: AsyncProviderInfo) -> Any:
     return provider_info["getter"](await stack.enter_async_context(provider_info["producer"]()))
+
+
+def _check_for_missing_params(missing_params: HintDict) -> None:
+    if missing_params:
+        params_msg = ", ".join(f"{k}: {v}" for k, v in missing_params.items())
+        msg = f"Missing providers for parameters: {params_msg}"
+        raise InjectionError(msg)
 
 
 _CURRENT_VALUES = ContextVar[Mapping[type, Any]]("CURRENT_VALUES", default={})

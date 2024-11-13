@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from asyncio import wait_for
 from collections.abc import Callable  # noqa: TCH003
 from dataclasses import dataclass
 from typing import Any
@@ -7,12 +8,14 @@ from typing import NewType
 from typing import TypeVar
 
 import pytest
+from anyio import Event
 
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
 from pybooster.core.injector import current
+from pybooster.types import InjectionError
 from pybooster.types import SolutionError
 
 T = TypeVar("T")
@@ -130,7 +133,7 @@ def test_union_dependency_is_disallowed():
 
         @provider.function
         def provide_greeting() -> Greeting | Recipient:
-            raise AssertionError
+            raise AssertionError  # nocov
 
 
 @pytest.mark.parametrize("returns", [str, list, list[str]], ids=str)
@@ -267,6 +270,63 @@ def test_overwritten_value_causes_descendant_providers_to_reevaluate():
             assert call_count == 1
             assert get_profile_summary() == "#1 Alice: Alice's bio"
             assert call_count == 1
-            print("OVERWRITING")
             assert get_profile_summary(user_id=UserId(2)) == "#2 Bob: Bob's bio"
             assert call_count == 2
+
+
+def test_raise_on_missing_params():
+    @injector.function
+    def use_message(*, _: Message = required):
+        raise AssertionError  # nocov
+
+    with pytest.raises(InjectionError, match=r"Missing providers for parameters: .*"):
+        use_message()
+
+
+async def test_async_provider_can_depend_on_sync_and_async_providers_at_the_same_time():
+    @provider.function
+    def provide_greeting() -> Greeting:
+        return Greeting("Hello")
+
+    @provider.asyncfunction
+    async def provide_recipient() -> Recipient:
+        return Recipient("World")
+
+    @provider.asyncfunction
+    async def provide_message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+        return Message(f"{greeting} {recipient}")
+
+    @injector.asyncfunction
+    async def use_message(*, message: Message = required):
+        return message
+
+    with solution(provide_greeting, provide_recipient, provide_message):
+        assert await use_message() == "Hello World"
+
+
+async def test_async_providers_are_executed_concurrently_if_possible():
+    did_begin_greeting = Event()
+    did_begin_recipient = Event()
+
+    @provider.asyncfunction
+    async def provide_greeting() -> Greeting:
+        did_begin_greeting.set()
+        await did_begin_recipient.wait()
+        return Greeting("Hello")
+
+    @provider.asyncfunction
+    async def provide_recipient() -> Recipient:
+        did_begin_recipient.set()
+        await did_begin_greeting.wait()
+        return Recipient("World")
+
+    @provider.asyncfunction
+    async def provide_message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+        return Message(f"{greeting} {recipient}")
+
+    @injector.asyncfunction
+    async def use_message(*, message: Message = required):
+        return message
+
+    with solution(provide_greeting, provide_recipient, provide_message):
+        assert await wait_for(use_message(), 3) == "Hello World"

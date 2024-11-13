@@ -38,8 +38,5 @@ def _normalize_providers(
 ) -> Sequence[Provider[[], Any]]:
     normalized: list[Provider[[], Any]] = []
     for p in providers:
-        if isinstance(p, Sequence):
-            normalized.extend(p)
-        else:
-            normalized.append(p)
+        normalized.extend(p) if isinstance(p, Sequence) else normalized.append(p)
     return normalized
