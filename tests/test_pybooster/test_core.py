@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable  # noqa: TCH003
+from dataclasses import dataclass
 from typing import Any
 from typing import NewType
 from typing import TypeVar
@@ -11,6 +12,7 @@ from pybooster import injector
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
+from pybooster.core.injector import current
 from pybooster.types import SolutionError
 
 T = TypeVar("T")
@@ -229,9 +231,42 @@ def test_dependency_reused_across_providers():
         assert call_count == 1
 
 
-def test_overwritten_value_is_used_by_providers():
-    assert False
+UserId = NewType("UserId", int)
+
+
+@dataclass
+class Profile:
+    name: str
+    bio: str
 
 
 def test_overwritten_value_causes_descendant_providers_to_reevaluate():
-    assert False
+    db = {
+        1: Profile(name="Alice", bio="Alice's bio"),
+        2: Profile(name="Bob", bio="Bob's bio"),
+    }
+
+    call_count = 0
+
+    @provider.function
+    def provide_user_id() -> UserId:
+        return UserId(1)
+
+    @provider.function
+    def provide_profile(*, user_id: UserId = required) -> Profile:
+        nonlocal call_count
+        call_count += 1
+        return db[user_id]
+
+    @injector.function
+    def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
+        return f"#{user_id} {profile.name}: {profile.bio}"
+
+    with solution(provide_user_id, provide_profile):
+        with current(Profile):
+            assert call_count == 1
+            assert get_profile_summary() == "#1 Alice: Alice's bio"
+            assert call_count == 1
+            print("OVERWRITING")
+            assert get_profile_summary(user_id=UserId(2)) == "#2 Bob: Bob's bio"
+            assert call_count == 2

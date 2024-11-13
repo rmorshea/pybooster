@@ -54,9 +54,8 @@ def sync_inject_keywords(
 
     if not missing_params:
         return
-    else:
-        stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
 
+    stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
     _sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
 
     if missing_params:
@@ -79,8 +78,8 @@ async def async_inject_keywords(
 
     if not missing_params:
         return
-    stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
 
+    stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
     await _async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
 
     if missing_params:
@@ -97,12 +96,9 @@ def _inject_overwrite_values(
 ) -> None:
     to_invalidate: set[type] = set()
     for name in required_params.keys() & overwrite_values:
-        if (cur_val := current_values.get(cls := required_params[name], undefined)) is not (
-            new_val := overwrite_values[name]
-        ):
+        if current_values.get(cls := required_params[name], undefined) is not (new_val := overwrite_values[name]):
             current_values[cls] = new_val
-            if cur_val is not undefined:
-                to_invalidate.update(solution.descendant_types(cls))
+            to_invalidate.update(solution.descendant_types(cls))
     for cls in to_invalidate:
         current_values.pop(cls, None)
 
@@ -128,10 +124,11 @@ def _sync_inject_provider_values(
     param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
     for provider_generation in solution.execution_order_for(param_name_by_type):
         for provider_info in provider_generation:
-            value = _sync_enter_provider_context(stack, provider_info)
-            for name in param_name_by_type[cls := provider_info["provides"]]:
-                kwargs[name] = current_values[cls] = value
-                del missing_params[name]
+            if (cls := provider_info["provides"]) not in current_values:
+                value = current_values[cls] = _sync_enter_provider_context(stack, provider_info)
+                for name in param_name_by_type[cls]:
+                    kwargs[name] = value
+                    del missing_params[name]
 
 
 async def _async_inject_provider_values(

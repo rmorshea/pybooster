@@ -400,11 +400,8 @@ async def example_reader() -> AsyncIterator[StreamReader]:
         await writer.wait_closed()
 ```
 
-Async providers are executed concurrently where possible.
-
-```python
-assert False
-```
+Async providers are executed concurrently where possible in the current
+[solution](#solutions).
 
 ### Generic Providers
 
