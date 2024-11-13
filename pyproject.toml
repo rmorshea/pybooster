@@ -176,12 +176,11 @@ ban-relative-imports = "all"
 ]
 
 [tool.coverage.run]
-source_pkgs = ["pybooster", "tests"]
 branch = true
 omit = []
 
 [tool.coverage.paths]
-pybooster = ["src/pybooster"]
+pybooster = ["src"]
 tests = ["tests"]
 
 [tool.coverage.report]
@@ -198,3 +197,4 @@ sort = "Name"
 [tool.diff_cover]
 compare_branch = "origin/main"
 fail_under = 100
+include_untracked = true

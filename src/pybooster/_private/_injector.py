@@ -11,22 +11,22 @@ from typing import TypeVar
 
 from anyio import create_task_group
 
-from pybooster.core._private._solution import FULL_SOLUTION
-from pybooster.core._private._solution import SYNC_SOLUTION
-from pybooster.core._private._solution import Solution
-from pybooster.core._private._utils import start_future
-from pybooster.core._private._utils import undefined
+from pybooster._private._solution import FULL_SOLUTION
+from pybooster._private._solution import SYNC_SOLUTION
+from pybooster._private._solution import Solution
+from pybooster._private._utils import start_future
+from pybooster._private._utils import undefined
 from pybooster.types import HintDict
 from pybooster.types import HintMap
 from pybooster.types import InjectionError
 
 if TYPE_CHECKING:
 
-    from pybooster.core._private._provider import AsyncProviderInfo
-    from pybooster.core._private._provider import ProviderInfo
-    from pybooster.core._private._provider import SyncProviderInfo
-    from pybooster.core._private._utils import AsyncFastStack
-    from pybooster.core._private._utils import FastStack
+    from pybooster._private._provider import AsyncProviderInfo
+    from pybooster._private._provider import ProviderInfo
+    from pybooster._private._provider import SyncProviderInfo
+    from pybooster._private._utils import AsyncFastStack
+    from pybooster._private._utils import FastStack
 
 
 P = ParamSpec("P")

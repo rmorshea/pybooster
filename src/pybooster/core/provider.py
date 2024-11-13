@@ -18,11 +18,11 @@ from typing import overload
 from paramorator import paramorator
 
 from pybooster import injector
-from pybooster.core._private._provider import get_provides_type
-from pybooster.core._private._utils import get_callable_return_type
-from pybooster.core._private._utils import get_coroutine_return_type
-from pybooster.core._private._utils import get_iterator_yield_type
-from pybooster.core._private._utils import get_required_parameters
+from pybooster._private._provider import get_provides_type
+from pybooster._private._utils import get_callable_return_type
+from pybooster._private._utils import get_coroutine_return_type
+from pybooster._private._utils import get_iterator_yield_type
+from pybooster._private._utils import get_required_parameters
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

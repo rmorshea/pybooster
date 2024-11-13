@@ -12,13 +12,13 @@ from typing import TypeVar
 
 from paramorator import paramorator
 
-from pybooster.core._private._injector import async_inject_keywords
-from pybooster.core._private._injector import overwrite_values
-from pybooster.core._private._injector import sync_inject_keywords
-from pybooster.core._private._utils import AsyncFastStack
-from pybooster.core._private._utils import FastStack
-from pybooster.core._private._utils import get_required_parameters
-from pybooster.core._private._utils import make_sentinel_value
+from pybooster._private._injector import async_inject_keywords
+from pybooster._private._injector import overwrite_values
+from pybooster._private._injector import sync_inject_keywords
+from pybooster._private._utils import AsyncFastStack
+from pybooster._private._utils import FastStack
+from pybooster._private._utils import get_required_parameters
+from pybooster._private._utils import make_sentinel_value
 
 if TYPE_CHECKING:
     from collections.abc import Callable

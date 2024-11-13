@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pybooster.core._private._injector import _CURRENT_VALUES
-from pybooster.core._private._solution import FULL_SOLUTION as _FULL_SOLUTION
-from pybooster.core._private._solution import SYNC_SOLUTION as _SYNC_SOLUTION
+from pybooster._private._injector import _CURRENT_VALUES
+from pybooster._private._solution import FULL_SOLUTION as _FULL_SOLUTION
+from pybooster._private._solution import SYNC_SOLUTION as _SYNC_SOLUTION
 
 if TYPE_CHECKING:
     from collections.abc import Callable

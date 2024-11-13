@@ -18,14 +18,14 @@ from rustworkx import ancestors
 from rustworkx import descendants
 from rustworkx import topological_generations
 
-from pybooster.core._private._provider import ProviderInfo
-from pybooster.core._private._provider import SyncProviderInfo
-from pybooster.core._private._utils import frozenclass
+from pybooster._private._provider import ProviderInfo
+from pybooster._private._provider import SyncProviderInfo
+from pybooster._private._utils import frozenclass
 from pybooster.types import SolutionError
 
 if TYPE_CHECKING:
 
-    from pybooster.core._private._provider import AsyncProviderInfo
+    from pybooster._private._provider import AsyncProviderInfo
 
 P = TypeVar("P", bound=ProviderInfo)
 

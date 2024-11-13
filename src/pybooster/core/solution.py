@@ -5,10 +5,10 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from typing import Any
 
-from pybooster.core._private._provider import AsyncProviderInfo
-from pybooster.core._private._provider import SyncProviderInfo
-from pybooster.core._private._provider import get_provider_info
-from pybooster.core._private._solution import set_solutions
+from pybooster._private._provider import AsyncProviderInfo
+from pybooster._private._provider import SyncProviderInfo
+from pybooster._private._provider import get_provider_info
+from pybooster._private._solution import set_solutions
 from pybooster.core.provider import Provider
 from pybooster.core.provider import SyncProvider
 

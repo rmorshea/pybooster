@@ -12,12 +12,12 @@ from typing import get_args
 from typing import get_origin
 from typing import overload
 
-from pybooster.core._private._utils import check_is_concrete_type
-from pybooster.core._private._utils import check_is_not_builtin_type
-from pybooster.core._private._utils import get_class_lineage
-from pybooster.core._private._utils import get_raw_annotation
-from pybooster.core._private._utils import is_builtin_type
-from pybooster.core._private._utils import is_type
+from pybooster._private._utils import check_is_concrete_type
+from pybooster._private._utils import check_is_not_builtin_type
+from pybooster._private._utils import get_class_lineage
+from pybooster._private._utils import get_raw_annotation
+from pybooster._private._utils import is_builtin_type
+from pybooster._private._utils import is_type
 from pybooster.types import AsyncContextManagerCallable
 from pybooster.types import ContextManagerCallable
 from pybooster.types import HintMap
