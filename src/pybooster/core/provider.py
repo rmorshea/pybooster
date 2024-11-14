@@ -181,6 +181,9 @@ class _BaseProvider(Generic[R]):
             provides = get_provides_type(self.provides, *args, **kwargs)
             return type(self)(lambda: producer(*args, **kwargs), provides, self.dependencies)
 
+        def __call__(self, *args, **kwargs):
+            return self.producer(*args, **kwargs)
+
 
 class SyncProvider(Generic[P, R], _BaseProvider[R]):
     """A provider for a dependency."""
@@ -201,8 +204,7 @@ class SyncProvider(Generic[P, R], _BaseProvider[R]):
             """Inject the dependencies and produce the dependency."""
             ...
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractContextManager[R]:  # noqa: D102
-        return self.producer(*args, **kwargs)
+        def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractContextManager[R]: ...  # noqa: D102
 
 
 class AsyncProvider(Generic[P, R], _BaseProvider[R]):
@@ -224,8 +226,7 @@ class AsyncProvider(Generic[P, R], _BaseProvider[R]):
             """Inject the dependencies and produce the dependency."""
             ...
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractAsyncContextManager[R]:  # noqa: D102
-        return self.producer(*args, **kwargs)
+        def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractAsyncContextManager[R]: ...  # noqa: D102
 
 
 Provider: TypeAlias = "SyncProvider[P, R] | AsyncProvider[P, R]"
