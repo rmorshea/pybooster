@@ -403,6 +403,36 @@ async def example_reader() -> AsyncIterator[StreamReader]:
 Async providers are executed concurrently where possible in the current
 [solution](#solutions).
 
+### Parameterizing Providers
+
+You can pass additional arguments to a provider by adding parameters to a provider
+function signature that are not [dependencies](#dependencies):
+
+```python
+import sqlite3
+from sqlite3 import Connection
+from typing import Iterator
+
+from pybooster import provider
+
+
+@provider.iterator
+def sqlite_connection(database: str) -> Iterator[Connection]:
+    with sqlite3.connect(database) as conn:
+        yield conn
+```
+
+These parameters can be supplied when solving using the `bind` method:
+
+```python { test="false"}
+with solution(sqlite_connection.bind(":memory:")):
+    ...
+```
+
+!!! note
+
+    Bindable parameters are not allowed to be dependencies.
+
 ### Generic Providers
 
 You can use a single provider to supply multiple dependencies by narrowing the return
@@ -543,59 +573,6 @@ def get_message(*, recipient: Recipient = required) -> str:
 
 with solution(provider.singleton(Recipient, "Alice")):
     assert get_message() == "Hello, Alice!"
-```
-
-### Parameterizing Providers
-
-You can pass additional arguments to a provider by adding parameters to a provider
-function signature that are not [dependencies](#dependencies):
-
-```python
-import sqlite3
-from typing import Iterator
-
-from pybooster import provider
-
-
-@provider.iterator
-def sqlite_connection(database: str) -> Iterator[sqlite3.Connection]:
-    with sqlite3.connect(database) as conn:
-        yield conn
-```
-
-These parameters can be supplied when solving using the `bind` method:
-
-```python { test="false"}
-with solution(sqlite_connection.bind(":memory:")):
-    ...
-```
-
-You can also declare these parameters as dependencies by making them keyword-only,
-annotating them with the desired type, and setting the default value to `required`.
-
-```python
-import os
-import sqlite3
-from typing import Iterator
-from typing import NewType
-
-from pybooster import provider
-from pybooster import required
-
-Database = NewType("DatabasePath", str)
-
-
-@provider.function
-def sqlite_database() -> Database:
-    return Database(os.environ.get("SQLITE_DATABASE", ":memory:"))
-
-
-@provider.iterator
-def sqlite_connection(
-    *, database: Database = required
-) -> Iterator[sqlite3.Connection]:
-    with sqlite3.connect(database) as conn:
-        yield conn
 ```
 
 ### Mixing Sync/Async
