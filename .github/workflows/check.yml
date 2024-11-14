@@ -35,7 +35,7 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: coverage-${{ matrix.python-version }}
-                  path: ${{ github.workspace }}/.coverage.*
+                  path: ${{ github.workspace }}/.coverage
                   include-hidden-files: true
             - name: Build dist
               run: hatch build
