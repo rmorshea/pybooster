@@ -13,10 +13,10 @@
       
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../recipes/">
       
       
-        <link rel="next" href="../concepts/">
+        <link rel="next" href="../examples/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -24,7 +24,7 @@
     
     
       
-        <title>Tutorial - PyBooster</title>
+        <title>Integrations - PyBooster</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorial" class="md-skip">
+        <a href="#integrations" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Tutorial
+              Integrations
             
           </span>
         </div>
@@ -284,19 +284,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../tutorial/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -305,7 +296,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -354,10 +344,30 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../integrations/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Integrations
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -366,6 +376,44 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#asgi-apps" class="md-nav__link">
+    <span class="md-ellipsis">
+      ASGI Apps
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sqlalchemy" class="md-nav__link">
+    <span class="md-ellipsis">
+      SQLAlchemy
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -430,6 +478,32 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#asgi-apps" class="md-nav__link">
+    <span class="md-ellipsis">
+      ASGI Apps
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sqlalchemy" class="md-nav__link">
+    <span class="md-ellipsis">
+      SQLAlchemy
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -446,25 +520,64 @@
   
 
 
-<h1 id="tutorial">Tutorial</h1>
-<p>This tutorial will guide you through the process of creating a "To-Do" application using
-PyBooster to facilitate access to various services and resources. The application will
-include a basic UI built using <a href="https://htmx.org/">HTMX</a> as well as a
-<a href="https://fastapi.tiangolo.com/">FastAPI</a> server that's able to create, read, update, and
-delete tasks that support file attachments.</p>
-<pre class="mermaid"><code>architecture-beta
-    service client(internet)[Client]
-    service db(database)[Database]
-    service storage(disk)[Storage]
-    service server(server)[Server]
-    junction serverRight1
-    junction serverRight2
-
-    client:R --&gt; L:server
-    server:R -- L:serverRight1
-    serverRight1:R -- L:serverRight2
-    serverRight1:B --&gt; T:db
-    serverRight2:B --&gt; T:storage</code></pre>
+<h1 id="integrations">Integrations</h1>
+<p>PyBooster supplies implementations for a number of popular tools and libraries.</p>
+<h2 id="asgi-apps">ASGI Apps</h2>
+<p>PyBooster's use of <a href="https://docs.python.org/3/library/contextvars.html"><code>contextvars</code></a>
+under the hood can cause problems when state should live for the lifespan of an ASGI
+application. However this can be solved with a middleware provided by PyBooster. All
+you'll need to do is either wrap your ASGI application in it or pass it to your chosen
+framework's middleware system.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span> <span class="nn">pybooster.extra.asgi</span> <span class="kn">import</span> <span class="n">PyBoosterMiddleware</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">your_app</span> <span class="o">=</span> <span class="o">...</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">app</span> <span class="o">=</span> <span class="n">PyBoosterMiddleware</span><span class="p">(</span><span class="n">your_app</span><span class="p">)</span>
+</span></code></pre></div>
+<p>See the <a href="../examples/#starlette-sqlalchemy">Starlette + SQLAlchemy example</a> for one way
+to use this middleware.</p>
+<h2 id="sqlalchemy">SQLAlchemy</h2>
+<p>PyBooster's SQLAlchemy integration supplies providers for the following dependencies:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Dependency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" href="../reference/#pybooster.extra.sqlalchemy.engine_provider"><code>pybooster.extra.sqlalchemy.engine_provider</code></a></td>
+<td><a class="autorefs autorefs-external" href="https://docs.sqlalchemy.org/en/latest/core/connections.html#sqlalchemy.engine.Engine"><code>Engine</code></a></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" href="../reference/#pybooster.extra.sqlalchemy.session_provider"><code>pybooster.extra.sqlalchemy.session_provider</code></a></td>
+<td><a class="autorefs autorefs-external" href="https://docs.sqlalchemy.org/en/latest/orm/session_api.html#sqlalchemy.orm.Session"><code>Session</code></a></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" href="../reference/#pybooster.extra.sqlalchemy.async_engine_provider"><code>pybooster.extra.sqlalchemy.async_engine_provider</code></a></td>
+<td><a class="autorefs autorefs-external" href="https://docs.sqlalchemy.org/en/latest/orm/extensions/asyncio.html#sqlalchemy.ext.asyncio.AsyncEngine"><code>AsyncEngine</code></a></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" href="../reference/#pybooster.extra.sqlalchemy.async_session_provider"><code>pybooster.extra.sqlalchemy.async_session_provider</code></a></td>
+<td><a class="autorefs autorefs-external" href="https://docs.sqlalchemy.org/en/latest/orm/extensions/asyncio.html#sqlalchemy.ext.asyncio.AsyncSession"><code>AsyncSession</code></a></td>
+</tr>
+</tbody>
+</table>
+<p>The sync and async session providers are <a href="../concepts/#generic-providers">generic</a> on
+their first positional argument which allows session subclasses to be used as
+dependencies instead. For example:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">Session</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span> <span class="nn">pybooster.extra.sqlalchemy</span> <span class="kn">import</span> <span class="n">session_provider</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">class</span> <span class="nc">MySession</span><span class="p">(</span><span class="n">Session</span><span class="p">):</span> <span class="o">...</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">my_session_provider</span> <span class="o">=</span> <span class="n">session_provider</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="n">MySession</span><span class="p">)</span>
+</span></code></pre></div>
+<p>See the <a href="../examples/#starlette-sqlalchemy">Starlette + SQLAlchemy example</a> for one way
+to use these providers.</p>
 
 
 
