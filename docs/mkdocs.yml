@@ -7,8 +7,10 @@ repo_url: https://github.com/rmorshea/pybooster
 
 nav:
     - Home: index.md
-    - Tutorials: tutorials.md
+    - Tutorial: tutorial.md
     - Concepts: concepts.md
+    - Recipes: recipes.md
+    - Integrations: integrations.md
     - Examples: examples.md
     - Reference: reference.md
 
@@ -19,6 +21,24 @@ theme:
         logo: material/needle
     features:
         - content.code.copy
+    palette:
+        # Palette toggle for automatic mode
+        - media: "(prefers-color-scheme)"
+          toggle:
+              icon: material/brightness-auto
+              name: Switch to light mode
+        # Palette toggle for light mode
+        - media: "(prefers-color-scheme: light)"
+          scheme: default
+          toggle:
+              icon: material/brightness-7
+              name: Switch to dark mode
+        # Palette toggle for dark mode
+        - media: "(prefers-color-scheme: dark)"
+          scheme: slate
+          toggle:
+              icon: material/brightness-4
+              name: Switch to system preference
 
 plugins:
     - search
@@ -26,7 +46,10 @@ plugins:
     - mkdocstrings:
           handlers:
               python:
+                  import:
+                      - https://docs.sqlalchemy.org/en/latest/objects.inv
                   options:
+                      load_external_modules: true
                       docstring_style: google
                       members_order: alphabetical
                       merge_init_into_class: true
@@ -48,7 +71,11 @@ markdown_extensions:
           pygments_lang_class: true
     - pymdownx.inlinehilite
     - pymdownx.snippets
-    - pymdownx.superfences
+    - pymdownx.superfences:
+          custom_fences:
+              - name: mermaid
+                class: mermaid
+                format: !!python/name:pymdownx.superfences.fence_code_format
     - admonition
     - pymdownx.details
     - pymdownx.superfences

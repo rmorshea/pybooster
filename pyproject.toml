@@ -7,7 +7,7 @@ name = "pybooster"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
-requires-python = ">=3.10,<4"
+requires-python = ">=3.11,<4"
 license = "MIT"
 keywords = []
 authors = [{ name = "Ryan Morshead", email = "ryan.morshead@gmail.com" }]
@@ -20,7 +20,15 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ["typing_extensions", "paramorator>=1.0.2,<2"]
+dependencies = [
+  "typing_extensions",
+  "paramorator>=1.0.2,<2",
+  "rustworkx>=0.15,<0.16",
+]
+
+[project.optional-dependencies]
+asgi = ["asgiref>=3.8.1,<4", "anyio>=4.6.0,<5"]
+sqlalchemy = ["sqlalchemy[asyncio]>=2.0.35,<3"]
 
 [project.urls]
 Documentation = "https://github.com/rmorshea/pybooster#readme"
@@ -33,15 +41,16 @@ path = "src/pybooster/__init__.py"
 [tool.hatch.envs.default]
 dependencies = [
   "aiosqlite==0.20.0",
-  "boto3-stubs[essential]==1.35.38",
-  "boto3==1.35.38",
+  "boto3-stubs[essential]==1.35.49",
+  "boto3==1.35.49",
   "coverage[toml]==7.6.1",
   "diff-cover==9.2.0",
   "moto==5.0.16",
   "pytest-asyncio==0.24.0",
   "pytest-examples==0.0.13",
   "pytest==8.3.3",
-  "sqlalchemy[asyncio]==2.0.35",
+  "starlette[full]==0.39.2",
+  "sqlalchemy[asyncio]==2.0.36",
   "toml==0.10.2",                    # python 3.10 compatibility
 ]
 [tool.hatch.envs.default.scripts]
@@ -57,7 +66,7 @@ cov = ["cov-test", "cov-report"]
 
 [tool.hatch.envs.lint]
 python = "3.12"
-extra-dependencies = ["black==24.8.0", "pyright==1.1.377", "ruff==0.5.7"]
+extra-dependencies = ["black==24.8.0", "pyright==1.1.377", "ruff==0.7.3"]
 [tool.hatch.envs.lint.scripts]
 typing = "pyright {args:src/pybooster tests}"
 style = ["ruff check {args:.}", "black --check --diff {args:.}"]
@@ -66,6 +75,7 @@ all = ["style", "typing"]
 
 [tool.hatch.envs.docs]
 extra-dependencies = [
+  "mkdocs-gen-files==0.5.0",
   "mkdocs-material==9.5.39",
   "mkdocs-open-in-new-tab==1.0.5",
   "mkdocs==1.6.1",
@@ -73,21 +83,21 @@ extra-dependencies = [
 ]
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build -f docs/mkdocs.yml"
-deploy = "mkdocs gh-deploy -f docs/mkdocs.yml"
-fix = "pytest tests/test_docs.py --update-examples"
+publish = "mkdocs gh-deploy -f docs/mkdocs.yml"
+fix = "pytest tests/test_docs.py {args:} --update-examples"
 serve = "mkdocs serve -f docs/mkdocs.yml"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.black]
 preview = true
-target-version = ["py39"]
+target-version = ["py311"]
 line-length = 120
 skip-string-normalization = true
 
 [tool.ruff]
-target-version = "py39"
 line-length = 120
 
 [tool.ruff.format]
@@ -102,6 +112,7 @@ ignore = [
   "A005",   # Module shadowing built-in
   "ANN",    # Let pyright handle annotations
   "ANN401", # Allow Any type hints
+  "ARG005", # Unused lambda argument
   "B027",   # Allow non-abstract empty methods in abstract base classes
   "B039",   # Mutable default for contextvars
   "C901",   # Ignore complexity
@@ -111,10 +122,14 @@ ignore = [
   "D104",   # Ignore missing docstring for __init__.py
   "D105",   # Docstring for magic method
   "D107",   # Docstring for __init__ method
+  "D203",   # One blank line before class
+  "D213",   # Multi-line docstring summary second line
   "D407",   # Docstring dashes under section names
   "D413",   # Docstring blank line after last section
   "DOC201", # Return type documentation
   "DOC402", # Yield type documentation
+  "DOC501", # Ignore raises missing from docstring
+  "ERA001", # Commented out code
   "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
   "PL",     # PyLint
   "PYI",    # Stub files
@@ -126,6 +141,8 @@ ignore = [
 unfixable = [
   "COM819", # Trailing comma
 ]
+fixable = ["ALL"]
+
 extend-safe-fixes = ["TCH"]
 
 [tool.ruff.lint.isort]
@@ -147,24 +164,24 @@ ban-relative-imports = "all"
   "T201", # Print statements
 ]
 "**.md" = [
-  "D",      # Docstrings
   "ANN",    # Type annotations
+  "B018",   # Useless expression
+  "D",      # Docstrings
+  "FA102",  # Unsafe __futures__ annotations usage
+  "RUF029", # No await in async function
   "S101",   # Assert statements
   "S106",   # Possible passwords
-  "FA102",  # Unsafe __futures__ annotations usage
   "SIM115", # Use context manager for opening files
-  "RUF029", # No await in async function
   "TCH002", # Move third-party import into a type-checking block
 ]
 
 [tool.coverage.run]
 source_pkgs = ["pybooster", "tests"]
 branch = true
-parallel = true
 omit = []
 
 [tool.coverage.paths]
-pybooster = ["src/pybooster"]
+pybooster = ["src"]
 tests = ["tests"]
 
 [tool.coverage.report]
@@ -181,3 +198,4 @@ sort = "Name"
 [tool.diff_cover]
 compare_branch = "origin/main"
 fail_under = 100
+include_untracked = true

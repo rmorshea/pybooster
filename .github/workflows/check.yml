@@ -27,15 +27,15 @@ jobs:
                   restore-keys: ${{ runner.os }}-pip-
             - name: Install Hatch
               run: pipx install hatch
-            - name: Run lint
-              run: hatch run lint:all
             - name: Run tests
               run: hatch run cov-test
+            - name: Run lint
+              run: hatch run lint:all
             - name: Upload coverage
               uses: actions/upload-artifact@v4
               with:
                   name: coverage-${{ matrix.python-version }}
-                  path: ${{ github.workspace }}/.coverage.*
+                  path: ${{ github.workspace }}/.coverage
                   include-hidden-files: true
             - name: Build dist
               run: hatch build
@@ -64,5 +64,5 @@ jobs:
                   python-version: "3.10"
             - name: Install Hatch
               run: pipx install hatch
-            - name: Run coverage
+            - name: Check coverage
               run: hatch run cov-report
