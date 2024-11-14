@@ -176,6 +176,7 @@ ban-relative-imports = "all"
 ]
 
 [tool.coverage.run]
+source_pkgs = ["pybooster", "tests"]
 branch = true
 omit = []
 
