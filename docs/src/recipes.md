@@ -42,6 +42,8 @@ with solution(switch_on):
     assert not SWITCH
 ```
 
+## Wrapping Providers
+
 ## Testing Injected Functions
 
 ## Testing Providers

@@ -166,7 +166,6 @@ def _bind(
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> SyncProvider[P, R] | AsyncProvider[P, R]:
-
     if disallowed := (provider.dependencies.keys() & kwargs):
         msg = f"Cannot bind dependency parameters: {disallowed}"
         raise TypeError(msg)

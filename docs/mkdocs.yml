@@ -46,6 +46,8 @@ plugins:
     - mkdocstrings:
           handlers:
               python:
+                  import:
+                      - https://docs.sqlalchemy.org/en/latest/objects.inv
                   options:
                       load_external_modules: true
                       docstring_style: google

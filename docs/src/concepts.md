@@ -129,12 +129,12 @@ with solution(provide_recipient):
 
 PyBooster supports decorators for the following types of functions or methods:
 
--   [injector.function](pybooster.injector.function)
--   [injector.asyncfunction](pybooster.injector.asyncfunction)
--   [injector.iterator](pybooster.injector.iterator)
--   [injector.asynciterator](pybooster.injector.asynciterator)
--   [injector.contextmanager](pybooster.injector.contextmanager)
--   [injector.asynccontextmanager](pybooster.injector.asynccontextmanager)
+-   [injector.function][pybooster.core.injector.function]
+-   [injector.asyncfunction][pybooster.core.injector.asyncfunction]
+-   [injector.iterator][pybooster.core.injector.iterator]
+-   [injector.asynciterator][pybooster.core.injector.asynciterator]
+-   [injector.contextmanager][pybooster.core.injector.contextmanager]
+-   [injector.asynccontextmanager][pybooster.core.injector.asynccontextmanager]
 
 #### Overwrite Parameters
 

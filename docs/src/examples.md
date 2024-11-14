@@ -121,8 +121,8 @@ from pybooster import injector
 from pybooster import required
 from pybooster import solution
 from pybooster.extra.asgi import PyBoosterMiddleware
-from pybooster.extra.sqlalchemy import async_engine_provider
-from pybooster.extra.sqlalchemy import async_session_provider
+from pybooster.extra.sqlalchemy import provide_async_engine
+from pybooster.extra.sqlalchemy import provide_async_session
 
 
 class Base(DeclarativeBase):
@@ -141,7 +141,7 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
-    with solution(async_engine_provider.bind(DB_URL), async_session_provider):
+    with solution(provide_async_engine.bind(DB_URL), provide_async_session):
         async with injector.current(AsyncEngine) as engine:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
@@ -210,8 +210,8 @@ from sqlalchemy.orm import mapped_column
 from pybooster import injector
 from pybooster import required
 from pybooster import solution
-from pybooster.extra.sqlalchemy import engine_provider
-from pybooster.extra.sqlalchemy import session_provider
+from pybooster.extra.sqlalchemy import provide_engine
+from pybooster.extra.sqlalchemy import provide_session
 
 
 class Base(DeclarativeBase): ...
@@ -247,8 +247,8 @@ def main():
     url = "sqlite:///:memory:"
     with (
         solution(
-            engine_provider.bind(url),
-            session_provider.bind(expire_on_commit=False),
+            provide_engine.bind(url),
+            provide_session.bind(expire_on_commit=False),
         ),
         injector.current(Engine),
     ):
@@ -276,8 +276,8 @@ from sqlalchemy.orm import mapped_column
 from pybooster import injector
 from pybooster import required
 from pybooster import solution
-from pybooster.extra.sqlalchemy import async_engine_provider
-from pybooster.extra.sqlalchemy import async_session_provider
+from pybooster.extra.sqlalchemy import provide_async_engine
+from pybooster.extra.sqlalchemy import provide_async_session
 
 
 class Base(DeclarativeBase): ...
@@ -315,8 +315,8 @@ async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
 async def main():
     url = "sqlite+aiosqlite:///:memory:"
     with solution(
-        async_engine_provider.bind(url),
-        async_session_provider.bind(expire_on_commit=False),
+        provide_async_engine.bind(url),
+        provide_async_session.bind(expire_on_commit=False),
     ):
         async with injector.current(AsyncEngine):
             await create_tables()
