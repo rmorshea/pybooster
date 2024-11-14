@@ -194,7 +194,7 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             raise RuntimeError(msg)
         self._sync_stack = FastStack()
         values = {}
-        sync_inject_keywords(self._sync_stack, self._required_params, values)
+        sync_inject_keywords(self._sync_stack, self._required_params, values, keep_current_values=True)
         return values[_KEY]
 
     def __exit__(self, *_: Any) -> None:
@@ -209,7 +209,7 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             raise RuntimeError(msg)
         self._async_stack = AsyncFastStack()
         values = {}
-        await async_inject_keywords(self._async_stack, self._required_params, values)
+        await async_inject_keywords(self._async_stack, self._required_params, values, keep_current_values=True)
         return values[_KEY]
 
     async def __aexit__(self, *exc: Any) -> None:

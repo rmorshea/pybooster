@@ -19,7 +19,7 @@ Recipient = NewType("Recipient", str)
 
 
 @provider.function
-def provide_alice() -> Recipient:
+def alice_provider() -> Recipient:
     return Recipient("Alice")
 
 
@@ -28,7 +28,7 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solution(provide_alice):
+with solution(alice_provider):
     # alice is available to inject as a recipient
     assert get_message() == "Hello, Alice!"
 ```
@@ -49,12 +49,12 @@ Recipient = NewType("Recipient", str)
 
 
 @provider.function
-def provide_alice() -> Recipient:
+def alice_provider() -> Recipient:
     return Recipient("Alice")
 
 
 @provider.function
-def provide_bob() -> Recipient:
+def bob_provider() -> Recipient:
     return Recipient("Bob")
 
 
@@ -63,9 +63,9 @@ def get_recipient(*, recipient: Recipient = required) -> str:
     return recipient
 
 
-with solution(provide_alice):
+with solution(alice_provider):
     assert get_recipient() == "Alice"
-    with solution(provide_bob):
+    with solution(bob_provider):
         assert get_recipient() == "Bob"
     assert get_recipient() == "Alice"
 ```
@@ -114,7 +114,7 @@ Recipient = NewType("Recipient", str)
 
 
 @provider.function
-def provide_recipient() -> Recipient:
+def recipient_provider() -> Recipient:
     return Recipient("Alice")
 
 
@@ -123,7 +123,7 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solution(provide_recipient):
+with solution(recipient_provider):
     assert get_message() == "Hello, Alice!"
 ```
 
@@ -168,12 +168,12 @@ DB = {
 
 
 @provider.function
-def provide_user_id() -> UserId:
+def user_id_provider() -> UserId:
     return UserId(1)
 
 
 @provider.function
-def provide_profile(*, user_id: UserId = required) -> Profile:
+def profile_provider(*, user_id: UserId = required) -> Profile:
     return DB[user_id]
 
 
@@ -184,7 +184,7 @@ def get_profile_summary(
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
-with solution(provide_user_id, provide_profile):
+with solution(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     assert get_profile_summary(user_id=UserId(2)) == "#2 Bob: Bob's bio"
 ```
@@ -208,11 +208,11 @@ class Auth:
 
 
 @provider.function
-def provide_auth() -> Auth:
+def auth_provider() -> Auth:
     return Auth(username="alice", password="EGwVEo3y9E")
 
 
-with solution(provide_auth):
+with solution(auth_provider):
     with injector.current(Auth) as auth:
         assert auth.username == "alice"
         assert auth.password == "EGwVEo3y9E"
@@ -286,12 +286,12 @@ DB = {
 
 
 @provider.function
-def provide_user_id() -> UserId:
+def user_id_provider() -> UserId:
     return UserId(1)
 
 
 @provider.function
-def provide_profile(*, user_id: UserId = required) -> Profile:
+def profile_provider(*, user_id: UserId = required) -> Profile:
     return DB[user_id]
 
 
@@ -302,7 +302,7 @@ def get_profile_summary(
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
-with solution(provide_user_id, provide_profile):
+with solution(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     with injector.overwrite({UserId: UserId(2)}):
         assert get_profile_summary() == "#2 Bob: Bob's bio"
@@ -332,7 +332,7 @@ class Config:
 
 
 @provider.function
-def provide_config() -> Config:
+def config_provider() -> Config:
     return Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
@@ -371,7 +371,7 @@ class Config:
 
 
 @provider.asyncfunction
-async def async_provide_config() -> Config:
+async def async_config_provider() -> Config:
     await sleep(1)  # Do some async work here...
     return Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
@@ -426,7 +426,7 @@ from pybooster import solution
 
 
 @provider.function
-def provide_json(path: str | Path) -> Any:
+def json_provider(path: str | Path) -> Any:
     with Path(path).open() as f:
         return json.load(f)
 
@@ -448,7 +448,7 @@ json_file.write_text(
     '{"app_name": "MyApp", "app_version": 1, "debug_mode": true}'
 )
 
-with solution(provide_json[ConfigDict].bind(json_file)):
+with solution(json_provider[ConfigDict].bind(json_file)):
     assert get_config() == {
         "app_name": "MyApp",
         "app_version": 1,
@@ -493,7 +493,7 @@ T = TypeVar("T")
 
 
 @provider.function(provides=lambda cls, *a, **kw: cls)
-def provide_config_from_file(cls: type[T], path: str | Path) -> T:
+def config_file_provider(cls: type[T], path: str | Path) -> T:
     with Path(path).open() as f:
         return cls(**json.load(f))
 
@@ -509,7 +509,7 @@ json_file.write_text(
     '{"app_name": "MyApp", "app_version": 1, "debug_mode": true}'
 )
 
-with solution(provide_config_from_file.bind(Config, json_file)):
+with solution(config_file_provider.bind(Config, json_file)):
     assert get_config() == Config(
         app_name="MyApp", app_version=1, debug_mode=True
     )
@@ -620,12 +620,12 @@ class Auth:
 
 
 @provider.function
-def sync_provide_auth() -> Auth:
+def sync_auth_provider() -> Auth:
     return Auth(username="sync-user", password="sync-pass")
 
 
 @provider.asyncfunction
-async def async_provide_auth() -> Auth:
+async def async_auth_provider() -> Auth:
     await asyncio.sleep(0)  # Do some async work here...
     return Auth(username="async-user", password="async-pass")
 
@@ -640,7 +640,7 @@ async def async_get_auth(*, auth: Auth = required) -> str:
     return f"{auth.username}:{auth.password}"
 
 
-with solution(sync_provide_auth, async_provide_auth):
+with solution(sync_auth_provider, async_auth_provider):
     assert sync_get_auth() == "sync-user:sync-pass"
     assert asyncio.run(async_get_auth()) == "async-user:async-pass"
 ```
@@ -676,7 +676,7 @@ Username = NewType("Username", str)
 
 
 @provider.function
-def provide_username() -> Username:
+def username_provider() -> Username:
     return "alice"
 
 
@@ -685,7 +685,7 @@ def get_message(*, username: Username = required) -> str:
     return f"Hello, {username}!"
 
 
-with solution(provide_username):
+with solution(username_provider):
     assert get_message() == "Hello, alice!"
 ```
 
@@ -710,7 +710,7 @@ class Auth:
 
 
 @provider.function
-def provide_auth() -> Auth:
+def auth_provider() -> Auth:
     return Auth(role="user", username="alice", password="EGwVEo3y9E")
 
 
@@ -719,7 +719,7 @@ def get_login_message(*, auth: Auth = required) -> str:
     return f"Logged in as {auth.username}"
 
 
-with solution(provide_auth):
+with solution(auth_provider):
     assert get_login_message() == "Logged in as alice"
 ```
 
@@ -753,7 +753,7 @@ class AdminAuth(Auth):
 
 
 @provider.function
-def provide_admin_auth() -> AdminAuth:
+def admin_auth_provider() -> AdminAuth:
     return AdminAuth(username="admin", password="admin")
 
 
@@ -762,7 +762,7 @@ def get_login_message(*, auth: Auth = required) -> str:
     return f"Logged in as {auth.username}"
 
 
-with solution(provide_admin_auth):
+with solution(admin_auth_provider):
     assert get_login_message() == "Logged in as admin"
 ```
 
@@ -792,7 +792,7 @@ secrets_json.write_text('{"username": "alice", "password": "EGwVEo3y9E"}')
 
 
 @provider.function
-def provide_username_and_password() -> tuple[Username, Password]:
+def username_and_password_provider() -> tuple[Username, Password]:
     with secrets_json.open() as f:
         secrets = json.load(f)
     return Username(secrets["username"]), Password(secrets["password"])
@@ -803,6 +803,6 @@ def get_login_message(*, username: Username = required) -> str:
     return f"Logged in as {username}"
 
 
-with solution(provide_username_and_password):
+with solution(username_and_password_provider):
     assert get_login_message() == "Logged in as alice"
 ```

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from asyncio import wait_for
 from collections.abc import Callable  # noqa: TCH003
+from collections.abc import Iterator  # noqa: TCH003
 from dataclasses import dataclass
 from typing import Any
 from typing import NewType
@@ -30,53 +31,53 @@ SideEffect = NewType("SideEffect", None)
 def test_sync_injection():
 
     @provider.function
-    def provide_greeting() -> Greeting:
+    def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
     @provider.function
-    def provide_recipient() -> Recipient:
+    def recipient_provider() -> Recipient:
         return Recipient("World")
 
     @provider.function
-    def provide_message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+    def message_provider(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
         return Message(f"{greeting} {recipient}")
 
     @injector.function
     def use_message(*, message: Message = required):
         return message
 
-    with solution(provide_greeting, provide_recipient, provide_message):
+    with solution(greeting_provider, recipient_provider, message_provider):
         assert use_message() == "Hello World"
 
 
 async def test_async_injection():
     @provider.asyncfunction
-    async def provide_greeting() -> Greeting:
+    async def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
     @provider.asyncfunction
-    async def provide_recipient() -> Recipient:
+    async def recipient_provider() -> Recipient:
         return Recipient("World")
 
     @provider.asyncfunction
-    async def provide_message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+    async def message_provider(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
         return Message(f"{greeting} {recipient}")
 
     @injector.asyncfunction
     async def use_message(*, message: Message = required):
         return message
 
-    with solution(provide_greeting, provide_recipient, provide_message):
+    with solution(greeting_provider, recipient_provider, message_provider):
         assert await use_message() == "Hello World"
 
 
 async def test_sync_and_async_providers_do_not_overwrite_each_other():
     @provider.function
-    def sync_provide_message() -> Message:
+    def sync_message_provider() -> Message:
         return Message("Hello, Sync")
 
     @provider.asyncfunction
-    async def async_provide_message() -> Message:
+    async def async_message_provider() -> Message:
         return Message("World, Async")
 
     @injector.function
@@ -87,35 +88,35 @@ async def test_sync_and_async_providers_do_not_overwrite_each_other():
     async def async_use_message(*, message: Message = required):
         return message
 
-    with solution(sync_provide_message, async_provide_message):
+    with solution(sync_message_provider, async_message_provider):
         assert sync_use_message() == "Hello, Sync"
         assert await async_use_message() == "World, Async"
 
 
 async def test_async_provider_can_depend_on_sync_provider():
     @provider.function
-    def provide_greeting() -> Greeting:
+    def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
     @provider.asyncfunction
-    async def provide_message(*, greeting: Greeting = required) -> Message:
+    async def message_provider(*, greeting: Greeting = required) -> Message:
         return Message(f"{greeting} World")
 
     @injector.asyncfunction
     async def use_message(*, message: Message = required):
         return message
 
-    with solution(provide_greeting, provide_message):
+    with solution(greeting_provider, message_provider):
         assert await use_message() == "Hello World"
 
 
 async def test_sync_provider_cannot_depend_on_async_provider():
     @provider.asyncfunction
-    async def provide_greeting() -> Greeting:
+    async def greeting_provider() -> Greeting:
         raise AssertionError  # nocov
 
     @provider.function
-    def provide_message(*, _: Greeting = required) -> Message:
+    def message_provider(*, _: Greeting = required) -> Message:
         raise AssertionError  # nocov
 
     @injector.function
@@ -124,7 +125,7 @@ async def test_sync_provider_cannot_depend_on_async_provider():
 
     with (
         pytest.raises(SolutionError, match=r"No provider for .*"),
-        solution(provide_greeting, provide_message),
+        solution(greeting_provider, message_provider),
     ):
         pass  # nocov
 
@@ -133,7 +134,7 @@ def test_union_dependency_is_disallowed():
     with pytest.raises(TypeError, match=r"Cannot use Union type"):
 
         @provider.function
-        def provide_greeting() -> Greeting | Recipient:
+        def greeting_provider() -> Greeting | Recipient:
             raise AssertionError  # nocov
 
 
@@ -217,7 +218,7 @@ def test_dependency_reused_across_providers():
     call_count = 0
 
     @provider.function
-    def provide_greeting() -> Greeting:
+    def greeting_provider() -> Greeting:
         nonlocal call_count
         call_count += 1
         return Greeting("Hello")
@@ -230,9 +231,42 @@ def test_dependency_reused_across_providers():
     def get_greeting(*, greeting: Greeting = required, _: SideEffect = required) -> Greeting:
         return greeting
 
-    with solution(provide_greeting, provider_side_effect):
+    with solution(greeting_provider, provider_side_effect):
         get_greeting()
         assert call_count == 1
+
+
+def test_dependency_not_reused_by_inner_calls():
+    call_count = 0
+    exit_count = 0
+
+    @provider.iterator
+    def greeting_provider() -> Iterator[Greeting]:
+        nonlocal call_count
+        call_count += 1
+        try:
+            yield Greeting("Hello")
+        finally:
+            nonlocal exit_count
+            exit_count += 1
+
+    @injector.function
+    def get_greeting_inner(*, greeting: Greeting = required) -> Greeting:
+        assert call_count == 2
+        assert exit_count == 0
+        return greeting
+
+    @injector.function
+    def get_greeting_outer(*, greeting: Greeting = required) -> Greeting:
+        assert call_count == 1
+        inner_greeting = get_greeting_inner()
+        assert exit_count == 1
+        return Greeting(f"{greeting} {inner_greeting}")
+
+    with solution(greeting_provider):
+        assert get_greeting_outer() == "Hello Hello"
+        assert exit_count == 2
+        assert call_count == 2
 
 
 UserId = NewType("UserId", int)
@@ -253,11 +287,11 @@ def test_overwritten_value_causes_descendant_providers_to_reevaluate():
     call_count = 0
 
     @provider.function
-    def provide_user_id() -> UserId:
+    def user_id_provider() -> UserId:
         return UserId(1)
 
     @provider.function
-    def provide_profile(*, user_id: UserId = required) -> Profile:
+    def profile_provider(*, user_id: UserId = required) -> Profile:
         nonlocal call_count
         call_count += 1
         return db[user_id]
@@ -266,7 +300,7 @@ def test_overwritten_value_causes_descendant_providers_to_reevaluate():
     def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
         return f"#{user_id} {profile.name}: {profile.bio}"
 
-    with solution(provide_user_id, provide_profile):
+    with solution(user_id_provider, profile_provider):
         with current(Profile):
             assert call_count == 1
             assert get_profile_summary() == "#1 Alice: Alice's bio"
@@ -286,22 +320,22 @@ def test_raise_on_missing_params():
 
 async def test_async_provider_can_depend_on_sync_and_async_providers_at_the_same_time():
     @provider.function
-    def provide_greeting() -> Greeting:
+    def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
     @provider.asyncfunction
-    async def provide_recipient() -> Recipient:
+    async def recipient_provider() -> Recipient:
         return Recipient("World")
 
     @provider.asyncfunction
-    async def provide_message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+    async def message_provider(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
         return Message(f"{greeting} {recipient}")
 
     @injector.asyncfunction
     async def use_message(*, message: Message = required):
         return message
 
-    with solution(provide_greeting, provide_recipient, provide_message):
+    with solution(greeting_provider, recipient_provider, message_provider):
         assert await use_message() == "Hello World"
 
 
@@ -310,35 +344,35 @@ async def test_async_providers_are_executed_concurrently_if_possible():
     did_begin_recipient = Event()
 
     @provider.asyncfunction
-    async def provide_greeting() -> Greeting:
+    async def greeting_provider() -> Greeting:
         did_begin_greeting.set()
         await did_begin_recipient.wait()
         return Greeting("Hello")
 
     @provider.asyncfunction
-    async def provide_recipient() -> Recipient:
+    async def recipient_provider() -> Recipient:
         did_begin_recipient.set()
         await did_begin_greeting.wait()
         return Recipient("World")
 
     @provider.asyncfunction
-    async def provide_message(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+    async def message_provider(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
         return Message(f"{greeting} {recipient}")
 
     @injector.asyncfunction
     async def use_message(*, message: Message = required):
         return message
 
-    with solution(provide_greeting, provide_recipient, provide_message):
+    with solution(greeting_provider, recipient_provider, message_provider):
         assert await wait_for(use_message(), 3) == "Hello World"
 
 
 def test_cannot_enter_current_context_more_than_once():
     @provider.function
-    def provide_greeting() -> Greeting:
+    def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
-    with solution(provide_greeting):
+    with solution(greeting_provider):
         ctx = current(Greeting)
         with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
@@ -348,10 +382,10 @@ def test_cannot_enter_current_context_more_than_once():
 
 async def test_cannot_async_enter_current_context_more_than_once():
     @provider.function
-    def provide_greeting() -> Greeting:
+    def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
-    with solution(provide_greeting):
+    with solution(greeting_provider):
         ctx = current(Greeting)
         async with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
@@ -369,26 +403,26 @@ def test_cannot_enter_overwrite_context_more_than_once():
 
 def test_cannot_bind_required_provider_parameters():
     @provider.function
-    def provide_message(*, greeting: Greeting = required) -> Message:
+    def message_provider(*, greeting: Greeting = required) -> Message:
         raise AssertionError(greeting)  # nocov
 
     with pytest.raises(TypeError, match="Cannot bind dependency parameters"):
-        provide_message.bind(greeting=Greeting("Hello"))
+        message_provider.bind(greeting=Greeting("Hello"))
 
 
 def test_can_call_provider_directly():
     @provider.function
-    def provide_greeting() -> Greeting:
+    def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
-    with provide_greeting() as greeting:
+    with greeting_provider() as greeting:
         assert greeting == "Hello"
 
 
 async def test_can_call_async_provider_directly():
     @provider.asyncfunction
-    async def provide_greeting() -> Greeting:
+    async def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
-    async with provide_greeting() as greeting:
+    async with greeting_provider() as greeting:
         assert greeting == "Hello"

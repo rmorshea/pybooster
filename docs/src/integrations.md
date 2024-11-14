@@ -24,12 +24,12 @@ to use this middleware.
 
 PyBooster's SQLAlchemy integration supplies providers for the following dependencies:
 
-| Provider                                               | Dependency                                            |
-| ------------------------------------------------------ | ----------------------------------------------------- |
-| [`pybooster.extra.sqlalchemy.provide_engine`][]        | [`Engine`][sqlalchemy.engine.Engine]                  |
-| [`pybooster.extra.sqlalchemy.provide_session`][]       | [`Session`][sqlalchemy.orm.Session]                   |
-| [`pybooster.extra.sqlalchemy.provide_async_engine`][]  | [`AsyncEngine`][sqlalchemy.ext.asyncio.AsyncEngine]   |
-| [`pybooster.extra.sqlalchemy.provide_async_session`][] | [`AsyncSession`][sqlalchemy.ext.asyncio.AsyncSession] |
+| Provider                                                | Dependency                                            |
+| ------------------------------------------------------- | ----------------------------------------------------- |
+| [`pybooster.extra.sqlalchemy.engine_provider`][]        | [`Engine`][sqlalchemy.engine.Engine]                  |
+| [`pybooster.extra.sqlalchemy.session_provider`][]       | [`Session`][sqlalchemy.orm.Session]                   |
+| [`pybooster.extra.sqlalchemy.async_engine_provider`][]  | [`AsyncEngine`][sqlalchemy.ext.asyncio.AsyncEngine]   |
+| [`pybooster.extra.sqlalchemy.async_session_provider`][] | [`AsyncSession`][sqlalchemy.ext.asyncio.AsyncSession] |
 
 The sync and async session providers are [generic](./concepts.md#generic-providers) on
 their first positional argument which allows session subclasses to be used as
@@ -38,13 +38,13 @@ dependencies instead. For example:
 ```python
 from sqlalchemy.orm import Session
 
-from pybooster.extra.sqlalchemy import provide_session
+from pybooster.extra.sqlalchemy import session_provider
 
 
 class MySession(Session): ...
 
 
-provide_my_session = provide_session.bind(MySession)
+my_session_provider = session_provider.bind(MySession)
 ```
 
 See the [Starlette + SQLAlchemy example](examples.md#starlette-sqlalchemy) for one way

@@ -161,23 +161,28 @@ def asynciterator(
     )
 
 
-def _bind(
-    provider: SyncProvider[P, R] | AsyncProvider[P, R],
-    *args: P.args,
-    **kwargs: P.kwargs,
-) -> SyncProvider[P, R] | AsyncProvider[P, R]:
-    if disallowed := (provider.dependencies.keys() & kwargs):
-        msg = f"Cannot bind dependency parameters: {disallowed}"
-        raise TypeError(msg)
-    producer = provider.producer
-    return type(provider)(
-        lambda: producer(*args, **kwargs),  # type: ignore[reportArgumentType]
-        get_provides_type(provider.provides, *args, **kwargs),
-        provider.dependencies,
-    )
+class _BaseProvider(Generic[R]):
+
+    producer: Any
+    provides: type[R] | Callable[..., type[R]]
+    dependencies: HintMap
+
+    def __getitem__(self, provides: type[R]) -> Self:
+        """Declare a specific type for a generic provider."""
+        return type(self)(self.producer, provides, self.dependencies)  # type: ignore[reportCallIssue]
+
+    if not TYPE_CHECKING:
+
+        def bind(self, *args, **kwargs):
+            if disallowed := (self.dependencies.keys() & kwargs):
+                msg = f"Cannot bind dependency parameters: {disallowed}"
+                raise TypeError(msg)
+            producer = self.producer
+            provides = get_provides_type(self.provides, *args, **kwargs)
+            return type(self)(lambda: producer(*args, **kwargs), provides, self.dependencies)
 
 
-class SyncProvider(Generic[P, R]):
+class SyncProvider(Generic[P, R], _BaseProvider[R]):
     """A provider for a dependency."""
 
     def __init__(
@@ -196,18 +201,11 @@ class SyncProvider(Generic[P, R]):
             """Inject the dependencies and produce the dependency."""
             ...
 
-    else:
-        bind = _bind
-
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractContextManager[R]:  # noqa: D102
         return self.producer(*args, **kwargs)
 
-    def __getitem__(self, provides: type[R]) -> Self:
-        """Declare a specific type for a generic provider."""
-        return type(self)(self.producer, provides, self.dependencies)
 
-
-class AsyncProvider(Generic[P, R]):
+class AsyncProvider(Generic[P, R], _BaseProvider[R]):
     """A provider for a dependency."""
 
     def __init__(
@@ -226,15 +224,8 @@ class AsyncProvider(Generic[P, R]):
             """Inject the dependencies and produce the dependency."""
             ...
 
-    else:
-        bind = _bind
-
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractAsyncContextManager[R]:  # noqa: D102
         return self.producer(*args, **kwargs)
-
-    def __getitem__(self, provides: type[R]) -> Self:
-        """Declare a specific type for a generic provider."""
-        return type(self)(self.producer, provides, self.dependencies)
 
 
 Provider: TypeAlias = "SyncProvider[P, R] | AsyncProvider[P, R]"

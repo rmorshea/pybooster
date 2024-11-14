@@ -44,6 +44,8 @@ def sync_inject_keywords(
     stack: FastStack,
     required_params: HintMap,
     overwrite_values: dict[str, Any],
+    *,
+    keep_current_values: bool = False,
 ) -> None:
     solution = SYNC_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
@@ -55,15 +57,23 @@ def sync_inject_keywords(
     if not missing_params:
         return
 
-    stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
-    _sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
-    _check_for_missing_params(missing_params)
+    current_values_token = _CURRENT_VALUES.set(current_values)
+    try:
+        _sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
+        _check_for_missing_params(missing_params)
+    finally:
+        if keep_current_values:
+            stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
+        else:
+            _CURRENT_VALUES.reset(current_values_token)
 
 
 async def async_inject_keywords(
     stack: AsyncFastStack,
     required_params: HintMap,
     overwrite_values: dict[str, Any],
+    *,
+    keep_current_values: bool = False,
 ) -> None:
     solution = FULL_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
@@ -75,9 +85,15 @@ async def async_inject_keywords(
     if not missing_params:
         return
 
-    stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
-    await _async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
-    _check_for_missing_params(missing_params)
+    current_values_token = _CURRENT_VALUES.set(current_values)
+    try:
+        await _async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
+        _check_for_missing_params(missing_params)
+    finally:
+        if keep_current_values:
+            stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
+        else:
+            _CURRENT_VALUES.reset(current_values_token)
 
 
 def _inject_overwrite_values(

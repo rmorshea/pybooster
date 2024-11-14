@@ -42,8 +42,53 @@ with solution(switch_on):
     assert not SWITCH
 ```
 
-## Wrapping Providers
+## Calling Providers Directly
+
+Providers can be called directly as normal context managers with no additional effects.
+
+```python
+from typing import NewType
+
+from pybooster import provider
+
+TheAnswer = NewType("TheAnswer", int)
+
+
+@provider.function
+def answer_provider() -> TheAnswer:
+    return TheAnswer(42)
+
+
+with answer_provider() as value:
+    assert value == 42
+```
+
+This can allow you to compose provider implementations without requiring them as a
+dependency. For example, you could create a SQLAlchemy transaction provider by wrapping
+a call to the [`session_provider`][pybooster.extra.sqlalchemy.session_provider]:
+
+```python
+from collections.abc import Iterator
+from typing import NewType
+
+from sqlalchemy.orm import Session
+
+from pybooster import provider
+from pybooster.extra.sqlalchemy import session_provider
+
+Transaction = NewType("Transaction", Session)
+
+
+@provider.iterator
+def transaction_provider() -> Iterator[Transaction]:
+    with session_provider() as session, session.begin():
+        yield session
+```
 
 ## Testing Injected Functions
 
 ## Testing Providers
+
+```
+
+```

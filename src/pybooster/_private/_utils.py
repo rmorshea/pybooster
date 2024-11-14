@@ -243,7 +243,10 @@ class FastStack(_FastStack):
 
     def close(self) -> None:
         if cb_len := len(self._callbacks):
-            _sync_unravel_stack(self._callbacks, cb_len - 1)
+            try:
+                _sync_unravel_stack(self._callbacks, cb_len - 1)
+            finally:
+                self._callbacks.clear()
 
 
 class AsyncFastStack(_FastStack):
@@ -262,7 +265,10 @@ class AsyncFastStack(_FastStack):
 
     async def aclose(self) -> None:
         if cb_len := len(self._callbacks):
-            await _async_unravel_stack(self._callbacks, cb_len - 1)
+            try:
+                await _async_unravel_stack(self._callbacks, cb_len - 1)
+            finally:
+                self._callbacks.clear()
 
 
 def _sync_unravel_stack(callbacks: Sequence[_Callback], position: int) -> None:

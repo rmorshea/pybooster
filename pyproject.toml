@@ -66,7 +66,7 @@ cov = ["cov-test", "cov-report"]
 
 [tool.hatch.envs.lint]
 python = "3.12"
-extra-dependencies = ["black==24.8.0", "pyright==1.1.377", "ruff==0.5.7"]
+extra-dependencies = ["black==24.8.0", "pyright==1.1.377", "ruff==0.7.3"]
 [tool.hatch.envs.lint.scripts]
 typing = "pyright {args:src/pybooster tests}"
 style = ["ruff check {args:.}", "black --check --diff {args:.}"]
@@ -184,7 +184,12 @@ pybooster = ["src"]
 tests = ["tests"]
 
 [tool.coverage.report]
-exclude_lines = ["no ?cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+exclude_lines = [
+  "no ?cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  '\.\.\.',
+]
 show_missing = true
 skip_covered = true
 sort = "Name"

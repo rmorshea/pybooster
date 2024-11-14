@@ -46,14 +46,14 @@ class AsyncSessionMaker(Protocol[P, A_co]):
 
 if TYPE_CHECKING:
 
-    def _provide_session(
+    def _session_provider(
         cls: SessionMaker[P, S] = Session,
         bind: Engine = ...,
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> Iterator[S]: ...
 
-    def _provide_async_session(
+    def _async_session_provider(
         cls: AsyncSessionMaker[P, A] = AsyncSession,
         bind: AsyncEngine = ...,
         *args: P.args,
@@ -62,18 +62,18 @@ if TYPE_CHECKING:
 
 else:
 
-    def _provide_session(cls=Session, **kwargs):
+    def _session_provider(cls=Session, **kwargs):
         with cls(**kwargs) as session:
             yield session
 
-    async def _provide_async_session(cls=AsyncSession, **kwargs):
+    async def _async_session_provider(cls=AsyncSession, **kwargs):
         async with cls(**kwargs) as session:
             yield session
 
 
 @provider.iterator
 @copy_signature(create_engine)
-def provide_engine(*args: Any, **kwargs: Any) -> Iterator[Engine]:
+def engine_provider(*args: Any, **kwargs: Any) -> Iterator[Engine]:
     """Provide a SQLAlchemy engine."""
     engine = create_engine(*args, **kwargs)
     try:
@@ -84,7 +84,7 @@ def provide_engine(*args: Any, **kwargs: Any) -> Iterator[Engine]:
 
 @provider.asynciterator
 @copy_signature(create_async_engine)
-async def provide_async_engine(*args: Any, **kwargs: Any) -> AsyncIterator[AsyncEngine]:
+async def async_engine_provider(*args: Any, **kwargs: Any) -> AsyncIterator[AsyncEngine]:
     """Provide an async SQLAlchemy engine."""
     engine = create_async_engine(*args, **kwargs)
     try:
@@ -101,16 +101,16 @@ def _infer_async_session_type(cls: type[A] = AsyncSession, *_args, **_kwargs) ->
     return cls
 
 
-provide_session = provider.iterator(
-    _provide_session,
+session_provider = provider.iterator(
+    _session_provider,
     dependencies={"bind": Engine},
     provides=_infer_session_type,
 )
 """Provide a SQLAlchemy session."""
 
 
-provide_async_session = provider.asynciterator(
-    _provide_async_session,
+async_session_provider = provider.asynciterator(
+    _async_session_provider,
     dependencies={"bind": AsyncEngine},
     provides=_infer_async_session_type,
 )
