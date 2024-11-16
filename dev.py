@@ -75,12 +75,6 @@ def lint_style(fix: bool):
         run(["ruff", "check"])
 
 
-# build = "mkdocs build -f docs/mkdocs.yml"
-# publish = "mkdocs gh-deploy -f docs/mkdocs.yml"
-# fix = "pytest tests/test_docs.py {args:} --update-examples"
-# serve = "mkdocs serve -f docs/mkdocs.yml"
-
-
 @dev.group("docs")
 def docs():
     """Documentation commands."""

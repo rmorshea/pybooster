@@ -13,11 +13,7 @@ DOCS_DIR = ROOT_DIR / "docs"
 SRC_DIR = ROOT_DIR / "src"
 PYPROJECT_TOML_FILE = ROOT_DIR / "pyproject.toml"
 LINE_LENGTH = 80
-EXAMPLES = [
-    ex
-    for ex in find_examples(DOCS_DIR, SRC_DIR)
-    if ex.prefix_settings().get("test", "").lower() != "false"
-]
+EXAMPLES = [ex for ex in find_examples(DOCS_DIR, SRC_DIR) if ex.prefix_settings().get("test", "").lower() != "false"]
 
 
 def get_dict_path(data: dict, path: str) -> Any:
@@ -35,9 +31,7 @@ def ruff_ignore() -> list[str]:
 
 
 @pytest.mark.parametrize("example", EXAMPLES, ids=str)
-def test_docstrings(
-    example: CodeExample, eval_example: EvalExample, ruff_ignore: list[str]
-):
+def test_docstrings(example: CodeExample, eval_example: EvalExample, ruff_ignore: list[str]):
     eval_example.set_config(
         ruff_ignore=ruff_ignore,
         quotes="double",
