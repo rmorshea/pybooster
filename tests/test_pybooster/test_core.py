@@ -113,15 +113,15 @@ async def test_async_provider_can_depend_on_sync_provider():
 async def test_sync_provider_cannot_depend_on_async_provider():
     @provider.asyncfunction
     async def greeting_provider() -> Greeting:
-        raise AssertionError  # nocov
+        raise AssertionError
 
     @provider.function
     def message_provider(*, _: Greeting = required) -> Message:
-        raise AssertionError  # nocov
+        raise AssertionError
 
     @injector.function
     async def use_message(*, _: Message = required):
-        raise AssertionError  # nocov
+        raise AssertionError
 
     with (
         pytest.raises(SolutionError, match=r"No provider for .*"),
@@ -134,15 +134,15 @@ def test_union_dependency_is_disallowed():
     with pytest.raises(TypeError, match=r"Cannot use Union type"):
 
         @provider.function
-        def greeting_provider() -> Greeting | Recipient:
-            raise AssertionError  # nocov
+        def greeting_provider() -> Greeting | Recipient:  # nocov
+            raise AssertionError
 
 
 @pytest.mark.parametrize("returns", [str, list, list[str]], ids=str)
 def test_disallow_builtin_type_as_provided_depdency(returns):
 
     def f():
-        raise AssertionError  # nocov
+        raise AssertionError
 
     f.__annotations__["return"] = returns
 
@@ -162,14 +162,14 @@ def test_disallow_builtin_type_as_injector_dependency():
 def test_solution_requires_provider_types_to_be_concrete(returns):
 
     def f():
-        raise AssertionError  # nocov
+        raise AssertionError
 
     f.__annotations__["return"] = returns
 
     f_provider = provider.function(f)
 
     with pytest.raises(TypeError, match=r"Can only provide concrete type"), solution(f_provider):
-        raise AssertionError  # nocov
+        raise AssertionError
 
 
 def test_allow_provider_return_any_if_concrete_type_declared_before_entering_scope():
@@ -312,7 +312,7 @@ def test_overwritten_value_causes_descendant_providers_to_reevaluate():
 def test_raise_on_missing_params():
     @injector.function
     def use_message(*, _: Message = required):
-        raise AssertionError  # nocov
+        raise AssertionError
 
     with pytest.raises(InjectionError, match=r"Missing providers for parameters: .*"):
         use_message()
@@ -377,7 +377,7 @@ def test_cannot_enter_current_context_more_than_once():
         with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
                 with ctx:
-                    raise AssertionError  # nocov
+                    raise AssertionError
 
 
 async def test_cannot_async_enter_current_context_more_than_once():
@@ -390,7 +390,7 @@ async def test_cannot_async_enter_current_context_more_than_once():
         async with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
                 async with ctx:
-                    raise AssertionError  # nocov
+                    raise AssertionError
 
 
 def test_cannot_enter_overwrite_context_more_than_once():
@@ -398,7 +398,7 @@ def test_cannot_enter_overwrite_context_more_than_once():
     with ctx:
         with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
             with ctx:
-                raise AssertionError  # nocov
+                raise AssertionError
 
 
 def test_cannot_bind_required_provider_parameters():

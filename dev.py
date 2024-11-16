@@ -42,13 +42,15 @@ def test_lib(args: list[str]):
 @click.argument("args", nargs=-1)
 def test_cov(no_test: bool, no_report: bool, args: list[str]):
     """Run tests with coverage."""
-    if not no_test:
-        run(["coverage", "run", "-m", "pytest", "-v", *args])
-    if not no_report:
-        run(["coverage", "combine"], check=False)
-        run(["coverage", "report"])
-        run(["coverage", "xml"])
-        run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
+    try:
+        if not no_test:
+            run(["coverage", "run", "-m", "pytest", "-v", *args])
+    finally:
+        if not no_report:
+            run(["coverage", "combine"], check=False)
+            run(["coverage", "report"])
+            run(["coverage", "xml"])
+            run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
 
 
 @dev.group("lint", chain=True)

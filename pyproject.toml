@@ -163,10 +163,13 @@ tests = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [
-    "no ?cov",
-    "if __name__ == .__main__.:",
+    'if __name__ == .__main__.:',
+    "@overload",
     "if TYPE_CHECKING:",
-    '\.\.\.',
+    "# nocov",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    'class .*\bProtocol\b.*\):',
 ]
 show_missing = true
 skip_covered = true

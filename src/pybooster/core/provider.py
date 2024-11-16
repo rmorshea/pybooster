@@ -171,7 +171,9 @@ class _BaseProvider(Generic[R]):
         """Declare a specific type for a generic provider."""
         return type(self)(self.producer, provides, self.dependencies)  # type: ignore[reportCallIssue]
 
-    if not TYPE_CHECKING:
+    if TYPE_CHECKING:
+        pass
+    else:
 
         def bind(self, *args, **kwargs):
             if disallowed := (self.dependencies.keys() & kwargs):
