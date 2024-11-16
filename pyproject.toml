@@ -1,91 +1,68 @@
+
+[tool.uv]
+default-groups = ["all"]
+
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "pybooster"
 dynamic = ["version"]
-description = ''
+description = "A dependency injection framework for Python using type hints."
 readme = "README.md"
 requires-python = ">=3.11,<4"
-license = "MIT"
-keywords = []
+license = { file = "LICENSE.txt" }
+keywords = ["dependency", "injection", "framework"]
 authors = [{ name = "Ryan Morshead", email = "ryan.morshead@gmail.com" }]
 classifiers = [
-  "Development Status :: 4 - Beta",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: Implementation :: CPython",
-  "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "typing_extensions",
-  "paramorator>=1.0.2,<2",
-  "rustworkx>=0.15,<0.16",
+    "typing_extensions",
+    "paramorator>=1.0.2,<2",
+    "rustworkx>=0.15,<0.16",
 ]
 
-[project.optional-dependencies]
-asgi = ["asgiref>=3.8.1,<4", "anyio>=4.6.0,<5"]
-sqlalchemy = ["sqlalchemy[asyncio]>=2.0.35,<3"]
-
-[project.urls]
-Documentation = "https://github.com/rmorshea/pybooster#readme"
-Issues = "https://github.com/rmorshea/pybooster/issues"
-Source = "https://github.com/rmorshea/pybooster"
-
-[tool.hatch.version]
-path = "src/pybooster/__init__.py"
-
-[tool.hatch.envs.default]
-dependencies = [
-  "aiosqlite==0.20.0",
-  "boto3-stubs[essential]==1.35.49",
-  "boto3==1.35.49",
-  "coverage[toml]==7.6.1",
-  "diff-cover==9.2.0",
-  "moto==5.0.16",
-  "pytest-asyncio==0.24.0",
-  "pytest-examples==0.0.13",
-  "pytest==8.3.3",
-  "starlette[full]==0.39.2",
-  "sqlalchemy[asyncio]==2.0.36",
-  "toml==0.10.2",                    # python 3.10 compatibility
+[dependency-groups]
+all = [
+    { include-group = "dev" },
+    { include-group = "docs" },
+    { include-group = "lint" },
+    { include-group = "test" },
 ]
-[tool.hatch.envs.default.scripts]
-test = "pytest -v {args:tests}"
-cov-test = ["coverage run -m pytest -v {args:tests}"]
-cov-report = [
-  "- coverage combine",
-  "coverage report",
-  "coverage xml",
-  "diff-cover coverage.xml --config-file pyproject.toml",
+dev = ["click==8.1.7"]
+docs = [
+    { include-group = "test" },
+    "mkdocs-gen-files==0.5.0",
+    "mkdocs-material==9.5.39",
+    "mkdocs-open-in-new-tab==1.0.5",
+    "mkdocs==1.6.1",
+    "mkdocstrings-python==1.11.1",
 ]
-cov = ["cov-test", "cov-report"]
-
-[tool.hatch.envs.lint]
-python = "3.12"
-extra-dependencies = ["black==24.8.0", "pyright==1.1.377", "ruff==0.7.3"]
-[tool.hatch.envs.lint.scripts]
-typing = "pyright {args:src/pybooster tests}"
-style = ["ruff check {args:.}", "black --check --diff {args:.}"]
-fix = ["black {args:.}", "ruff check --fix {args:.}", "style"]
-all = ["style", "typing"]
-
-[tool.hatch.envs.docs]
-extra-dependencies = [
-  "mkdocs-gen-files==0.5.0",
-  "mkdocs-material==9.5.39",
-  "mkdocs-open-in-new-tab==1.0.5",
-  "mkdocs==1.6.1",
-  "mkdocstrings-python==1.11.1",
+lint = [
+    { include-group = "test" },
+    "black==24.8.0",
+    "pyright==1.1.389",
+    "ruff==0.7.3",
 ]
-[tool.hatch.envs.docs.scripts]
-build = "mkdocs build -f docs/mkdocs.yml"
-publish = "mkdocs gh-deploy -f docs/mkdocs.yml"
-fix = "pytest tests/test_docs.py {args:} --update-examples"
-serve = "mkdocs serve -f docs/mkdocs.yml"
+test = [
+    { include-group = "dev" },
+    "aiosqlite==0.20.0",
+    "boto3-stubs[essential]==1.35.49",
+    "boto3==1.35.49",
+    "coverage[toml]==7.6.1",
+    "diff-cover==9.2.0",
+    "moto==5.0.16",
+    "pytest-asyncio==0.24.0",
+    "pytest-examples==0.0.13",
+    "pytest==8.3.3",
+    "sqlalchemy[asyncio]==2.0.36",
+    "starlette[full]==0.39.2",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -109,37 +86,37 @@ indent-style = "space"
 preview = true
 select = ["ALL"]
 ignore = [
-  "A005",   # Module shadowing built-in
-  "ANN",    # Let pyright handle annotations
-  "ANN401", # Allow Any type hints
-  "ARG005", # Unused lambda argument
-  "B027",   # Allow non-abstract empty methods in abstract base classes
-  "B039",   # Mutable default for contextvars
-  "C901",   # Ignore complexity
-  "COM812", # Trailing comma
-  "CPY001", # Copyright at top of file
-  "D100",   # Docstring for module
-  "D104",   # Ignore missing docstring for __init__.py
-  "D105",   # Docstring for magic method
-  "D107",   # Docstring for __init__ method
-  "D203",   # One blank line before class
-  "D213",   # Multi-line docstring summary second line
-  "D407",   # Docstring dashes under section names
-  "D413",   # Docstring blank line after last section
-  "DOC201", # Return type documentation
-  "DOC402", # Yield type documentation
-  "DOC501", # Ignore raises missing from docstring
-  "ERA001", # Commented out code
-  "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
-  "PL",     # PyLint
-  "PYI",    # Stub files
-  "RET503", # Explicit return
-  "RET505", # Unnecessary return statement after return
-  "S105",   # Ignore checks for possible passwords
-  "SIM117", # Use a single `with` statement
+    "A005",   # Module shadowing built-in
+    "ANN",    # Let pyright handle annotations
+    "ANN401", # Allow Any type hints
+    "ARG005", # Unused lambda argument
+    "B027",   # Allow non-abstract empty methods in abstract base classes
+    "B039",   # Mutable default for contextvars
+    "C901",   # Ignore complexity
+    "COM812", # Trailing comma
+    "CPY001", # Copyright at top of file
+    "D100",   # Docstring for module
+    "D104",   # Ignore missing docstring for __init__.py
+    "D105",   # Docstring for magic method
+    "D107",   # Docstring for __init__ method
+    "D203",   # One blank line before class
+    "D213",   # Multi-line docstring summary second line
+    "D407",   # Docstring dashes under section names
+    "D413",   # Docstring blank line after last section
+    "DOC201", # Return type documentation
+    "DOC402", # Yield type documentation
+    "DOC501", # Ignore raises missing from docstring
+    "ERA001", # Commented out code
+    "FBT003", # Allow boolean positional values in function calls, like `dict.get(... True)`
+    "PL",     # PyLint
+    "PYI",    # Stub files
+    "RET503", # Explicit return
+    "RET505", # Unnecessary return statement after return
+    "S105",   # Ignore checks for possible passwords
+    "SIM117", # Use a single `with` statement
 ]
 unfixable = [
-  "COM819", # Trailing comma
+    "COM819", # Trailing comma
 ]
 fixable = ["ALL"]
 
@@ -154,25 +131,25 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
-  "PLC2701", # Private imports
-  "RUF029",  # Async functions without await
-  "S101",    # Assert statements
-  "D",       # Docstrings
-  "ANN",     # Type annotations
+    "PLC2701", # Private imports
+    "RUF029",  # Async functions without await
+    "S101",    # Assert statements
+    "D",       # Docstrings
+    "ANN",     # Type annotations
 ]
 "**.ipynb" = [
-  "T201", # Print statements
+    "T201", # Print statements
 ]
 "**.md" = [
-  "ANN",    # Type annotations
-  "B018",   # Useless expression
-  "D",      # Docstrings
-  "FA102",  # Unsafe __futures__ annotations usage
-  "RUF029", # No await in async function
-  "S101",   # Assert statements
-  "S106",   # Possible passwords
-  "SIM115", # Use context manager for opening files
-  "TCH002", # Move third-party import into a type-checking block
+    "ANN",    # Type annotations
+    "B018",   # Useless expression
+    "D",      # Docstrings
+    "FA102",  # Unsafe __futures__ annotations usage
+    "RUF029", # No await in async function
+    "S101",   # Assert statements
+    "S106",   # Possible passwords
+    "SIM115", # Use context manager for opening files
+    "TCH002", # Move third-party import into a type-checking block
 ]
 
 [tool.coverage.run]
@@ -186,10 +163,10 @@ tests = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [
-  "no ?cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-  '\.\.\.',
+    "no ?cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    '\.\.\.',
 ]
 show_missing = true
 skip_covered = true
