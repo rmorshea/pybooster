@@ -3,7 +3,7 @@
 ## Solutions
 
 In order to [inject](#injectors) a set of [dependencies](#dependencies) PyBooster must
-resolve the execution order their [providers](#providers). That execution order is
+resolve the execution order of their [providers](#providers). That execution order is
 determined by performing a topological sort on the dependency graph that gets saved as a
 "solution". You can declare one using the `solution` context manager.
 
@@ -129,12 +129,12 @@ with solution(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
--   [injector.function][pybooster.core.injector.function]
--   [injector.asyncfunction][pybooster.core.injector.asyncfunction]
--   [injector.iterator][pybooster.core.injector.iterator]
--   [injector.asynciterator][pybooster.core.injector.asynciterator]
--   [injector.contextmanager][pybooster.core.injector.contextmanager]
--   [injector.asynccontextmanager][pybooster.core.injector.asynccontextmanager]
+-   [`injector.function`][pybooster.core.injector.function]
+-   [`injector.iterator`][pybooster.core.injector.iterator]
+-   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+-   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+-   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+-   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
 #### Overwrite Parameters
 
@@ -435,12 +435,12 @@ with solution(sqlite_connection.bind(":memory:")):
 
 ### Generic Providers
 
-You can use a single provider to supply multiple dependencies by narrowing the return
-type if it's a base class, union, `Any`, or includes a `TypeVar`. This is done using
-square brackets to annotate the exact concrete type that the provider will supply when
-solving. So, in the case you have a provider that loads json data from a file you could
-annotate its return type as `Any` but narrow the type to `ConfigDict` before declaring a
-solution:
+A single provider can supply multiple types of dependencies if it provides a base class,
+union, `Any`, or includes a `TypeVar` which is narrowed later. To narrow the type before
+using it in a solution you can use the `[]` syntax to annotate the concrete type that
+the provider will supply when solving. So, in the case you have a provider that loads
+json data from a file you could annotate its return type as `Any` but narrow the type to
+`ConfigDict` before declaring a solution:
 
 ```python
 import json
@@ -456,8 +456,8 @@ from pybooster import solution
 
 
 @provider.function
-def json_provider(path: str | Path) -> Any:
-    with Path(path).open() as f:
+def json_provider(path: Path) -> Any:
+    with path.open() as f:
         return json.load(f)
 
 
@@ -698,49 +698,6 @@ def get_login_message(*, auth: Auth = required) -> str:
 
 with solution(auth_provider):
     assert get_login_message() == "Logged in as alice"
-```
-
-### Subclassed Types
-
-Providers of subclasses will be automatically injected into functions that require the
-base class. So an `AdminAuth` class that inherits from `Auth` can be injected into
-functions that require `Auth`.
-
-```python
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Literal
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solution
-
-
-@dataclass
-class Auth:
-    role: str
-    username: str
-    password: str
-
-
-@dataclass
-class AdminAuth(Auth):
-    role: Literal["admin"] = field(init=False, default="admin")
-
-
-@provider.function
-def admin_auth_provider() -> AdminAuth:
-    return AdminAuth(username="admin", password="admin")
-
-
-@injector.function
-def get_login_message(*, auth: Auth = required) -> str:
-    return f"Logged in as {auth.username}"
-
-
-with solution(admin_auth_provider):
-    assert get_login_message() == "Logged in as admin"
 ```
 
 ### Tuple Types

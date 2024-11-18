@@ -12,7 +12,6 @@ from inspect import Parameter
 from inspect import isclass
 from inspect import signature
 from sys import exc_info
-from types import resolve_bases
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
@@ -23,7 +22,6 @@ from typing import TypedDict
 from typing import TypeVar
 from typing import TypeVarTuple
 from typing import Union
-from typing import cast
 from typing import dataclass_transform
 from typing import get_args
 from typing import get_origin
@@ -80,16 +78,6 @@ def is_type(value: Any) -> TypeIs[type]:
 
 def make_sentinel_value(module: str, name: str) -> Any:
     return type(name, (), {"__repr__": lambda _: f"{module}.{name}"})()
-
-
-def get_class_lineage(obj: Any) -> Sequence[Any]:
-    """Get a sequence of classes that the given object is an instance of."""
-    if hasattr(obj, "__mro__"):
-        return obj.__mro__
-    elif isinstance(obj, NewType):
-        return (cast(type, obj), *get_class_lineage(obj.__supertype__))
-    else:
-        return (obj, *resolve_bases((obj,)))
 
 
 undefined = make_sentinel_value(__name__, "undefined")

@@ -28,9 +28,9 @@ jobs:
             - name: Install UV
               run: curl -LsSf https://astral.sh/uv/install.sh | sh
             - name: Run tests
-              run: uv run dev.py test cov --no-report
+              run: uv run project.py test cov --no-report
             - name: Run lint
-              run: uv run dev.py lint style types
+              run: uv run project.py lint style types
             - name: Upload coverage
               uses: actions/upload-artifact@v4
               with:
@@ -65,4 +65,4 @@ jobs:
             - name: Install UV
               run: curl -LsSf https://astral.sh/uv/install.sh | sh
             - name: Check coverage
-              run: uv run dev.py test cov --no-test
+              run: uv run project.py test cov --no-test

@@ -130,7 +130,7 @@ def _sync_inject_provider_values(
     solution: Solution[SyncProviderInfo],
 ) -> None:
     param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
-    for provider_generation in solution.execution_order_for(param_name_by_type):
+    for provider_generation in solution.execution_order_for(param_name_by_type.keys()):
         for provider_info in provider_generation:
             if (cls := provider_info["provides"]) not in current_values:
                 value = current_values[cls] = _sync_enter_provider_context(stack, provider_info)
@@ -147,7 +147,7 @@ async def _async_inject_provider_values(
     solution: Solution[ProviderInfo],
 ) -> None:
     param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
-    for provider_generation in solution.execution_order_for(param_name_by_type):
+    for provider_generation in solution.execution_order_for(param_name_by_type.keys()):
         match provider_generation:
             case [provider_info]:
                 if provider_info["is_sync"] is True:

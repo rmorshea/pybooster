@@ -426,3 +426,9 @@ async def test_can_call_async_provider_directly():
 
     async with greeting_provider() as greeting:
         assert greeting == "Hello"
+
+
+def test_solution_requires_at_least_one_provider():
+    with pytest.raises(ValueError, match=r"At least one provider must be given"):
+        with solution():
+            raise AssertionError
