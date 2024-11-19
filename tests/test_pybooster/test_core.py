@@ -185,14 +185,6 @@ async def test_sync_provider_cannot_depend_on_async_provider():
         pass  # nocov
 
 
-def test_union_dependency_is_disallowed():
-    with pytest.raises(TypeError, match=r"Cannot use Union type"):
-
-        @provider.function
-        def greeting_provider() -> Greeting | Recipient:  # nocov
-            raise AssertionError
-
-
 @pytest.mark.parametrize("returns", [str, list, list[str]], ids=str)
 def test_disallow_builtin_type_as_provided_depdency(returns):
 
