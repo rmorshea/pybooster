@@ -62,10 +62,10 @@ def lint(check: bool, no_py_types: bool, no_py_style: bool, no_md_style: bool, n
         run(["pyright"])
     if not no_py_style:
         if check:
-            run(["black", "--check", "--diff", "."])
+            run(["ruff", "format", "--check", "--diff"])
             run(["ruff", "check"])
         else:
-            run(["black", "."])
+            run(["ruff", "format"])
             run(["ruff", "check", "--fix"])
     if not no_md_style:
         if check:

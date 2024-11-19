@@ -153,7 +153,6 @@ def asynciterator(
 
 
 class _BaseProvider(Generic[R]):
-
     producer: Any
     provides: type[R] | Callable[..., type[R]]
     dependencies: HintMap

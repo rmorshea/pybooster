@@ -177,9 +177,7 @@ def profile_provider(*, user_id: UserId = required) -> Profile:
 
 
 @injector.function
-def get_profile_summary(
-    *, user_id: UserId = required, profile: Profile = required
-) -> str:
+def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
@@ -246,7 +244,6 @@ def get_auth(*, auth: Auth = required) -> Auth:
 
 
 with solution(auth):
-
     assert get_auth() is not get_auth()
 
     with injector.current(Auth) as auth:
@@ -295,9 +292,7 @@ def profile_provider(*, user_id: UserId = required) -> Profile:
 
 
 @injector.function
-def get_profile_summary(
-    *, user_id: UserId = required, profile: Profile = required
-) -> str:
+def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
@@ -472,9 +467,7 @@ def get_config(*, config: ConfigDict = required) -> ConfigDict:
 
 tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
-json_file.write_text(
-    '{"app_name": "MyApp", "app_version": 1, "debug_mode": true}'
-)
+json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
 with solution(json_provider[ConfigDict].bind(json_file)):
     assert get_config() == {
@@ -533,14 +526,10 @@ def get_config(*, config: Config = required) -> Config:
 
 tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
-json_file.write_text(
-    '{"app_name": "MyApp", "app_version": 1, "debug_mode": true}'
-)
+json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
 with solution(config_file_provider.bind(Config, json_file)):
-    assert get_config() == Config(
-        app_name="MyApp", app_version=1, debug_mode=True
-    )
+    assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
 !!! tip

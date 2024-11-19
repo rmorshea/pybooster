@@ -13,7 +13,6 @@ from pybooster._private._utils import start_future
 
 
 async def test_start_future_raises_if_called_early():
-
     async def example(): ...
 
     async with create_task_group() as tg:

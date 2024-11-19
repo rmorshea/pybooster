@@ -17,7 +17,6 @@ from pybooster._private._utils import start_future
 from pybooster._private._utils import undefined
 
 if TYPE_CHECKING:
-
     from pybooster._private._provider import AsyncProviderInfo
     from pybooster._private._provider import ProviderInfo
     from pybooster._private._provider import SyncProviderInfo

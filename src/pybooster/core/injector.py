@@ -157,7 +157,6 @@ def overwrite(values: Mapping[type, Any]) -> _OverwriteContext:
 
 
 class _OverwriteContext(AbstractContextManager[None]):
-
     def __init__(self, values: Mapping[type, Any]) -> None:
         self._values = values
 

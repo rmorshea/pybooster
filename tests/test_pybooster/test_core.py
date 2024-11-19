@@ -41,7 +41,6 @@ Bottom = NewType("Bottom", str)
 
 
 def test_sync_function_injection():
-
     @provider.function
     def greeting_provider() -> Greeting:
         return Greeting("Hello")
@@ -55,7 +54,6 @@ def test_sync_function_injection():
 
 
 def test_sync_iterator_injection():
-
     @provider.function
     def greeting_provider() -> Greeting:
         return Greeting("Hello")
@@ -69,7 +67,6 @@ def test_sync_iterator_injection():
 
 
 def test_sync_context_manager_injection():
-
     @provider.function
     def greeting_provider() -> Greeting:
         return Greeting("Hello")
@@ -84,7 +81,6 @@ def test_sync_context_manager_injection():
 
 
 async def test_async_function_injection():
-
     @provider.asyncfunction
     async def greeting_provider() -> Greeting:
         return Greeting("Hello")
@@ -98,7 +94,6 @@ async def test_async_function_injection():
 
 
 async def test_async_iterator_injection():
-
     @provider.asyncfunction
     async def greeting_provider() -> Greeting:
         return Greeting("Hello")
@@ -112,7 +107,6 @@ async def test_async_iterator_injection():
 
 
 async def test_async_context_manager_injection():
-
     @provider.asyncfunction
     async def greeting_provider() -> Greeting:
         return Greeting("Hello")
@@ -187,7 +181,6 @@ async def test_sync_provider_cannot_depend_on_async_provider():
 
 @pytest.mark.parametrize("returns", [str, list, list[str]], ids=str)
 def test_disallow_builtin_type_as_provided_depdency(returns):
-
     def f():
         raise AssertionError
 
@@ -207,7 +200,6 @@ def test_disallow_builtin_type_as_injector_dependency():
 
 @pytest.mark.parametrize("returns", [Any, TypeVar("T")], ids=str)
 def test_solution_requires_provider_types_to_be_concrete(returns):
-
     def f():
         raise AssertionError
 
@@ -220,7 +212,6 @@ def test_solution_requires_provider_types_to_be_concrete(returns):
 
 
 def test_allow_provider_return_any_if_concrete_type_declared_before_entering_scope():
-
     @provider.function
     def greeting() -> Any:
         return "Hello"
@@ -234,7 +225,6 @@ def test_allow_provider_return_any_if_concrete_type_declared_before_entering_sco
 
 
 def test_allow_provider_return_typevar_if_concrete_type_declared_before_entering_scope():
-
     @provider.function
     def make_string(cls: Callable[[str], T], string: str) -> T:
         return cls(string)
@@ -248,7 +238,6 @@ def test_allow_provider_return_typevar_if_concrete_type_declared_before_entering
 
 
 def test_generic_with_provides_inference_function():
-
     @provider.function(provides=lambda cls, *a, **kw: cls)
     def make_string(cls: Callable[[str], T], string: str) -> T:
         return cls(string)
