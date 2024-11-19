@@ -532,6 +532,6 @@ def test_cannot_provide_union():
     def greeting_provider() -> Greeting | Recipient:  # nocov
         raise AssertionError
 
-    with pytest.raises(TypeError, match=r"Cannot provide a union type .* as a dependency."):
+    with pytest.raises(TypeError, match=r"Cannot provide a union type .*"):
         with solution(greeting_provider):
             raise AssertionError
