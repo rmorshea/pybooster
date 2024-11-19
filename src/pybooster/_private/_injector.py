@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Callable
 from collections.abc import Mapping
 from contextvars import ContextVar
@@ -16,9 +15,6 @@ from pybooster._private._solution import SYNC_SOLUTION
 from pybooster._private._solution import Solution
 from pybooster._private._utils import start_future
 from pybooster._private._utils import undefined
-from pybooster.types import HintDict
-from pybooster.types import HintMap
-from pybooster.types import InjectionError
 
 if TYPE_CHECKING:
 
@@ -27,6 +23,8 @@ if TYPE_CHECKING:
     from pybooster._private._provider import SyncProviderInfo
     from pybooster._private._utils import AsyncFastStack
     from pybooster._private._utils import FastStack
+    from pybooster.types import HintDict
+    from pybooster.types import HintMap
 
 
 P = ParamSpec("P")
@@ -60,7 +58,6 @@ def sync_inject_keywords(
     current_values_token = _CURRENT_VALUES.set(current_values)
     try:
         _sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
-        _check_for_missing_params(missing_params)
     finally:
         if keep_current_values:
             stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
@@ -88,7 +85,6 @@ async def async_inject_keywords(
     current_values_token = _CURRENT_VALUES.set(current_values)
     try:
         await _async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
-        _check_for_missing_params(missing_params)
     finally:
         if keep_current_values:
             stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
@@ -129,14 +125,11 @@ def _sync_inject_provider_values(
     current_values: dict[type, Any],
     solution: Solution[SyncProviderInfo],
 ) -> None:
-    param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
-    for provider_generation in solution.execution_order_for(param_name_by_type.keys()):
-        for provider_info in provider_generation:
-            if (cls := provider_info["provides"]) not in current_values:
-                value = current_values[cls] = _sync_enter_provider_context(stack, provider_info)
-                for name in param_name_by_type[cls]:
-                    kwargs[name] = value
-                    del missing_params[name]
+    param_name_by_type = _get_param_name_by_type_map(missing_params)
+    for provider_generation in solution.execution_order_for(param_name_by_type, current_values):
+        for info in provider_generation:
+            current_values[info["provides"]] = _sync_enter_provider_context(stack, info, current_values)
+    _inject_current_values(kwargs, missing_params, current_values)
 
 
 async def _async_inject_provider_values(
@@ -146,61 +139,58 @@ async def _async_inject_provider_values(
     current_values: dict[type, Any],
     solution: Solution[ProviderInfo],
 ) -> None:
-    param_name_by_type = _get_param_name_by_type_map(solution, missing_params)
-    for provider_generation in solution.execution_order_for(param_name_by_type.keys()):
+    param_name_by_type = _get_param_name_by_type_map(missing_params)
+    for provider_generation in solution.execution_order_for(param_name_by_type, current_values):
         match provider_generation:
-            case [provider_info]:
-                if provider_info["is_sync"] is True:
-                    value = _sync_enter_provider_context(stack, provider_info)
+            case [info]:
+                if info["is_sync"] is True:
+                    current_values[info["provides"]] = _sync_enter_provider_context(stack, info, current_values)
                 else:
-                    value = await _async_enter_provider_context(stack, provider_info)
-                for name in param_name_by_type[cls := provider_info["provides"]]:
-                    kwargs[name] = current_values[cls] = value
-                    del missing_params[name]
-            case [*provider_infos]:
+                    current_values[info["provides"]] = await _async_enter_provider_context(stack, info, current_values)
+            case [*provider_generation]:
                 async_infos: list[AsyncProviderInfo] = []
-                for provider_info in provider_infos:
-                    if provider_info["is_sync"] is True:
-                        value = _sync_enter_provider_context(stack, provider_info)
-                        for name in param_name_by_type[cls := provider_info["provides"]]:
-                            kwargs[name] = current_values[cls] = value
-                            del missing_params[name]
+                for info in provider_generation:
+                    if info["is_sync"] is True:
+                        current_values[info["provides"]] = _sync_enter_provider_context(stack, info, current_values)
                     else:
-                        async_infos.append(provider_info)
+                        async_infos.append(info)
+                if async_infos:
+                    async with create_task_group() as tg:
+                        provider_futures = [
+                            (info, start_future(tg, _async_enter_provider_context(stack, info, current_values)))
+                            for info in async_infos
+                        ]
+                    for info, f_result in provider_futures:
+                        current_values[info["provides"]] = f_result()
+    _inject_current_values(kwargs, missing_params, current_values)
 
-                async with create_task_group() as tg:
-                    provider_futures = [
-                        (p, start_future(tg, _async_enter_provider_context(stack, p))) for p in async_infos
-                    ]
-                for p, f in provider_futures:
-                    value = f()
-                    for name in param_name_by_type[cls := p["provides"]]:
-                        kwargs[name] = current_values[cls] = value
-                        del missing_params[name]
 
-
-def _get_param_name_by_type_map(solution: Solution, missing_params: HintMap) -> dict[type, list[str]]:
-    solution_infos = solution.infos
-    param_name_by_type: defaultdict[type, list[str]] = defaultdict(list)
+def _get_param_name_by_type_map(missing_params: HintMap) -> dict[type, list[str]]:
+    param_name_by_type: dict[type, list[str]] = {}
     for name, cls in missing_params.items():
-        if cls in solution_infos:
+        if cls not in param_name_by_type:
+            param_name_by_type[cls] = [name]
+        else:
             param_name_by_type[cls].append(name)
     return param_name_by_type
 
 
-def _sync_enter_provider_context(stack: FastStack | AsyncFastStack, provider_info: SyncProviderInfo) -> Any:
-    return provider_info["getter"](stack.enter_context(provider_info["producer"]()))
+def _sync_enter_provider_context(
+    stack: FastStack | AsyncFastStack,
+    provider_info: SyncProviderInfo,
+    current_values: Mapping[type, Any],
+) -> Any:
+    kwargs = {name: current_values[cls] for name, cls in provider_info["required_parameters"].items()}
+    return provider_info["getter"](stack.enter_context(provider_info["producer"](**kwargs)))
 
 
-async def _async_enter_provider_context(stack: AsyncFastStack, provider_info: AsyncProviderInfo) -> Any:
-    return provider_info["getter"](await stack.enter_async_context(provider_info["producer"]()))
-
-
-def _check_for_missing_params(missing_params: HintDict) -> None:
-    if missing_params:
-        params_msg = ", ".join(f"{k}: {v}" for k, v in missing_params.items())
-        msg = f"Missing providers for parameters: {params_msg}"
-        raise InjectionError(msg)
+async def _async_enter_provider_context(
+    stack: AsyncFastStack,
+    provider_info: AsyncProviderInfo,
+    current_values: Mapping[type, Any],
+) -> Any:
+    kwargs = {name: current_values[cls] for name, cls in provider_info["required_parameters"].items()}
+    return provider_info["getter"](await stack.enter_async_context(provider_info["producer"](**kwargs)))
 
 
 _CURRENT_VALUES = ContextVar[Mapping[type, Any]]("CURRENT_VALUES", default={})

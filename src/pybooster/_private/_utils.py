@@ -165,7 +165,6 @@ def get_callable_return_type(func: Callable) -> type:
     anno = get_type_hints(func, include_extras=True).get("return", Any)
     raw_anno = get_raw_annotation(anno)
     check_is_not_builtin_type(raw_anno)
-    check_is_not_union_type(raw_anno)
     return anno
 
 

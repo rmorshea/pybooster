@@ -17,7 +17,6 @@ from typing import overload
 
 from paramorator import paramorator
 
-from pybooster import injector
 from pybooster._private._provider import get_provides_type
 from pybooster._private._utils import get_callable_return_type
 from pybooster._private._utils import get_coroutine_return_type
@@ -131,11 +130,7 @@ def iterator(
     """
     provides = provides or get_iterator_yield_type(func, sync=True)
     dependencies = get_required_parameters(func, dependencies)
-    return SyncProvider(
-        injector.contextmanager(func, dependencies=dependencies) if dependencies else _contextmanager(func),
-        cast(type[R], provides),
-        dependencies,
-    )
+    return SyncProvider(_contextmanager(func), cast(type[R], provides), dependencies)
 
 
 @paramorator
@@ -154,11 +149,7 @@ def asynciterator(
     """
     provides = provides or get_iterator_yield_type(func, sync=False)
     dependencies = get_required_parameters(func, dependencies)
-    return AsyncProvider(
-        (injector.asynccontextmanager(func, dependencies=dependencies) if dependencies else _asynccontextmanager(func)),
-        cast(type[R], provides),
-        dependencies,
-    )
+    return AsyncProvider(_asynccontextmanager(func), cast(type[R], provides), dependencies)
 
 
 class _BaseProvider(Generic[R]):
@@ -181,7 +172,8 @@ class _BaseProvider(Generic[R]):
                 raise TypeError(msg)
             producer = self.producer
             provides = get_provides_type(self.provides, *args, **kwargs)
-            return type(self)(lambda: producer(*args, **kwargs), provides, self.dependencies)
+            wrapped = wraps(producer)(lambda **kw: producer(*args, **kwargs, **kw))
+            return type(self)(wrapped, provides, self.dependencies)
 
         def __call__(self, *args, **kwargs):
             return self.producer(*args, **kwargs)

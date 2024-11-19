@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from collections.abc import Collection
 from collections.abc import Mapping
 from collections.abc import Sequence
 from collections.abc import Set
@@ -12,12 +13,14 @@ from typing import Self
 from typing import TypeVar
 
 from rustworkx import PyDiGraph
+from rustworkx import ancestors
 from rustworkx import descendants
 from rustworkx import topological_generations
 
 from pybooster._private._provider import ProviderInfo
 from pybooster._private._provider import SyncProviderInfo
 from pybooster._private._utils import frozenclass
+from pybooster.types import InjectionError
 from pybooster.types import SolutionError
 
 if TYPE_CHECKING:
@@ -26,7 +29,7 @@ if TYPE_CHECKING:
 
 P = TypeVar("P", bound=ProviderInfo)
 
-DependencySet = set[type]
+DependencySet = Set[type]
 DependencyMap = Mapping[type, DependencySet]
 
 
@@ -48,50 +51,41 @@ def set_solutions(
 
 
 def _set_solution(var: ContextVar[Solution[P]], infos: Mapping[type, P]) -> Token[Solution[P]]:
-    dep_map = {cls: info["dependencies"] for cls, info in infos.items()}
-    return var.set(Solution(infos=infos, graph=DependencyGraph.from_dependency_map(dep_map)))
+    dep_map = {cls: set(info["required_parameters"].values()) for cls, info in infos.items()}
+    return var.set(Solution.from_infos_and_dependency_map(infos, dep_map))
 
 
 @frozenclass
 class Solution(Generic[P]):
     """A solution to the dependency graph."""
 
-    infos: Mapping[type, P]
-    graph: DependencyGraph
-
-    def descendant_types(self, cls: type) -> Set[type]:
-        graph = self.graph
-        return {graph.type_by_index[i] for i in descendants(graph.index_graph, graph.index_by_type[cls])}
-
-    def execution_order_for(self, types: Set[type]) -> Sequence[Sequence[P]]:
-        infos = self.infos
-        return [[infos[t] for t in union] for gen in self.graph.type_ordering if (union := types & gen)]
-
-
-@frozenclass
-class DependencyGraph:
-
     type_by_index: Mapping[int, type]
     """Mapping graph index to types."""
-    type_ordering: Sequence[Set[type]]
+    index_ordering: Sequence[Set[int]]
     r"""Topologically sorted generations of type IDs."""
     index_by_type: Mapping[type, int]
     """Mapping types to graph index."""
     index_graph: PyDiGraph
     """A directed graph of type IDs."""
+    infos_by_index: Mapping[int, P]
+    """Mapping graph index to provider infos."""
+    infos_by_type: Mapping[type, P]
+    """Mapping types to provider infos."""
 
     @classmethod
-    def from_dependency_map(cls, dep_map: Mapping[type, Set[type]]) -> Self:
+    def from_infos_and_dependency_map(cls, infos_by_type: Mapping[type, P], deps_by_type: DependencyMap) -> Self:
         type_by_index: dict[int, type] = {}
         index_by_type: dict[type, int] = {}
 
         index_graph = PyDiGraph()
-        for tp in dep_map:
+        for tp in deps_by_type:
             index = index_graph.add_node(tp)
             type_by_index[index] = tp
             index_by_type[tp] = index
 
-        for tp, deps in dep_map.items():
+        infos_by_index = {index_by_type[tp]: info for tp, info in infos_by_type.items()}
+
+        for tp, deps in deps_by_type.items():
             for dep in deps:
                 try:
                     parent_index = index_by_type[dep]
@@ -105,10 +99,37 @@ class DependencyGraph:
             type_by_index=type_by_index,
             index_by_type=index_by_type,
             index_graph=index_graph,
-            type_ordering=[{type_by_index[i] for i in gen} for gen in topological_generations(index_graph)],
+            index_ordering=[set(gen) for gen in topological_generations(index_graph)],
+            infos_by_index=infos_by_index,
+            infos_by_type=infos_by_type,
         )
 
+    def descendant_types(self, cls: type) -> Set[type]:
+        type_by_index = self.type_by_index  # avoid extra attribute accesses
+        return {type_by_index[i] for i in descendants(self.index_graph, self.index_by_type[cls])}
 
-_NO_SOLUTION = Solution(infos={}, graph=DependencyGraph.from_dependency_map({}))
+    def execution_order_for(
+        self, include_types: Collection[type], exclude_types: Collection[type]
+    ) -> Sequence[Sequence[P]]:
+        index_by_type = self.index_by_type  # avoid extra attribute accesses
+        try:
+            type_indices = {index_by_type[t] for t in include_types}
+        except KeyError:
+            missing = set(include_types) - set(index_by_type)
+            msg = f"Missing providers for {missing}"
+            raise InjectionError(msg) from None
+        ancestor_indices = {p_i for i in type_indices for p_i in ancestors(self.index_graph, (i))}
+        ancestor_pred_indices = ancestor_indices | type_indices
+
+        filter_indicies = {index_by_type[t] for t in exclude_types}
+        infos = self.infos_by_index  # avoid extra attribute accesses
+        return [
+            [infos[i] for i in union]
+            for gen in self.index_ordering
+            if (union := (gen & ancestor_pred_indices - filter_indicies))
+        ]
+
+
+_NO_SOLUTION = Solution.from_infos_and_dependency_map({}, {})
 SYNC_SOLUTION = ContextVar[Solution[SyncProviderInfo]]("SYNC_SOLUTION", default=_NO_SOLUTION)
 FULL_SOLUTION = ContextVar[Solution[ProviderInfo]]("FULL_SOLUTION", default=_NO_SOLUTION)
