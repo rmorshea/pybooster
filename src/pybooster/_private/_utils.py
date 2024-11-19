@@ -20,7 +20,6 @@ from typing import NewType
 from typing import ParamSpec
 from typing import TypedDict
 from typing import TypeVar
-from typing import TypeVarTuple
 from typing import Union
 from typing import dataclass_transform
 from typing import get_args
@@ -41,9 +40,7 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
-C = TypeVar("C", bound=Callable)
-D = TypeVar("D", bound=Callable)
-T = TypeVarTuple("T")
+
 
 RawAnnotation = NewType("RawAnnotation", object)
 """A type annotation without any "extras" (e.g. `Annotated` metadata)."""

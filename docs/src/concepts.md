@@ -96,7 +96,6 @@ def get_message(*, recipient: Recipient = required) -> str:
 ```
 
 !!! warning
-
     Don't forget to add the `required` default value. Without it, PyBooster will not
     know that the argument is a dependency that needs to be injected.
 
@@ -129,12 +128,12 @@ with solution(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
--   [`injector.function`][pybooster.core.injector.function]
--   [`injector.iterator`][pybooster.core.injector.iterator]
--   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
--   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
--   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
--   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+- [`injector.function`][pybooster.core.injector.function]
+- [`injector.iterator`][pybooster.core.injector.iterator]
+- [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+- [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+- [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+- [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
 #### Overwrite Parameters
 
@@ -430,7 +429,6 @@ with solution(sqlite_connection.bind(":memory:")):
 ```
 
 !!! note
-
     Bindable parameters are not allowed to be dependencies.
 
 ### Generic Providers
@@ -546,7 +544,6 @@ with solution(config_file_provider.bind(Config, json_file)):
 ```
 
 !!! tip
-
     This approach also works great for a provider that has `overload` implementations.
 
 ### Singleton Providers

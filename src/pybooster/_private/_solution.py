@@ -24,7 +24,6 @@ from pybooster.types import InjectionError
 from pybooster.types import SolutionError
 
 if TYPE_CHECKING:
-
     from pybooster._private._provider import AsyncProviderInfo
 
 P = TypeVar("P", bound=ProviderInfo)
@@ -37,7 +36,6 @@ def set_solutions(
     sync_infos: Mapping[type, SyncProviderInfo],
     async_infos: Mapping[type, AsyncProviderInfo],
 ) -> Callable[[], None]:
-
     full_infos = {**sync_infos, **async_infos}
 
     sync_solution_token = _set_solution(SYNC_SOLUTION, sync_infos)
