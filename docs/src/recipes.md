@@ -84,11 +84,3 @@ def transaction_provider() -> Iterator[Transaction]:
     with session_provider() as session, session.begin():
         yield session
 ```
-
-## Testing Injected Functions
-
-## Testing Providers
-
-```
-
-```

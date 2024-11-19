@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 @contextmanager
 def solution(*providers: Provider[[], Any] | Sequence[Provider[[], Any]]) -> Iterator[None]:
     """Resolve the dependencies between the given providers and use them for the duration of the context."""
+    if not providers:
+        msg = "At least one provider must be given."
+        raise ValueError(msg)
     sync_infos: dict[type, SyncProviderInfo] = {}
     async_infos: dict[type, AsyncProviderInfo] = {}
     for p in _normalize_providers(providers):

@@ -17,11 +17,12 @@ Getting started with PyBooster involves a few steps:
 2. Add an [injector](concepts.md#injectors) to a function that will use that dependency.
 3. Active a [solution](concepts.md#solutions) and call the dependent function in it.
 
-The example below injects a `sqlite3.Connection` into a function that executes a query:
+The example below injects a `sqlite3.Connection` into a function that executes SQL:
 
 ```python
 import sqlite3
-from typing import Iterator
+from collections.abc import Iterator
+from tempfile import NamedTemporaryFile
 
 from pybooster import injector
 from pybooster import provider
@@ -36,12 +37,16 @@ def sqlite_connection(database: str) -> Iterator[sqlite3.Connection]:
 
 
 @injector.function
-def query_database(query: str, *, conn: sqlite3.Connection = required) -> None:
-    conn.execute(query)
+def sql(cmd: str, *, conn: sqlite3.Connection = required) -> sqlite3.Cursor:
+    return conn.execute(cmd)
 
 
-with solution(sqlite_connection.bind(":memory:")):
-    query_database("CREATE TABLE example (id INTEGER PRIMARY KEY)")
+tempfile = NamedTemporaryFile()
+with solution(sqlite_connection.bind(tempfile.name)):
+    sql("CREATE TABLE example (id INTEGER PRIMARY KEY, name TEXT)")
+    sql("INSERT INTO example (name) VALUES ('alice')")
+    cursor = sql("SELECT * FROM example")
+    assert cursor.fetchone() == (1, "alice")
 ```
 
 This works by inspecting the type hints of the provider `sqlite_connection` to see that

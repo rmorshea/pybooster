@@ -14,9 +14,7 @@ from typing import overload
 
 from pybooster._private._utils import check_is_concrete_type
 from pybooster._private._utils import check_is_not_builtin_type
-from pybooster._private._utils import get_class_lineage
 from pybooster._private._utils import get_raw_annotation
-from pybooster._private._utils import is_builtin_type
 from pybooster._private._utils import is_type
 from pybooster.types import AsyncContextManagerCallable
 from pybooster.types import ContextManagerCallable
@@ -25,7 +23,6 @@ from pybooster.types import HintMap
 if TYPE_CHECKING:
     from collections.abc import Callable
     from collections.abc import Mapping
-    from collections.abc import Set
 
 
 P = ParamSpec("P")
@@ -39,7 +36,7 @@ class SyncProviderInfo(TypedDict):
     is_sync: Literal[True]
     producer: ContextManagerCallable[[], Any]
     provides: type
-    dependencies: Set[type]
+    required_parameters: HintMap
     getter: Callable[[Any], Any]
 
 
@@ -47,7 +44,7 @@ class AsyncProviderInfo(TypedDict):
     is_sync: Literal[False]
     producer: AsyncContextManagerCallable[[], Any]
     provides: type
-    dependencies: Set[type]
+    required_parameters: HintMap
     getter: Callable[[Any], Any]
 
 
@@ -93,27 +90,26 @@ def get_provider_info(
     is_sync: bool,
 ) -> Mapping[type, ProviderInfo]:
     provides_type = get_provides_type(provides)
-    dependencies = set(required_parameters.values())
     if get_origin(provides_type) is tuple:
-        return _get_tuple_provider_infos(producer, provides_type, dependencies, is_sync=is_sync)
+        return _get_tuple_provider_infos(producer, provides_type, required_parameters, is_sync=is_sync)
     else:
-        return _get_scalar_provider_infos(producer, provides_type, dependencies, is_sync=is_sync)
+        return _get_scalar_provider_infos(producer, provides_type, required_parameters, is_sync=is_sync)
 
 
 def _get_tuple_provider_infos(
     producer: AnyContextManagerCallable[R],
     provides: type[R],
-    dependencies: Set[type],
+    required_parameters: HintMap,
     *,
     is_sync: bool,
 ) -> dict[type, ProviderInfo]:
     infos_list = (
-        _get_scalar_provider_infos(producer, provides, dependencies, is_sync=is_sync),
+        _get_scalar_provider_infos(producer, provides, required_parameters, is_sync=is_sync),
         *(
             _get_scalar_provider_infos(
                 producer,
                 item_type,
-                dependencies,
+                required_parameters,
                 is_sync=is_sync,
                 getter=lambda x, i=index: x[i],  # type: ignore[reportIndexIssue]
             )
@@ -126,7 +122,7 @@ def _get_tuple_provider_infos(
 def _get_scalar_provider_infos(
     producer: AnyContextManagerCallable[R],
     provides: type[R],
-    dependencies: Set[type],
+    required_parameters: HintMap,
     *,
     is_sync: bool,
     getter: Callable[[R], Any] = lambda x: x,
@@ -139,17 +135,22 @@ def _get_scalar_provider_infos(
     check_is_not_builtin_type(raw_anno)
     check_is_concrete_type(raw_anno)
 
-    return {
-        cls: cast(
-            ProviderInfo,
-            {
-                "is_sync": is_sync,
-                "producer": producer,
-                "provides": cls,
-                "dependencies": dependencies,
-                "getter": getter,
-            },
+    info: ProviderInfo
+    if is_sync:
+        info = SyncProviderInfo(
+            is_sync=is_sync,
+            producer=cast(ContextManagerCallable[[], Any], producer),
+            provides=provides,
+            required_parameters=required_parameters,
+            getter=getter,
         )
-        for cls in get_class_lineage(provides)
-        if not is_builtin_type(cls)
-    }
+    else:
+        info = AsyncProviderInfo(
+            is_sync=is_sync,
+            producer=cast(AsyncContextManagerCallable[[], Any], producer),
+            provides=provides,
+            required_parameters=required_parameters,
+            getter=getter,
+        )
+
+    return {provides: info}

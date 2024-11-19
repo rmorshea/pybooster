@@ -26,8 +26,8 @@ def test_required_parameter_must_be_kw_only():
     with pytest.raises(TypeError, match=r"Expected dependant parameter .* to be keyword-only."):
 
         @injector.function
-        def func(_: int = required):
-            raise AssertionError  # nocov
+        def func(_: int = required):  # nocov
+            raise AssertionError
 
 
 def test_fast_stack_callback():
