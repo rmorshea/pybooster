@@ -51,7 +51,9 @@ class AsyncProviderInfo(TypedDict):
 ProviderInfo = SyncProviderInfo | AsyncProviderInfo
 
 
-def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **kwargs: Any) -> type[R]:
+def get_provides_type(
+    provides: type[R] | Callable[..., type[R]], *args: Any, **kwargs: Any
+) -> type[R]:
     if is_type(provides):
         return cast(type[R], provides)
     elif callable(provides):
@@ -66,7 +68,7 @@ def get_provides_type(provides: type[R] | Callable[..., type[R]], *args: Any, **
 def get_provider_info(
     producer: ContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: HintMap,
+    required_params: HintMap,
     *,
     is_sync: Literal[True],
 ) -> Mapping[type, SyncProviderInfo]: ...
@@ -76,7 +78,7 @@ def get_provider_info(
 def get_provider_info(
     producer: AsyncContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: HintMap,
+    required_params: HintMap,
     *,
     is_sync: Literal[False],
 ) -> Mapping[type, AsyncProviderInfo]: ...
@@ -85,15 +87,15 @@ def get_provider_info(
 def get_provider_info(
     producer: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
     provides: type[R] | Callable[[], type[R]],
-    required_parameters: HintMap,
+    required_params: HintMap,
     *,
     is_sync: bool,
 ) -> Mapping[type, ProviderInfo]:
     provides_type = get_provides_type(provides)
     if get_origin(provides_type) is tuple:
-        return _get_tuple_provider_infos(producer, provides_type, required_parameters, is_sync=is_sync)
+        return _get_tuple_provider_infos(producer, provides_type, required_params, is_sync=is_sync)
     else:
-        return _get_scalar_provider_infos(producer, provides_type, required_parameters, is_sync=is_sync)
+        return _get_scalar_provider_infos(producer, provides_type, required_params, is_sync=is_sync)
 
 
 def _get_tuple_provider_infos(

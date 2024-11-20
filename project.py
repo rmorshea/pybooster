@@ -17,67 +17,76 @@ else:
         except subprocess.CalledProcessError as e:
             msg = f"Command failed with exit code {e.returncode}."
             raise click.Abort(msg) from None
+        except FileNotFoundError as e:
+            msg = f"File not found {e}"
+            raise click.Abort(msg) from None
 
 
 @click.group()
-def dev():
-    """A collection of development commands."""
+def main():
+    """A collection of dev utilities."""
 
 
-@dev.group("test")
-def test():
-    """Test commands."""
-
-
-@test.command("lib")
+@main.command("test")
 @click.argument("args", nargs=-1)
-def test_lib(args: list[str]):
-    """Run tests."""
+def test(args: list[str]):
     run(["pytest", "-v", *args])
 
 
-@test.command("cov")
-@click.option("--no-test", is_flag=True, help="Skip running tests.")
-@click.option("--no-report", is_flag=True, help="Skip generating coverage report.")
-@click.argument("args", nargs=-1)
-def test_cov(no_test: bool, no_report: bool, args: list[str]):
-    """Run tests with coverage."""
-    try:
-        if not no_test:
-            run(["coverage", "run", "-m", "pytest", "-v", *args])
-    finally:
-        if not no_report:
-            run(["coverage", "combine"], check=False)
-            run(["coverage", "report"])
-            run(["coverage", "xml"])
-            run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
+@main.command("cov")
+@click.option("--no-test", is_flag=True, help="Do not run coverage tests.")
+@click.option("--no-report", is_flag=True, help="Do not run a coverage report.")
+def cov(no_test: bool, no_report: bool):
+    """Test commands."""
+    if not no_test:
+        run(["coverage", "run", "-m", "pytest", "-v"])
+    if not no_report:
+        run(["coverage", "combine"], check=False)
+        run(["coverage", "report"])
+        run(["coverage", "xml"])
+        run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
 
 
-@dev.group("lint", chain=True)
-def lint():
-    """Lint commands."""
+@main.command("lint")
+@click.option("--check", is_flag=True, help="Check for linting issues without fixing.")
+@click.option("--no-md-style", is_flag=True, help="Style check Markdown files.")
+@click.option("--no-py-style", is_flag=True, help="Style check Python files.")
+@click.option("--no-py-types", is_flag=True, help="Type check Python files.")
+@click.option("--no-uv-locked", is_flag=True, help="Check that the UV lock file is synced")
+@click.option("--no-yml-style", is_flag=True, help="Style check YAML files.")
+def lint(
+    check: bool,
+    no_md_style: bool,
+    no_py_style: bool,
+    no_py_types: bool,
+    no_uv_locked: bool,
+    no_yml_style: bool,
+):
+    """Linting commands."""
+    if not no_py_types:
+        run(["pyright"])
+    if not no_py_style:
+        if check:
+            run(["ruff", "format", "--check", "--diff"])
+            run(["ruff", "check"])
+        else:
+            run(["ruff", "format"])
+            run(["ruff", "check", "--fix"])
+    if not no_md_style:
+        if check:
+            run(["mdformat", "--ignore-missing-references", "--check", "."])
+        else:
+            run(["mdformat", "--ignore-missing-references", "."])
+    if not no_yml_style:
+        if check:
+            run(["yamlfix", "--check", "."])
+        else:
+            run(["yamlfix", "."])
+    if not no_uv_locked:
+        run(["uv", "sync", "--locked"])
 
 
-@lint.command("types")
-@click.argument("args", nargs=-1)
-def lint_types(args: list[str]):
-    """Type check."""
-    run(["pyright", *args])
-
-
-@lint.command("style")
-@click.option("--fix", is_flag=True, help="Fix style issues.")
-def lint_style(fix: bool):
-    """Style check."""
-    if fix:
-        run(["black", "."])
-        run(["ruff", "check", "--fix"])
-    else:
-        run(["black", "--check", "--diff", "."])
-        run(["ruff", "check"])
-
-
-@dev.group("docs")
+@main.group("docs")
 def docs():
     """Documentation commands."""
 
@@ -107,4 +116,4 @@ def fix():
 
 
 if __name__ == "__main__":
-    dev()
+    main()

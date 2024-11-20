@@ -96,7 +96,6 @@ def get_message(*, recipient: Recipient = required) -> str:
 ```
 
 !!! warning
-
     Don't forget to add the `required` default value. Without it, PyBooster will not
     know that the argument is a dependency that needs to be injected.
 
@@ -129,12 +128,12 @@ with solution(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
--   [`injector.function`][pybooster.core.injector.function]
--   [`injector.iterator`][pybooster.core.injector.iterator]
--   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
--   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
--   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
--   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+- [`injector.function`][pybooster.core.injector.function]
+- [`injector.iterator`][pybooster.core.injector.iterator]
+- [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+- [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+- [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+- [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
 #### Overwrite Parameters
 
@@ -178,9 +177,7 @@ def profile_provider(*, user_id: UserId = required) -> Profile:
 
 
 @injector.function
-def get_profile_summary(
-    *, user_id: UserId = required, profile: Profile = required
-) -> str:
+def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
@@ -247,7 +244,6 @@ def get_auth(*, auth: Auth = required) -> Auth:
 
 
 with solution(auth):
-
     assert get_auth() is not get_auth()
 
     with injector.current(Auth) as auth:
@@ -296,9 +292,7 @@ def profile_provider(*, user_id: UserId = required) -> Profile:
 
 
 @injector.function
-def get_profile_summary(
-    *, user_id: UserId = required, profile: Profile = required
-) -> str:
+def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
@@ -430,7 +424,6 @@ with solution(sqlite_connection.bind(":memory:")):
 ```
 
 !!! note
-
     Bindable parameters are not allowed to be dependencies.
 
 ### Generic Providers
@@ -474,9 +467,7 @@ def get_config(*, config: ConfigDict = required) -> ConfigDict:
 
 tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
-json_file.write_text(
-    '{"app_name": "MyApp", "app_version": 1, "debug_mode": true}'
-)
+json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
 with solution(json_provider[ConfigDict].bind(json_file)):
     assert get_config() == {
@@ -535,18 +526,13 @@ def get_config(*, config: Config = required) -> Config:
 
 tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
-json_file.write_text(
-    '{"app_name": "MyApp", "app_version": 1, "debug_mode": true}'
-)
+json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
 with solution(config_file_provider.bind(Config, json_file)):
-    assert get_config() == Config(
-        app_name="MyApp", app_version=1, debug_mode=True
-    )
+    assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
 !!! tip
-
     This approach also works great for a provider that has `overload` implementations.
 
 ### Singleton Providers

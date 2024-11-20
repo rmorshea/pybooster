@@ -20,7 +20,6 @@ from typing import NewType
 from typing import ParamSpec
 from typing import TypedDict
 from typing import TypeVar
-from typing import TypeVarTuple
 from typing import Union
 from typing import dataclass_transform
 from typing import get_args
@@ -41,9 +40,7 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
-C = TypeVar("C", bound=Callable)
-D = TypeVar("D", bound=Callable)
-T = TypeVarTuple("T")
+
 
 RawAnnotation = NewType("RawAnnotation", object)
 """A type annotation without any "extras" (e.g. `Annotated` metadata)."""
@@ -242,7 +239,9 @@ class AsyncFastStack(_FastStack):
     Users must call `aclose` to ensure all callbacks are called.
     """
 
-    def push_async_callback(self, func: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs) -> None:
+    def push_async_callback(
+        self, func: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs
+    ) -> None:
         self._callbacks.append((True, func, args, kwargs))
 
     async def enter_async_context(self, context: AbstractAsyncContextManager[R]) -> R:

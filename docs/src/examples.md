@@ -36,16 +36,12 @@ class User:
 
 
 @provider.function
-def client_provider(
-    service_name: str, *, session: Session = required
-) -> BaseClient:
+def client_provider(service_name: str, *, session: Session = required) -> BaseClient:
     return session.client(service_name)
 
 
 @provider.function
-def bucket_provider(
-    bucket_name: str, *, client: S3Client = required
-) -> BucketName:
+def bucket_provider(bucket_name: str, *, client: S3Client = required) -> BucketName:
     try:
         # Check if the bucket already exists
         client.head_bucket(Bucket=bucket_name)
@@ -149,9 +145,7 @@ async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
 
 
 @injector.asyncfunction
-async def post_user(
-    request: Request, *, session: AsyncSession = required
-) -> JSONResponse:
+async def post_user(request: Request, *, session: AsyncSession = required) -> JSONResponse:
     async with session.begin():
         user = User(**(await request.json()))
         session.add(user)
@@ -160,13 +154,9 @@ async def post_user(
 
 
 @injector.asyncfunction
-async def get_user(
-    request: Request, *, session: AsyncSession = required
-) -> JSONResponse:
+async def get_user(request: Request, *, session: AsyncSession = required) -> JSONResponse:
     user = await session.get(User, request.path_params["id"])
-    return JSONResponse(
-        None if user is None else {"id": user.id, "name": user.name}
-    )
+    return JSONResponse(None if user is None else {"id": user.id, "name": user.name})
 
 
 app = Starlette(
@@ -307,9 +297,7 @@ async def add_user(name: str, *, session: AsyncSession = required) -> int:
 
 @injector.asyncfunction
 async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
-    return (
-        await session.execute(select(User).where(User.id == user_id))
-    ).scalar_one()
+    return (await session.execute(select(User).where(User.id == user_id))).scalar_one()
 
 
 async def main():
@@ -362,9 +350,7 @@ class User:
 
     @injector.function
     def save(self, *, conn: sqlite3.Connection = required) -> None:
-        conn.execute(
-            "INSERT INTO user (id, name) VALUES (?, ?)", (self.id, self.name)
-        )
+        conn.execute("INSERT INTO user (id, name) VALUES (?, ?)", (self.id, self.name))
 
     @classmethod
     @injector.function
