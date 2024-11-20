@@ -49,14 +49,12 @@ def cov(no_test: bool, no_report: bool):
 
 @main.command("lint")
 @click.option("--check", is_flag=True, help="Check for linting issues without fixing.")
-@click.option("--no-md-style", is_flag=True, help="Style check Markdown files.")
 @click.option("--no-py-style", is_flag=True, help="Style check Python files.")
 @click.option("--no-py-types", is_flag=True, help="Type check Python files.")
 @click.option("--no-uv-locked", is_flag=True, help="Check that the UV lock file is synced")
 @click.option("--no-yml-style", is_flag=True, help="Style check YAML files.")
 def lint(
     check: bool,
-    no_md_style: bool,
     no_py_style: bool,
     no_py_types: bool,
     no_uv_locked: bool,
@@ -72,11 +70,6 @@ def lint(
         else:
             run(["ruff", "format"])
             run(["ruff", "check", "--fix"])
-    if not no_md_style:
-        if check:
-            run(["mdformat", "--ignore-missing-references", "--check", "."])
-        else:
-            run(["mdformat", "--ignore-missing-references", "."])
     if not no_yml_style:
         if check:
             run(["yamlfix", "--check", "."])
