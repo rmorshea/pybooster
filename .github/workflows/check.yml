@@ -27,7 +27,7 @@ jobs:
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Run tests
-        run: uv run project.py test --cov --no-cov-report
+        run: uv run project.py cov --no-report
       - name: Run lint
         run: uv run project.py lint style types docs
       - name: Upload coverage
@@ -64,4 +64,4 @@ jobs:
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Check coverage
-        run: uv run project.py test --only-cov-report
+        run: uv run project.py cov --no-test

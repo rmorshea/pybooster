@@ -28,28 +28,23 @@ def main():
 
 
 @main.command("test")
-@click.option("--cov/--no-cov", default=True, help="Do not run tests with coverage.")
-@click.option("--no-cov-report", is_flag=True, help="Do not run coverage report.")
-@click.option("--only-cov-report", is_flag=True, help="Only run coverage report.")
 @click.argument("args", nargs=-1)
-def test(args: list[str], cov: bool, no_cov_report: bool, only_cov_report: bool):
+def test(args: list[str]):
+    run(["pytest", "-v", *args])
+
+
+@main.command("cov")
+@click.option("--no-test", is_flag=True, help="Do not run coverage tests.")
+@click.option("--no-report", is_flag=True, help="Do not run a coverage report.")
+def cov(no_test: bool, no_report: bool):
     """Test commands."""
-    if only_cov_report:
-        _cov_report()
-        return
-    if cov:
-        run(["coverage", "run", "-m", "pytest", "-v", *args])
-        if not no_cov_report:
-            _cov_report()
-    else:
-        run(["pytest", "-v", *args])
-
-
-def _cov_report():
-    run(["coverage", "combine"], check=False)
-    run(["coverage", "report"])
-    run(["coverage", "xml"])
-    run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
+    if not no_test:
+        run(["coverage", "run", "-m", "pytest", "-v"])
+    if not no_report:
+        run(["coverage", "combine"], check=False)
+        run(["coverage", "report"])
+        run(["coverage", "xml"])
+        run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
 
 
 @main.command("lint")
