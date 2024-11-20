@@ -51,7 +51,7 @@ def function(
 
     Args:
         func: The function to inject dependencies into.
-        dependencies: The dependencies to inject into the function. Otherwise infered from function signature.
+        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
     """
     required_params = get_required_parameters(func, dependencies)
 
@@ -73,7 +73,12 @@ def asyncfunction(
     *,
     dependencies: HintMap | None = None,
 ) -> Callable[P, Coroutine[Any, Any, R]]:
-    """Inject dependencies into the given coroutine."""
+    """Inject dependencies into the given coroutine.
+
+    Args:
+        func: The function to inject dependencies into.
+        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+    """
     required_params = get_required_parameters(func, dependencies)
 
     @wraps(func)
@@ -94,7 +99,12 @@ def iterator(
     *,
     dependencies: HintMap | None = None,
 ) -> IteratorCallable[P, R]:
-    """Inject dependencies into the given iterator."""
+    """Inject dependencies into the given iterator.
+
+    Args:
+        func: The function to inject dependencies into.
+        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+    """
     required_params = get_required_parameters(func, dependencies)
 
     @wraps(func)
@@ -115,7 +125,12 @@ def asynciterator(
     *,
     dependencies: HintMap | None = None,
 ) -> AsyncIteratorCallable[P, R]:
-    """Inject dependencies into the given async iterator."""
+    """Inject dependencies into the given async iterator.
+
+    Args:
+        func: The function to inject dependencies into.
+        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+    """
     required_params = get_required_parameters(func, dependencies)
 
     @wraps(func)
@@ -137,7 +152,12 @@ def contextmanager(
     *,
     dependencies: HintMap | None = None,
 ) -> Callable[P, AbstractContextManager[R]]:
-    """Inject dependencies into the given context manager function."""
+    """Inject dependencies into the given context manager function.
+
+    Args:
+        func: The function to inject dependencies into.
+        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+    """
     return _contextmanager(iterator(func, dependencies=dependencies))
 
 
@@ -147,7 +167,12 @@ def asynccontextmanager(
     *,
     dependencies: HintMap | None = None,
 ) -> Callable[P, AbstractAsyncContextManager[R]]:
-    """Inject dependencies into the given async context manager function."""
+    """Inject dependencies into the given async context manager function.
+
+    Args:
+        func: The function to inject dependencies into.
+        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+    """
     return _asynccontextmanager(asynciterator(func, dependencies=dependencies))
 
 
@@ -193,7 +218,9 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             raise RuntimeError(msg)
         self._sync_stack = FastStack()
         values = {}
-        sync_inject_keywords(self._sync_stack, self._required_params, values, keep_current_values=True)
+        sync_inject_keywords(
+            self._sync_stack, self._required_params, values, keep_current_values=True
+        )
         return values[_KEY]
 
     def __exit__(self, *_: Any) -> None:
@@ -208,7 +235,9 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
             raise RuntimeError(msg)
         self._async_stack = AsyncFastStack()
         values = {}
-        await async_inject_keywords(self._async_stack, self._required_params, values, keep_current_values=True)
+        await async_inject_keywords(
+            self._async_stack, self._required_params, values, keep_current_values=True
+        )
         return values[_KEY]
 
     async def __aexit__(self, *exc: Any) -> None:

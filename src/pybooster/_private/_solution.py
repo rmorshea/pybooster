@@ -71,7 +71,9 @@ class Solution(Generic[P]):
     """Mapping types to provider infos."""
 
     @classmethod
-    def from_infos_and_dependency_map(cls, infos_by_type: Mapping[type, P], deps_by_type: DependencyMap) -> Self:
+    def from_infos_and_dependency_map(
+        cls, infos_by_type: Mapping[type, P], deps_by_type: DependencyMap
+    ) -> Self:
         type_by_index: dict[int, type] = {}
         index_by_type: dict[type, int] = {}
 

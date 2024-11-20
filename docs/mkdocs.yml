@@ -16,9 +16,9 @@ theme:
   icon:
     repo: fontawesome/brands/git-alt
     logo: material/needle
-  features: [content.code.copy]
+  features: [content.code.copy, toc.integrate]
   palette:
-        # Palette toggle for automatic mode
+    # Palette toggle for automatic mode
     - media: (prefers-color-scheme)
       toggle:
         icon: material/brightness-auto

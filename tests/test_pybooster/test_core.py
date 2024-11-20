@@ -402,7 +402,9 @@ async def test_async_provider_can_depend_on_sync_and_async_providers_at_the_same
         return Recipient("World")
 
     @provider.asyncfunction
-    async def message_provider(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+    async def message_provider(
+        *, greeting: Greeting = required, recipient: Recipient = required
+    ) -> Message:
         return Message(f"{greeting} {recipient}")
 
     @injector.asyncfunction
@@ -430,7 +432,9 @@ async def test_async_providers_are_executed_concurrently_if_possible():
         return Recipient("World")
 
     @provider.asyncfunction
-    async def message_provider(*, greeting: Greeting = required, recipient: Recipient = required) -> Message:
+    async def message_provider(
+        *, greeting: Greeting = required, recipient: Recipient = required
+    ) -> Message:
         return Message(f"{greeting} {recipient}")
 
     @injector.asyncfunction

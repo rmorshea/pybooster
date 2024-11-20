@@ -52,11 +52,19 @@ def _cov_report():
 
 @main.command("lint")
 @click.option("--check", is_flag=True, help="Check for linting issues without fixing.")
-@click.option("--no-py-types", is_flag=True, help="Type check Python files.")
-@click.option("--no-py-style", is_flag=True, help="Style check Python files.")
 @click.option("--no-md-style", is_flag=True, help="Style check Markdown files.")
+@click.option("--no-py-style", is_flag=True, help="Style check Python files.")
+@click.option("--no-py-types", is_flag=True, help="Type check Python files.")
+@click.option("--no-uv-locked", is_flag=True, help="Check that the UV lock file is synced")
 @click.option("--no-yml-style", is_flag=True, help="Style check YAML files.")
-def lint(check: bool, no_py_types: bool, no_py_style: bool, no_md_style: bool, no_yml_style: bool):
+def lint(
+    check: bool,
+    no_md_style: bool,
+    no_py_style: bool,
+    no_py_types: bool,
+    no_uv_locked: bool,
+    no_yml_style: bool,
+):
     """Linting commands."""
     if not no_py_types:
         run(["pyright"])
@@ -77,6 +85,8 @@ def lint(check: bool, no_py_types: bool, no_py_style: bool, no_md_style: bool, n
             run(["yamlfix", "--check", "."])
         else:
             run(["yamlfix", "."])
+    if not no_uv_locked:
+        run(["uv", "sync", "--locked"])
 
 
 @main.group("docs")

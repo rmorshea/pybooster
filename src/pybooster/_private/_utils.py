@@ -239,7 +239,9 @@ class AsyncFastStack(_FastStack):
     Users must call `aclose` to ensure all callbacks are called.
     """
 
-    def push_async_callback(self, func: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs) -> None:
+    def push_async_callback(
+        self, func: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs
+    ) -> None:
         self._callbacks.append((True, func, args, kwargs))
 
     async def enter_async_context(self, context: AbstractAsyncContextManager[R]) -> R:

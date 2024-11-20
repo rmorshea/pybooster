@@ -56,7 +56,9 @@ def sync_inject_keywords(
 
     current_values_token = _CURRENT_VALUES.set(current_values)
     try:
-        _sync_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
+        _sync_inject_provider_values(
+            stack, overwrite_values, missing_params, current_values, solution
+        )
     finally:
         if keep_current_values:
             stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
@@ -83,7 +85,9 @@ async def async_inject_keywords(
 
     current_values_token = _CURRENT_VALUES.set(current_values)
     try:
-        await _async_inject_provider_values(stack, overwrite_values, missing_params, current_values, solution)
+        await _async_inject_provider_values(
+            stack, overwrite_values, missing_params, current_values, solution
+        )
     finally:
         if keep_current_values:
             stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
@@ -99,7 +103,9 @@ def _inject_overwrite_values(
 ) -> None:
     to_invalidate: set[type] = set()
     for name in required_params.keys() & overwrite_values:
-        if current_values.get(cls := required_params[name], undefined) is not (new_val := overwrite_values[name]):
+        if current_values.get(cls := required_params[name], undefined) is not (
+            new_val := overwrite_values[name]
+        ):
             current_values[cls] = new_val
             to_invalidate.update(solution.descendant_types(cls))
     for cls in to_invalidate:
@@ -127,7 +133,7 @@ def _sync_inject_provider_values(
     param_name_by_type = _get_param_name_by_type_map(missing_params)
     for provider_generation in solution.execution_order_for(param_name_by_type, current_values):
         for info in provider_generation:
-            current_values[info["provides"]] = _sync_enter_provider_context(stack, info, current_values)
+            current_values[info["provides"]] = _sync_enter_provider(stack, info, current_values)
     _inject_current_values(kwargs, missing_params, current_values)
 
 
@@ -143,24 +149,33 @@ async def _async_inject_provider_values(
         match provider_generation:
             case [info]:
                 if info["is_sync"] is True:
-                    current_values[info["provides"]] = _sync_enter_provider_context(stack, info, current_values)
+                    current_values[info["provides"]] = _sync_enter_provider(
+                        stack, info, current_values
+                    )
                 else:
-                    current_values[info["provides"]] = await _async_enter_provider_context(stack, info, current_values)
-            case [*provider_generation]:
+                    current_values[info["provides"]] = await _async_enter_provider(
+                        stack, info, current_values
+                    )
+            case _:
                 async_infos: list[AsyncProviderInfo] = []
                 for info in provider_generation:
                     if info["is_sync"] is True:
-                        current_values[info["provides"]] = _sync_enter_provider_context(stack, info, current_values)
+                        current_values[info["provides"]] = _sync_enter_provider(
+                            stack, info, current_values
+                        )
                     else:
                         async_infos.append(info)
                 if async_infos:
                     async with create_task_group() as tg:
                         provider_futures = [
-                            (info, start_future(tg, _async_enter_provider_context(stack, info, current_values)))
-                            for info in async_infos
+                            (
+                                i["provides"],
+                                start_future(tg, _async_enter_provider(stack, i, current_values)),
+                            )
+                            for i in async_infos
                         ]
-                    for info, f_result in provider_futures:
-                        current_values[info["provides"]] = f_result()
+                    for cls, f_result in provider_futures:
+                        current_values[cls] = f_result()
     _inject_current_values(kwargs, missing_params, current_values)
 
 
@@ -174,22 +189,22 @@ def _get_param_name_by_type_map(missing_params: HintMap) -> dict[type, list[str]
     return param_name_by_type
 
 
-def _sync_enter_provider_context(
+def _sync_enter_provider(
     stack: FastStack | AsyncFastStack,
-    provider_info: SyncProviderInfo,
+    info: SyncProviderInfo,
     current_values: Mapping[type, Any],
 ) -> Any:
-    kwargs = {name: current_values[cls] for name, cls in provider_info["required_parameters"].items()}
-    return provider_info["getter"](stack.enter_context(provider_info["producer"](**kwargs)))
+    kwargs = {n: current_values[c] for n, c in info["required_parameters"].items()}
+    return info["getter"](stack.enter_context(info["producer"](**kwargs)))
 
 
-async def _async_enter_provider_context(
+async def _async_enter_provider(
     stack: AsyncFastStack,
-    provider_info: AsyncProviderInfo,
+    info: AsyncProviderInfo,
     current_values: Mapping[type, Any],
 ) -> Any:
-    kwargs = {name: current_values[cls] for name, cls in provider_info["required_parameters"].items()}
-    return provider_info["getter"](await stack.enter_async_context(provider_info["producer"](**kwargs)))
+    kwargs = {n: current_values[c] for n, c in info["required_parameters"].items()}
+    return info["getter"](await stack.enter_async_context(info["producer"](**kwargs)))
 
 
 _CURRENT_VALUES = ContextVar[Mapping[type, Any]]("CURRENT_VALUES", default={})
