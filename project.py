@@ -29,16 +29,18 @@ def main():
 
 @main.command("test")
 @click.option("--cov/--no-cov", default=True, help="Do not run tests with coverage.")
+@click.option("--no-cov-report", is_flag=True, help="Do not run coverage report.")
 @click.option("--only-cov-report", is_flag=True, help="Only run coverage report.")
 @click.argument("args", nargs=-1)
-def test(args: list[str], cov: bool, only_cov_report: bool):
+def test(args: list[str], cov: bool, no_cov_report: bool, only_cov_report: bool):
     """Test commands."""
     if only_cov_report:
         _cov_report()
         return
     if cov:
         run(["coverage", "run", "-m", "pytest", "-v", *args])
-        _cov_report()
+        if not no_cov_report:
+            _cov_report()
     else:
         run(["pytest", "-v", *args])
 
