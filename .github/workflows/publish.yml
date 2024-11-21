@@ -1,11 +1,11 @@
 name: publish
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
 env:
   latest-python-version: 3.13
 jobs:
-  py-package:
+  docs-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,9 +18,18 @@ jobs:
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
-      - name: Build package
-        run: uv build
-      - name: Publish package
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: uv publish
+      - name: Build docs
+        run: uv run project.py docs build
+  docs-publish:
+    needs: docs-build
+    permissions:
+      pages: write # to deploy to Pages
+      id-token: write # to verify the deployment originates from an appropriate source
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 # or specific "vX.X.X" version tag for this action
