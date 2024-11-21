@@ -45,6 +45,7 @@ docs = [
 ]
 lint = [
     { include-group = "test" },
+    "mdformat-admon @ git+https://github.com/rmorshea/mdformat-admon.git@0e513d7a2c265faf74441938ccbd1010660609f4",
     "mdformat-mkdocs==3.1.1",
     "mdformat-pyproject==0.0.1",
     "mdformat-ruff==0.1.3",

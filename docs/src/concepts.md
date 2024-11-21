@@ -96,6 +96,7 @@ def get_message(*, recipient: Recipient = required) -> str:
 ```
 
 !!! warning
+
     Don't forget to add the `required` default value. Without it, PyBooster will not
     know that the argument is a dependency that needs to be injected.
 
@@ -424,6 +425,7 @@ with solution(sqlite_connection.bind(":memory:")):
 ```
 
 !!! note
+
     Bindable parameters are not allowed to be dependencies.
 
 ### Generic Providers
@@ -533,6 +535,7 @@ with solution(config_file_provider.bind(Config, json_file)):
 ```
 
 !!! tip
+
     This approach also works great for a provider that has `overload` implementations.
 
 ### Singleton Providers
