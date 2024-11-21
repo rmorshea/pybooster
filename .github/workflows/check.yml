@@ -26,6 +26,7 @@ jobs:
       - name: Run tests
         run: uv run project.py cov --no-report
       - name: Upload coverage
+        if: matrix.python-version == env.latest-python-version
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.python-version }}
@@ -45,7 +46,7 @@ jobs:
       - name: Download coverage
         uses: actions/download-artifact@v4
         with:
-          name: coverage-3.12
+          name: coverage-${{ env.latest-python-version }}
       - run: git fetch origin main
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
