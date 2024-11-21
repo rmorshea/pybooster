@@ -1,67 +1,86 @@
----
-name: Python package
+name: check
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+env:
+  latest-python-version: 3.13
 jobs:
-  check-tests:
+  py-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.11', '3.12', '3.13']
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Set up UV cache
-        if: runner.os == 'Linux'
+      - name: UV cache
         uses: actions/cache@v3
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-uv-
+          key: ${{ runner.os }}-${{ matrix.python-version }}-uv-${{ hashFiles('pyproject.toml') }}
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
       - name: Run tests
         run: uv run project.py cov --no-report
-      - name: Run lint
-        run: uv run project.py lint
       - name: Upload coverage
+        if: matrix.python-version == env.latest-python-version
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.python-version }}
           path: ${{ github.workspace }}/.coverage
           include-hidden-files: true
-      - name: Build dist
-        run: uv build
-  check-coverage:
+  py-coverage:
     runs-on: ubuntu-latest
-    needs: check-tests
+    needs: py-tests
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 50
-      - name: Set up UV cache
-        if: runner.os == 'Linux'
+        with: { fetch-depth: 50 }
+      - name: UV cache
         uses: actions/cache@v3
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-uv-
+          key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
       - name: Download coverage
         uses: actions/download-artifact@v4
         with:
-          name: coverage-3.12
+          name: coverage-${{ env.latest-python-version }}
       - run: git fetch origin main
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
       - name: Check coverage
         run: uv run project.py cov --no-test
+  py-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: UV cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Check lint
+        run: uv run project.py lint
+  py-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: UV cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Check lint
+        run: uv build
