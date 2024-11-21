@@ -1,4 +1,3 @@
----
 name: check
 on:
   push:
@@ -8,7 +7,7 @@ on:
 env:
   latest-python-version: 3.13
 jobs:
-  python-tests:
+  py-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -32,9 +31,9 @@ jobs:
           name: coverage-${{ matrix.python-version }}
           path: ${{ github.workspace }}/.coverage
           include-hidden-files: true
-  python-coverage:
+  py-coverage:
     runs-on: ubuntu-latest
-    needs: python-tests
+    needs: py-tests
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 50 }
@@ -54,7 +53,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Check coverage
         run: uv run project.py cov --no-test
-  python-lint:
+  py-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +68,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Check lint
         run: uv run project.py lint
-  python-build:
+  py-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
