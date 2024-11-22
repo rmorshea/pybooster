@@ -49,7 +49,7 @@ def cov(no_test: bool, target_xml: str | None):
         else:
             msg = f"Target coverage file {target_xml} does not exist"
             raise click.ClickException(msg)
-    else:
+    elif not IN_CI:
         run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
 
 
