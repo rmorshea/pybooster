@@ -15,7 +15,7 @@ Getting started with PyBooster involves a few steps:
 1. Define a [provider](concepts.md#providers) function for a
     [dependency](concepts.md#dependencies).
 1. Add an [injector](concepts.md#injectors) to a function that will use that dependency.
-1. Active a [solution](concepts.md#solutions) and call the dependent function in it.
+1. Activate a [solution](concepts.md#solutions) and call the dependent function in its context.
 
 The example below injects a `sqlite3.Connection` into a function that executes SQL:
 

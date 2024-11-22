@@ -44,13 +44,13 @@ jobs:
         with:
           path: ~/.cache/uv
           key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
-      - name: Download target coverage
+      - name: Download old coverage
         uses: dawidd6/action-download-artifact@v6
         with:
           branch: ${{ github.event.pull_request.base.ref }}
           name: coverage-xml
-          path: coverage-target
-      - name: Download current coverage
+          path: old-coverage
+      - name: Download new coverage
         uses: actions/download-artifact@v4
         with:
           name: coverage-xml
@@ -60,7 +60,7 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Check coverage
-        run: uv run project.py cov --no-test --target-xml=${{ github.workspace }}/coverage-target/coverage.xml
+        run: uv run project.py cov --no-test --old-coverage-xml=${{ github.workspace }}/old-coverage/coverage.xml
   py-lint:
     runs-on: ubuntu-latest
     steps:
