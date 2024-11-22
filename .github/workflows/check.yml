@@ -59,8 +59,6 @@ jobs:
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
-      - name: Cat old coverage
-        run: cat ${{ github.workspace }}/old-coverage/coverage.xml
       - name: Check coverage
         run: uv run project.py cov --no-test --old-coverage-xml=${{ github.workspace }}/old-coverage/coverage.xml
   py-lint:
