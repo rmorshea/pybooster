@@ -36,7 +36,18 @@ def cov(no_test: bool, old_coverage_xml: str | None):
             run(["coverage", "xml"])
     if old_coverage_xml is not None:
         if Path(old_coverage_xml).exists():
-            run(["pycobertura", "diff", old_coverage_xml, "coverage.xml"])
+            run(
+                [
+                    "pycobertura",
+                    "diff",
+                    old_coverage_xml,
+                    "coverage.xml",
+                    "--source1",
+                    ".",
+                    "--source2",
+                    ".",
+                ]
+            )
         else:
             msg = f"Target coverage file {old_coverage_xml} does not exist"
             raise click.ClickException(msg)
