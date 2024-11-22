@@ -192,6 +192,15 @@ wheels = [
 ]
 
 [[package]]
+name = "chardet"
+version = "5.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/0d/f7b6ab21ec75897ed80c17d79b15951a719226b9fababf1e40ea74d69079/chardet-5.2.0.tar.gz", hash = "sha256:1b3b6ff479a8c414bc3fa2c0852995695c4a026dcd6d0633b2dd092ca39c1cf7", size = 2069618 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/6f/f5fbc992a329ee4e0f288c1fe0e2ad9485ed064cac731ed2fe47dcc38cbf/chardet-5.2.0-py3-none-any.whl", hash = "sha256:e1cf59446890a00105fe7b7912492ea04b6e6f06d4b742b2c788469e34c82970", size = 199385 },
+]
+
+[[package]]
 name = "charset-normalizer"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -346,6 +355,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/33/b3682992ab2e9476b9c81fff22f02c8b0a1e6e1d49ee1750a67d85fd7ed2/cryptography-43.0.3-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:df6b6c6d742395dd77a23ea3728ab62f98379eff8fb61be2744d4679ab678f73", size = 4076592 },
     { url = "https://files.pythonhosted.org/packages/81/1e/ffcc41b3cebd64ca90b28fd58141c5f68c83d48563c88333ab660e002cd3/cryptography-43.0.3-cp39-abi3-win32.whl", hash = "sha256:d56e96520b1020449bbace2b78b603442e7e378a9b3bd68de65c782db1507995", size = 2623145 },
     { url = "https://files.pythonhosted.org/packages/87/5c/3dab83cc4aba1f4b0e733e3f0c3e7d4386440d660ba5b1e3ff995feb734d/cryptography-43.0.3-cp39-abi3-win_amd64.whl", hash = "sha256:0c580952eef9bf68c4747774cde7ec1d85a6e61de97281f2dba83c7d2c806362", size = 3068026 },
+]
+
+[[package]]
+name = "diff-cover"
+version = "9.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "chardet" },
+    { name = "jinja2" },
+    { name = "pluggy" },
+    { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/3a/e49ccba052a4dda264fbad4f467739ecc63498f7223bfc03d4bfac23ea95/diff_cover-9.2.0.tar.gz", hash = "sha256:85a0b353ebbb678f9e87ea303f75b545bd0baca38f563219bb72f2ae862bba36", size = 94857 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b4/8a/bddb8e4aea550066559144e72d3566e9ae2f757b8ac154e769c563f48177/diff_cover-9.2.0-py3-none-any.whl", hash = "sha256:1e24edc51c39e810c47dd9986e76c333ed95859655c091f572e590c39cabbdbe", size = 52561 },
 ]
 
 [[package]]
@@ -1176,6 +1200,7 @@ all = [
     { name = "boto3-stubs", extra = ["essential"] },
     { name = "click" },
     { name = "coverage", extra = ["toml"] },
+    { name = "diff-cover" },
     { name = "mdformat" },
     { name = "mdformat-admon" },
     { name = "mdformat-mkdocs" },
@@ -1207,6 +1232,7 @@ docs = [
     { name = "boto3-stubs", extra = ["essential"] },
     { name = "click" },
     { name = "coverage", extra = ["toml"] },
+    { name = "diff-cover" },
     { name = "mkdocs" },
     { name = "mkdocs-gen-files" },
     { name = "mkdocs-material" },
@@ -1226,6 +1252,7 @@ lint = [
     { name = "boto3-stubs", extra = ["essential"] },
     { name = "click" },
     { name = "coverage", extra = ["toml"] },
+    { name = "diff-cover" },
     { name = "mdformat" },
     { name = "mdformat-admon" },
     { name = "mdformat-mkdocs" },
@@ -1249,6 +1276,7 @@ test = [
     { name = "boto3-stubs", extra = ["essential"] },
     { name = "click" },
     { name = "coverage", extra = ["toml"] },
+    { name = "diff-cover" },
     { name = "moto" },
     { name = "pycobertura" },
     { name = "pytest" },
@@ -1272,6 +1300,7 @@ all = [
     { name = "boto3-stubs", extras = ["essential"], specifier = "==1.35.49" },
     { name = "click", specifier = "==8.1.7" },
     { name = "coverage", extras = ["toml"], specifier = "==7.6.1" },
+    { name = "diff-cover", specifier = "==9.2.0" },
     { name = "mdformat", specifier = "==0.7.19" },
     { name = "mdformat-admon", git = "https://github.com/rmorshea/mdformat-admon.git?rev=0e513d7a2c265faf74441938ccbd1010660609f4#0e513d7a2c265faf74441938ccbd1010660609f4" },
     { name = "mdformat-mkdocs", specifier = "==3.1.1" },
@@ -1284,7 +1313,7 @@ all = [
     { name = "mkdocs-open-in-new-tab", specifier = "==1.0.5" },
     { name = "mkdocstrings-python", specifier = "==1.11.1" },
     { name = "moto", specifier = "==5.0.16" },
-    { name = "pycobertura", specifier = ">=3.3.2" },
+    { name = "pycobertura", specifier = "==3.3.2" },
     { name = "pyright", specifier = "==1.1.389" },
     { name = "pytest", specifier = "==8.3.3" },
     { name = "pytest-asyncio", specifier = "==0.24.0" },
@@ -1301,13 +1330,14 @@ docs = [
     { name = "boto3-stubs", extras = ["essential"], specifier = "==1.35.49" },
     { name = "click", specifier = "==8.1.7" },
     { name = "coverage", extras = ["toml"], specifier = "==7.6.1" },
+    { name = "diff-cover", specifier = "==9.2.0" },
     { name = "mkdocs", specifier = "==1.6.1" },
     { name = "mkdocs-gen-files", specifier = "==0.5.0" },
     { name = "mkdocs-material", specifier = "==9.5.39" },
     { name = "mkdocs-open-in-new-tab", specifier = "==1.0.5" },
     { name = "mkdocstrings-python", specifier = "==1.11.1" },
     { name = "moto", specifier = "==5.0.16" },
-    { name = "pycobertura", specifier = ">=3.3.2" },
+    { name = "pycobertura", specifier = "==3.3.2" },
     { name = "pytest", specifier = "==8.3.3" },
     { name = "pytest-asyncio", specifier = "==0.24.0" },
     { name = "pytest-examples", specifier = "==0.0.13" },
@@ -1320,6 +1350,7 @@ lint = [
     { name = "boto3-stubs", extras = ["essential"], specifier = "==1.35.49" },
     { name = "click", specifier = "==8.1.7" },
     { name = "coverage", extras = ["toml"], specifier = "==7.6.1" },
+    { name = "diff-cover", specifier = "==9.2.0" },
     { name = "mdformat", specifier = "==0.7.19" },
     { name = "mdformat-admon", git = "https://github.com/rmorshea/mdformat-admon.git?rev=0e513d7a2c265faf74441938ccbd1010660609f4#0e513d7a2c265faf74441938ccbd1010660609f4" },
     { name = "mdformat-mkdocs", specifier = "==3.1.1" },
@@ -1327,7 +1358,7 @@ lint = [
     { name = "mdformat-ruff", specifier = "==0.1.3" },
     { name = "mdformat-tables", specifier = "==1.0.0" },
     { name = "moto", specifier = "==5.0.16" },
-    { name = "pycobertura", specifier = ">=3.3.2" },
+    { name = "pycobertura", specifier = "==3.3.2" },
     { name = "pyright", specifier = "==1.1.389" },
     { name = "pytest", specifier = "==8.3.3" },
     { name = "pytest-asyncio", specifier = "==0.24.0" },
@@ -1343,8 +1374,9 @@ test = [
     { name = "boto3-stubs", extras = ["essential"], specifier = "==1.35.49" },
     { name = "click", specifier = "==8.1.7" },
     { name = "coverage", extras = ["toml"], specifier = "==7.6.1" },
+    { name = "diff-cover", specifier = "==9.2.0" },
     { name = "moto", specifier = "==5.0.16" },
-    { name = "pycobertura", specifier = ">=3.3.2" },
+    { name = "pycobertura", specifier = "==3.3.2" },
     { name = "pytest", specifier = "==8.3.3" },
     { name = "pytest-asyncio", specifier = "==0.24.0" },
     { name = "pytest-examples", specifier = "==0.0.13" },
