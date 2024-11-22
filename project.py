@@ -36,16 +36,7 @@ def cov(no_test: bool, target_xml: str | None):
             run(["coverage", "xml"])
     if target_xml is not None:
         if Path(target_xml).exists():
-            run(
-                [
-                    "pycobertura",
-                    "diff",
-                    "--format",
-                    "github-annotation" if IN_CI else "text",
-                    target_xml,
-                    "coverage.xml",
-                ]
-            )
+            run(["pycobertura", "diff", target_xml, "coverage.xml"])
         else:
             msg = f"Target coverage file {target_xml} does not exist"
             raise click.ClickException(msg)
