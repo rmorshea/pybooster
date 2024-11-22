@@ -24,8 +24,8 @@ def test(args: list[str]):
 
 @main.command("cov")
 @click.option("--no-test", is_flag=True, help="Skip running tests with coverage")
-@click.option("--target-xml", default=None, type=str, help="Path to target coverage.xml.")
-def cov(no_test: bool, target_xml: str | None):
+@click.option("--old-coverage-xml", default=None, type=str, help="Path to target coverage.xml.")
+def cov(no_test: bool, old_coverage_xml: str | None):
     """Test commands."""
     if not no_test:
         try:
@@ -34,11 +34,11 @@ def cov(no_test: bool, target_xml: str | None):
             run(["coverage", "combine"], check=False)
             run(["coverage", "report"])
             run(["coverage", "xml"])
-    if target_xml is not None:
-        if Path(target_xml).exists():
-            run(["pycobertura", "diff", "coverage.xml", target_xml])
+    if old_coverage_xml is not None:
+        if Path(old_coverage_xml).exists():
+            run(["pycobertura", "diff", old_coverage_xml, "coverage.xml"])
         else:
-            msg = f"Target coverage file {target_xml} does not exist"
+            msg = f"Target coverage file {old_coverage_xml} does not exist"
             raise click.ClickException(msg)
     elif not IN_CI:
         run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
