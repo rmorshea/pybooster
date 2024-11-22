@@ -60,10 +60,7 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Check coverage
-        run: |
-          uv run project.py cov
-          --no-test
-          --target-xml=${{ github.workspace }}/coverage-target/coverage.xml
+        run: uv run project.py cov --no-test --target-xml=${{ github.workspace }}/coverage-target/coverage.xml
   py-lint:
     runs-on: ubuntu-latest
     steps:
