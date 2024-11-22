@@ -1,25 +1,14 @@
 # ruff: noqa: S607,S603,S404,FBT001,D401,D103
 
+import os
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Literal
 
 import click
 
-if TYPE_CHECKING:
-    run = subprocess.run
-else:
-
-    def run(*args, **kwargs):
-        kwargs.setdefault("check", True)
-        click.echo(click.style(" ".join(args[0]), bold=True))
-        try:
-            subprocess.run(*args, **kwargs)
-        except subprocess.CalledProcessError as e:
-            msg = f"Command failed with exit code {e.returncode}."
-            raise click.Abort(msg) from None
-        except FileNotFoundError as e:
-            msg = f"File not found {e}"
-            raise click.Abort(msg) from None
+IN_CI = bool(os.getenv("GITHUB_ACTIONS"))
 
 
 @click.group()
@@ -34,26 +23,43 @@ def test(args: list[str]):
 
 
 @main.command("cov")
-@click.option("--no-test", is_flag=True, help="Do not run coverage tests.")
-@click.option("--no-report", is_flag=True, help="Do not run a coverage report.")
-def cov(no_test: bool, no_report: bool):
+@click.option("--no-test", is_flag=True, help="Skip running tests with coverage")
+@click.option("--target-xml", default=None, type=str, help="Path to target coverage.xml.")
+def cov(no_test: bool, target_xml: str | None):
     """Test commands."""
     if not no_test:
-        run(["coverage", "run", "-m", "pytest", "-v"])
-    if not no_report:
-        run(["coverage", "combine"], check=False)
-        run(["coverage", "report"])
-        run(["coverage", "xml"])
+        try:
+            run(["coverage", "run", "-m", "pytest", "-v"])
+        finally:
+            run(["coverage", "combine"], check=False)
+            run(["coverage", "report"])
+            run(["coverage", "xml"])
+    if target_xml is not None:
+        if Path(target_xml).exists():
+            run(
+                [
+                    "pycobertura",
+                    "diff",
+                    "--format",
+                    "github-annotation" if IN_CI else "text",
+                    target_xml,
+                    "coverage.xml",
+                ]
+            )
+        else:
+            msg = f"Target coverage file {target_xml} does not exist"
+            raise click.ClickException(msg)
+    elif not IN_CI:
         run(["diff-cover", "coverage.xml", "--config-file", "pyproject.toml"])
 
 
 @main.command("lint")
 @click.option("--check", is_flag=True, help="Check for linting issues without fixing.")
-@click.option("--no-md-style", is_flag=True, help="Style check Markdown files.")
-@click.option("--no-py-style", is_flag=True, help="Style check Python files.")
-@click.option("--no-py-types", is_flag=True, help="Type check Python files.")
-@click.option("--no-uv-locked", is_flag=True, help="Check that the UV lock file is synced")
-@click.option("--no-yml-style", is_flag=True, help="Style check YAML files.")
+@click.option("--no-md-style", is_flag=True, help="Skip style check Markdown files.")
+@click.option("--no-py-style", is_flag=True, help="Skip style check Python files.")
+@click.option("--no-py-types", is_flag=True, help="Skip type check Python files.")
+@click.option("--no-uv-locked", is_flag=True, help="Skip check that the UV lock file is synced")
+@click.option("--no-yml-style", is_flag=True, help="Skip style check YAML files.")
 def lint(
     check: bool,
     no_md_style: bool,
@@ -113,6 +119,65 @@ def docs_serve():
 def fix():
     """Fix style issues."""
     run(["pytest", "tests/test_docs.py", "--update-examples"])
+
+
+if TYPE_CHECKING:
+    run = subprocess.run
+else:
+
+    def run(*args, **kwargs):
+        kwargs.setdefault("check", True)
+        click.echo(click.style(" ".join(args[0]), bold=True))
+        try:
+            return subprocess.run(*args, **kwargs)
+        except subprocess.CalledProcessError as e:
+            raise click.ClickException(e) from None
+        except FileNotFoundError as e:
+            msg = f"File not found {e}"
+            raise click.ClickException(msg) from None
+
+
+def report(
+    kind: Literal["notice", "warning", "error"],
+    /,
+    *,
+    title: str = "",
+    message: str = "",
+    file: str | None = None,
+    line: int | None = None,
+    end_line: int | None = None,
+    col: int | None = None,
+    end_col: int | None = None,
+):
+    if not IN_CI:
+        file_parts = []
+        if file:
+            file_parts.append(f"{file}")
+            if line:
+                file_parts.append(f":{line}")
+                if end_line:
+                    file_parts.append(f"-{end_line}")
+            if col:
+                file_parts.append(f":{col}")
+                if end_col:
+                    file_parts.append(f"-{end_col}")
+        file_info = "".join(file_parts)
+        click.echo(" - ".join(filter(None, [kind.upper(), file_info, title, message])))
+    else:
+        file_parts = []
+        if title or message:
+            file_parts.append(f"{title}::{message}")
+        if file:
+            file_parts.append(f"file={file}")
+            if line:
+                file_parts.append(f"line={line}")
+                if end_line:
+                    file_parts.append(f"endLine={end_line}")
+            if col:
+                file_parts.append(f"col={col}")
+                if end_col:
+                    file_parts.append(f"endCol={end_col}")
+        click.echo(f"::{kind} {','.join(file_parts)}")
 
 
 if __name__ == "__main__":

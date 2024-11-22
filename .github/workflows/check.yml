@@ -24,14 +24,14 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Run tests
-        run: uv run project.py cov --no-report
+        run: uv run project.py cov
       - name: Upload coverage
         if: matrix.python-version == env.latest-python-version
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.python-version }}
-          path: ${{ github.workspace }}/.coverage
+          name: coverage-xml
           include-hidden-files: true
+          path: ${{ github.workspace }}/coverage.xml
   py-coverage:
     runs-on: ubuntu-latest
     needs: py-tests
@@ -43,17 +43,24 @@ jobs:
         with:
           path: ~/.cache/uv
           key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
-      - name: Download coverage
+      - name: Download target coverage
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          branch: ${{ github.event.pull_request.base.ref }}
+          name: coverage-xml
+          path: coverage-target
+          if_no_artifact_found: warn
+      - name: Download current coverage
         uses: actions/download-artifact@v4
         with:
-          name: coverage-${{ env.latest-python-version }}
+          name: coverage-xml
       - run: git fetch origin main
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Check coverage
-        run: uv run project.py cov --no-test
+        run: uv run project.py cov --no-test --target-xml=${{ github.workspace }}/coverage-target/coverage.xml
   py-lint:
     runs-on: ubuntu-latest
     steps:
