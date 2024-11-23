@@ -72,14 +72,14 @@ def singleton(provides: type[R] | Callable[[G], R], value: R | G) -> SyncProvide
 def function(
     func: Callable[P, R],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given function.
 
     Args:
         func: The function to create a provider from.
-        dependencies: The dependencies of the function (infered if not provided).
+        requires: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
     provides = provides or get_callable_return_type(func)
@@ -88,21 +88,21 @@ def function(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
         yield func(*args, **kwargs)
 
-    return iterator(wrapper, provides=provides, dependencies=dependencies)
+    return iterator(wrapper, provides=provides, requires=requires)
 
 
 @paramorator
 def asyncfunction(
     func: Callable[P, Awaitable[R]],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given coroutine.
 
     Args:
         func: The function to create a provider from.
-        dependencies: The dependencies of the function (infered if not provided).
+        requires: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
     provides = provides or get_coroutine_return_type(func)
@@ -111,45 +111,45 @@ def asyncfunction(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         yield await func(*args, **kwargs)
 
-    return asynciterator(wrapper, provides=provides, dependencies=dependencies)
+    return asynciterator(wrapper, provides=provides, requires=requires)
 
 
 @paramorator
 def iterator(
     func: IteratorCallable[P, R],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given iterator function.
 
     Args:
         func: The function to create a provider from.
-        dependencies: The dependencies of the function (infered if not provided).
+        requires: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
     provides = provides or get_iterator_yield_type(func, sync=True)
-    dependencies = get_required_parameters(func, dependencies)
-    return SyncProvider(_contextmanager(func), cast(type[R], provides), dependencies)
+    requires = get_required_parameters(func, requires)
+    return SyncProvider(_contextmanager(func), cast(type[R], provides), requires)
 
 
 @paramorator
 def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given async iterator function.
 
     Args:
         func: The function to create a provider from.
-        dependencies: The dependencies of the function (infered if not provided).
+        requires: The dependencies of the function (infered if not provided).
         provides: The type that the function provides (infered if not provided).
     """
     provides = provides or get_iterator_yield_type(func, sync=False)
-    dependencies = get_required_parameters(func, dependencies)
-    return AsyncProvider(_asynccontextmanager(func), cast(type[R], provides), dependencies)
+    requires = get_required_parameters(func, requires)
+    return AsyncProvider(_asynccontextmanager(func), cast(type[R], provides), requires)
 
 
 class _BaseProvider(Generic[R]):

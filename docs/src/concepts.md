@@ -221,14 +221,13 @@ def get_auth(*, auth: Auth = required) -> Auth:
 
 with solved(auth):
     assert get_auth() is not get_auth()
-
-    with injector.shared(dependencies=[Auth]) as values:
+    with injector.shared(Auth) as values:
         assert values[Auth] is get_auth()
         assert get_auth() is get_auth()
 ```
 
 You can, instead or additionally, override the current values for a dependencies by
-passing a mapping of dependency types to desired values under the `overrides` keyword:
+passing a mapping of dependency types to desired values under the `values` keyword:
 
 ```python
 from dataclasses import dataclass
@@ -271,8 +270,39 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
 
 with solved(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
-    with injector.shared(overrides={UserId: UserId(2)}):
+    with injector.shared((UserId, 2)):
         assert get_profile_summary() == "#2 Bob: Bob's bio"
+```
+
+### Current Values
+
+You can view all value that are available in the current context using the
+[`current_values`][pybooster.core.injector.current_values] function. It returns
+a mapping from dependency types to their corresponding values.
+
+```python
+from typing import NewType
+
+from pybooster import provider
+from pybooster import injector
+from pybooster import solved
+from pybooster import required
+
+Greeting = NewType("Greeting", str)
+
+
+@provider.function
+def greeting_provider() -> Greeting:
+    return Greeting("Hello")
+
+
+@injector.function
+def get_current_values(*, _: Greeting = required) -> injector.CurrentValues:
+    return injector.current_values()
+
+
+with solved(greeting_provider):
+    assert get_current_values() == {Greeting: "Hello"}
 ```
 
 ## Providers
@@ -505,6 +535,7 @@ def get_message(*, recipient: Recipient = required) -> str:
 with solved(provider.singleton(Recipient, "Alice")):
     assert get_message() == "Hello, Alice!"
 ```
+
 ### Binding Parameters
 
 You can pass additional arguments to a provider by adding parameters to a provider

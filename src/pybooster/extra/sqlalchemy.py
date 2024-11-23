@@ -103,7 +103,7 @@ def _infer_async_session_type(cls: type[A] = AsyncSession, *_args, **_kwargs) ->
 
 session_provider = provider.iterator(
     _session_provider,
-    dependencies={"bind": Engine},
+    requires={"bind": Engine},
     provides=_infer_session_type,
 )
 """Provide a SQLAlchemy session."""
@@ -111,7 +111,7 @@ session_provider = provider.iterator(
 
 async_session_provider = provider.asynciterator(
     _async_session_provider,
-    dependencies={"bind": AsyncEngine},
+    requires={"bind": AsyncEngine},
     provides=_infer_async_session_type,
 )
 """Provide an async SQLAlchemy session."""

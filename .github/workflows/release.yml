@@ -1,3 +1,4 @@
+---
 name: release
 on:
   release:
@@ -13,7 +14,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
+          key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml')
+            }}
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Install Python

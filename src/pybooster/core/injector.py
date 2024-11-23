@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextlib import AbstractAsyncContextManager
 from contextlib import AbstractContextManager
 from contextlib import asynccontextmanager as _asynccontextmanager
@@ -9,11 +10,13 @@ from typing import TYPE_CHECKING
 from typing import Any
 from typing import ParamSpec
 from typing import TypeVar
+from typing import cast
 
 from paramorator import paramorator
 
-from pybooster._private._injector import async_inject_known_params
-from pybooster._private._injector import sync_inject_known_params
+from pybooster._private._injector import _CURRENT_VALUES
+from pybooster._private._injector import async_inject_into_params
+from pybooster._private._injector import sync_inject_into_params
 from pybooster._private._utils import AsyncFastStack
 from pybooster._private._utils import FastStack
 from pybooster._private._utils import get_required_parameters
@@ -21,8 +24,6 @@ from pybooster._private._utils import make_sentinel_value
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from collections.abc import Collection
-    from collections.abc import Mapping
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -41,25 +42,37 @@ required = make_sentinel_value(__name__, "required")
 """A sentinel object used to indicate that a dependency is required."""
 
 
+def current_values() -> CurrentValues:
+    """Get a mapping from dependency types to their current values."""
+    return cast(CurrentValues, dict(_CURRENT_VALUES.get()))
+
+
+class CurrentValues(Mapping[type, Any]):
+    """A mapping from dependency types to their current values."""
+
+    def __getitem__(self, key: type[R]) -> R: ...
+    def get(self, key: type[R], default: R = ...) -> R: ...  # noqa: D102
+
+
 @paramorator
 def function(
     func: Callable[P, R],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
 ) -> Callable[P, R]:
     """Inject dependencies into the given function.
 
     Args:
         func: The function to inject dependencies into.
-        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+        requires: The parameters and dependencies to inject. Otherwise infered from signature.
     """
-    required_params = get_required_parameters(func, dependencies)
+    requires = get_required_parameters(func, requires)
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         stack = FastStack()
         try:
-            sync_inject_known_params(stack, required_params, kwargs)
+            sync_inject_into_params(stack, kwargs, requires)
             return func(*args, **kwargs)
         finally:
             stack.close()
@@ -71,21 +84,21 @@ def function(
 def asyncfunction(
     func: Callable[P, Coroutine[Any, Any, R]],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
 ) -> Callable[P, Coroutine[Any, Any, R]]:
     """Inject dependencies into the given coroutine.
 
     Args:
         func: The function to inject dependencies into.
-        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+        requires: The parameters and dependencies to inject. Otherwise infered from signature.
     """
-    required_params = get_required_parameters(func, dependencies)
+    requires = get_required_parameters(func, requires)
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[reportReturnType]
         stack = AsyncFastStack()
         try:
-            await async_inject_known_params(stack, required_params, kwargs)
+            await async_inject_into_params(stack, kwargs, requires)
             return await func(*args, **kwargs)
         finally:
             await stack.aclose()
@@ -97,21 +110,21 @@ def asyncfunction(
 def iterator(
     func: IteratorCallable[P, R],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
 ) -> IteratorCallable[P, R]:
     """Inject dependencies into the given iterator.
 
     Args:
         func: The function to inject dependencies into.
-        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+        requires: The parameters and dependencies to inject. Otherwise infered from signature.
     """
-    required_params = get_required_parameters(func, dependencies)
+    requires = get_required_parameters(func, requires)
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
         stack = FastStack()
         try:
-            sync_inject_known_params(stack, required_params, kwargs)
+            sync_inject_into_params(stack, kwargs, requires)
             yield from func(*args, **kwargs)
         finally:
             stack.close()
@@ -123,21 +136,21 @@ def iterator(
 def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
 ) -> AsyncIteratorCallable[P, R]:
     """Inject dependencies into the given async iterator.
 
     Args:
         func: The function to inject dependencies into.
-        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+        requires: The parameters and dependencies to inject. Otherwise infered from signature.
     """
-    required_params = get_required_parameters(func, dependencies)
+    requires = get_required_parameters(func, requires)
 
     @wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         stack = AsyncFastStack()
         try:
-            await async_inject_known_params(stack, required_params, kwargs)
+            await async_inject_into_params(stack, kwargs, requires)
             async for value in func(*args, **kwargs):
                 yield value
         finally:
@@ -150,76 +163,71 @@ def asynciterator(
 def contextmanager(
     func: IteratorCallable[P, R],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
 ) -> Callable[P, AbstractContextManager[R]]:
     """Inject dependencies into the given context manager function.
 
     Args:
         func: The function to inject dependencies into.
-        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+        requires: The parameters and dependencies to inject. Otherwise infered from signature.
     """
-    return _contextmanager(iterator(func, dependencies=dependencies))
+    return _contextmanager(iterator(func, requires=requires))
 
 
 @paramorator
 def asynccontextmanager(
     func: AsyncIteratorCallable[P, R],
     *,
-    dependencies: HintMap | None = None,
+    requires: HintMap | None = None,
 ) -> Callable[P, AbstractAsyncContextManager[R]]:
     """Inject dependencies into the given async context manager function.
 
     Args:
         func: The function to inject dependencies into.
-        dependencies: The parameters and dependencies to inject. Otherwise infered from signature.
+        requires: The parameters and dependencies to inject. Otherwise infered from signature.
     """
-    return _asynccontextmanager(asynciterator(func, dependencies=dependencies))
+    return _asynccontextmanager(asynciterator(func, requires=requires))
 
 
-def shared(
-    *,
-    overrides: Mapping[type[R], R] | None = None,
-    dependencies: Collection[type[R]] | None = None,
-) -> _SharedContext[R]:
-    """Declare that a set of dependency values should be shared for the duration of a context.
-
-    Args:
-        overrides: Declare the exact values for each dependency that should be shared.
-        dependencies: Declare the dependency types that should be shared.
-    """
-    return _SharedContext(overrides or {}, dependencies or [])
+def shared(*args: type | tuple[type, Any]) -> _SharedContext:
+    """Share the values for a set of dependencies for the duration of a context."""
+    param_vals: dict[str, Any] = {}
+    param_deps: dict[str, type] = {}
+    for index, arg in enumerate(args):
+        key = f"__{index}"
+        match arg:
+            case [cls, val]:
+                param_vals[key] = val
+                param_deps[key] = cls
+            case cls:
+                param_deps[key] = cls
+    return _SharedContext(param_vals, param_deps)
 
 
 class _SharedContext(
-    AbstractContextManager[dict[type[R], R]],
-    AbstractAsyncContextManager[dict[type[R], R]],
+    AbstractContextManager[CurrentValues], AbstractAsyncContextManager[CurrentValues]
 ):
     def __init__(
         self,
-        overrides: Mapping[type[R], R],
-        dependencies: Collection[type[R]],
+        param_vals: dict[str, Any],
+        param_deps: dict[str, type],
     ) -> None:
-        self._known_params: dict[str, R] = {}
-        self._required_params: dict[str, type[R]] = {}
-        for i, cls in enumerate(overrides.keys() | dependencies):
-            key = f"key_{i}"
-            self._required_params[key] = cls
-            if cls in overrides:
-                self._known_params[key] = overrides[cls]
+        self._param_vals = param_vals
+        self._param_deps = param_deps
 
-    def __enter__(self) -> dict[type[R], R]:
+    def __enter__(self) -> CurrentValues:
         if hasattr(self, "_sync_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
         self._sync_stack = FastStack()
-        values: dict[str, R] = self._known_params.copy()
-        sync_inject_known_params(
+        params = self._param_vals.copy()
+        sync_inject_into_params(
             self._sync_stack,
-            self._required_params,
-            values,
+            params,
+            self._param_deps,
             keep_current_values=True,
         )
-        return {self._required_params[k]: v for k, v in values.items()}
+        return cast(CurrentValues, {self._param_deps[k]: v for k, v in params.items()})
 
     def __exit__(self, *_: Any) -> None:
         try:
@@ -227,19 +235,19 @@ class _SharedContext(
         finally:
             del self._sync_stack
 
-    async def __aenter__(self) -> dict[type[R], R]:
+    async def __aenter__(self) -> CurrentValues:
         if hasattr(self, "_async_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
         self._async_stack = AsyncFastStack()
-        values: dict[str, R] = self._known_params.copy()
-        await async_inject_known_params(
+        params = self._param_vals.copy()
+        await async_inject_into_params(
             self._async_stack,
-            self._required_params,
-            values,
+            params,
+            self._param_deps,
             keep_current_values=True,
         )
-        return {self._required_params[k]: v for k, v in values.items()}
+        return cast(CurrentValues, {self._param_deps[k]: v for k, v in params.items()})
 
     async def __aexit__(self, *exc: Any) -> None:
         try:

@@ -29,54 +29,29 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def sync_inject_known_params(
+def sync_inject_into_params(
     stack: FastStack,
-    required_params: HintMap,
-    known_params: dict[str, Any],
+    param_vals: dict[str, Any],
+    param_deps: HintMap,
     *,
     keep_current_values: bool = False,
 ) -> None:
     solution = SYNC_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
-    _inject_known_params(known_params, required_params, current_values, solution)
-    missing_params = {k: required_params[k] for k in required_params.keys() - known_params}
-    _inject_current_values(known_params, missing_params, current_values)
+    _inject_params_into_current_values(param_vals, param_deps, current_values, solution)
+    missing_params = {k: param_deps[k] for k in param_deps.keys() - param_vals}
+    _inject_current_values_into_params(param_vals, missing_params, current_values)
 
-    if not keep_current_values and not missing_params:
-        return
-
-    current_values_token = _CURRENT_VALUES.set(current_values)
-    try:
-        _sync_inject_provider_values(stack, known_params, missing_params, current_values, solution)
-    finally:
+    if not missing_params:
         if keep_current_values:
-            stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
-        else:
-            _CURRENT_VALUES.reset(current_values_token)
-
-
-async def async_inject_known_params(
-    stack: AsyncFastStack,
-    required_params: HintMap,
-    known_params: dict[str, Any],
-    *,
-    keep_current_values: bool = False,
-) -> None:
-    solution = FULL_SOLUTION.get()
-    current_values = dict(_CURRENT_VALUES.get())
-
-    _inject_known_params(known_params, required_params, current_values, solution)
-    missing_params = {k: required_params[k] for k in required_params.keys() - known_params}
-    _inject_current_values(known_params, missing_params, current_values)
-
-    if not keep_current_values and not missing_params:
+            stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
         return
 
     current_values_token = _CURRENT_VALUES.set(current_values)
     try:
-        await _async_inject_provider_values(
-            stack, known_params, missing_params, current_values, solution
+        _sync_inject_from_provider_values(
+            stack, param_vals, missing_params, current_values, solution
         )
     finally:
         if keep_current_values:
@@ -85,98 +60,130 @@ async def async_inject_known_params(
             _CURRENT_VALUES.reset(current_values_token)
 
 
-def _inject_known_params(
-    known_params: dict[str, Any],
+async def async_inject_into_params(
+    stack: AsyncFastStack,
+    params: dict[str, Any],
     required_params: HintMap,
+    *,
+    keep_current_values: bool = False,
+) -> None:
+    solution = FULL_SOLUTION.get()
+    current_values = dict(_CURRENT_VALUES.get())
+
+    _inject_params_into_current_values(params, required_params, current_values, solution)
+    missing_params = {k: required_params[k] for k in required_params.keys() - params}
+    _inject_current_values_into_params(params, missing_params, current_values)
+
+    if not missing_params:
+        if keep_current_values:
+            stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
+        return
+
+    current_values_token = _CURRENT_VALUES.set(current_values)
+    try:
+        await _async_inject_from_provider_values(
+            stack, params, missing_params, current_values, solution
+        )
+    finally:
+        if keep_current_values:
+            stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
+        else:
+            _CURRENT_VALUES.reset(current_values_token)
+
+
+def _inject_params_into_current_values(
+    param_vals: dict[str, Any],
+    param_deps: HintMap,
     current_values: dict[type, Any],
     solution: Solution,
 ) -> None:
+    to_update: dict[type, Any] = {}
     to_invalidate: set[type] = set()
-    for name in required_params.keys() & known_params:
-        if current_values.get(cls := required_params[name], undefined) is not (
-            new_val := known_params[name]
-        ):
-            current_values[cls] = new_val
+    for name in param_deps.keys() & param_vals:
+        cls = param_deps[name]
+        if current_values.get(cls, undefined) is not (new_val := param_vals[name]):
             to_invalidate.update(solution.descendant_types(cls))
-    for cls in to_invalidate:
+            to_update[cls] = new_val
+    for cls in (
+        # don't invalidate anything we're going to update
+        to_invalidate - to_update.keys()
+    ):
         current_values.pop(cls, None)
+    current_values.update(to_update)
 
 
-def _inject_current_values(
-    kwargs: dict[str, Any],
+def _inject_current_values_into_params(
+    param_vals: dict[str, Any],
     missing_params: HintDict,
     current_values: Mapping[type, Any],
 ) -> None:
     for name, cls in tuple(missing_params.items()):
         if cls in current_values:
-            kwargs[name] = current_values[cls]
+            param_vals[name] = current_values[cls]
             del missing_params[name]
 
 
-def _sync_inject_provider_values(
+def _sync_inject_from_provider_values(
     stack: FastStack,
-    kwargs: dict[str, Any],
+    param_vals: dict[str, Any],
     missing_params: HintDict,
     current_values: dict[type, Any],
     solution: Solution[SyncProviderInfo],
 ) -> None:
-    param_name_by_type = _get_param_name_by_type_map(missing_params)
-    for provider_generation in solution.execution_order_for(param_name_by_type, current_values):
-        for info in provider_generation:
-            current_values[info["provides"]] = _sync_enter_provider(stack, info, current_values)
-    _inject_current_values(kwargs, missing_params, current_values)
+    for exe_group in solution.execution_order_for(missing_params.values(), current_values):
+        for prov in exe_group:
+            current_values[prov["provides"]] = _sync_enter_provider(stack, prov, current_values)
+    _inject_current_values_into_params(param_vals, missing_params, current_values)
 
 
-async def _async_inject_provider_values(
+async def _async_inject_from_provider_values(
     stack: AsyncFastStack,
-    kwargs: dict[str, Any],
+    param_vals: dict[str, Any],
     missing_params: HintDict,
     current_values: dict[type, Any],
     solution: Solution[ProviderInfo],
 ) -> None:
-    param_name_by_type = _get_param_name_by_type_map(missing_params)
-    for provider_generation in solution.execution_order_for(param_name_by_type, current_values):
-        match provider_generation:
-            case [info]:
-                if info["is_sync"] is True:
-                    current_values[info["provides"]] = _sync_enter_provider(
-                        stack, info, current_values
+    for exe_group in solution.execution_order_for(missing_params.values(), current_values):
+        match exe_group:
+            case [prov]:
+                if prov["is_sync"] is True:
+                    current_values[prov["provides"]] = _sync_enter_provider(
+                        stack, prov, current_values
                     )
                 else:
-                    current_values[info["provides"]] = await _async_enter_provider(
-                        stack, info, current_values
+                    current_values[prov["provides"]] = await _async_enter_provider(
+                        stack, prov, current_values
                     )
             case _:
-                async_infos: list[AsyncProviderInfo] = []
-                for info in provider_generation:
-                    if info["is_sync"] is True:
-                        current_values[info["provides"]] = _sync_enter_provider(
-                            stack, info, current_values
+                async_provs: list[AsyncProviderInfo] = []
+                for prov in exe_group:
+                    if prov["is_sync"] is True:
+                        current_values[prov["provides"]] = _sync_enter_provider(
+                            stack, prov, current_values
                         )
                     else:
-                        async_infos.append(info)
-                if async_infos:
-                    async with create_task_group() as tg:
-                        provider_futures = [
-                            (
-                                i["provides"],
-                                start_future(tg, _async_enter_provider(stack, i, current_values)),
-                            )
-                            for i in async_infos
-                        ]
-                    for cls, f_result in provider_futures:
-                        current_values[cls] = f_result()
-    _inject_current_values(kwargs, missing_params, current_values)
-
-
-def _get_param_name_by_type_map(missing_params: HintMap) -> dict[type, list[str]]:
-    param_name_by_type: dict[type, list[str]] = {}
-    for name, cls in missing_params.items():
-        if cls not in param_name_by_type:
-            param_name_by_type[cls] = [name]
-        else:
-            param_name_by_type[cls].append(name)
-    return param_name_by_type
+                        async_provs.append(prov)
+                match async_provs:
+                    case []:
+                        pass
+                    case [prov]:
+                        current_values[prov["provides"]] = await _async_enter_provider(
+                            stack, prov, current_values
+                        )
+                    case _:
+                        async with create_task_group() as tg:
+                            provider_futures = [
+                                (
+                                    p,
+                                    start_future(
+                                        tg, _async_enter_provider(stack, p, current_values)
+                                    ),
+                                )
+                                for p in async_provs
+                            ]
+                        for prov, result in provider_futures:
+                            current_values[prov["provides"]] = result()
+    _inject_current_values_into_params(param_vals, missing_params, current_values)
 
 
 def _sync_enter_provider(
