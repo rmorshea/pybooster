@@ -90,11 +90,12 @@ decorator. This will cache the result so the same value is returned each time.
     is [`aiocache`](https://github.com/aio-libs/aiocache).
 
 ```python
-from functools import lru_cache
 from dataclasses import dataclass
+from functools import lru_cache
 
+from pybooster import injector
 from pybooster import provider
-from pybooster import required, injector
+from pybooster import required
 from pybooster import solved
 
 
@@ -105,6 +106,7 @@ class Dataset:
 
 
 calls = []
+
 
 @provider.function
 @lru_cache

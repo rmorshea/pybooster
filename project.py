@@ -91,9 +91,9 @@ def lint(
             doc_cmd(["ruff", "check", "--fix"], no_pad=True)
     if not no_yml_style:
         if check:
-            run(["yamlfix", "--check", "."])
+            run(["yamlfix", "--check", "docs", ".github"])
         else:
-            run(["yamlfix", "."])
+            run(["yamlfix", "docs", ".github"])
     if not no_py_types:
         run(["pyright"])
     if not no_uv_locked:

@@ -34,10 +34,7 @@ all = [
     { include-group = "lint" },
     { include-group = "test" },
 ]
-dev = [
-    "click==8.1.7",
-    "pre-commit==4.0.1",
-]
+dev = ["click==8.1.7"]
 docs = [
     { include-group = "test" },
     "mkdocs-gen-files==0.5.0",
