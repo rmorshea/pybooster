@@ -80,11 +80,8 @@ def get_user(
 def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
-            solved(
-                provider.singleton(Session, Session()),
-                client_provider[S3Client].bind("s3"),
-                bucket_provider.bind("my-bucket"),
-            ),
+            injector.shared((Session, Session())),
+            solved(client_provider[S3Client].bind("s3"), bucket_provider.bind("my-bucket")),
             injector.shared(BucketName),
         ):
             user = User(id=1, name="Alice")

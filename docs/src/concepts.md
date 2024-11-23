@@ -5,7 +5,8 @@
 In order to [inject](#injectors) a set of [dependencies](#dependencies) PyBooster must
 resolve the execution order of their [providers](#providers). That execution order is
 determined by performing a topological sort on the dependency graph that gets saved as a
-"solution". You can declare one using the `solution` context manager.
+"solution". You can declare one using the [`solved`][pybooster.core.solution.solved]
+context manager.
 
 ```python
 from typing import NewType
@@ -32,6 +33,11 @@ with solved(alice_provider):
     # alice is available to inject as a recipient
     assert get_message() == "Hello, Alice!"
 ```
+
+!!! tip
+
+    To avoid performance overhead you should try to establish a solution once at the
+    beginning of your program.
 
 ### Nesting Solutions
 
@@ -129,12 +135,12 @@ with solved(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
--   [`injector.function`][pybooster.core.injector.function]
--   [`injector.iterator`][pybooster.core.injector.iterator]
--   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
--   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
--   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
--   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+- [`injector.function`][pybooster.core.injector.function]
+- [`injector.iterator`][pybooster.core.injector.iterator]
+- [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+- [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+- [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+- [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
 #### Sharing Parameters
 
@@ -144,8 +150,8 @@ call by setting `shared=True` in the decorator:
 ```python
 from typing import NewType
 
-from pybooster import provider
 from pybooster import injector
+from pybooster import provider
 from pybooster import required
 from pybooster import solved
 
@@ -163,7 +169,7 @@ def get_current_values(*, _: Recipient = required) -> injector.CurrentValues:
 
 
 @injector.function(shared=True)
-def get_current_values_with_shared(*, _recipient_: Recipient = required) -> injector.CurrentValues:
+def get_current_values_with_shared(*, _: Recipient = required) -> injector.CurrentValues:
     return injector.current_values()
 
 
@@ -538,32 +544,6 @@ with solved(config_file_provider.bind(Config, json_file)):
 !!! tip
 
     This approach also works great for a provider that has `overload` implementations.
-
-### Singleton Providers
-
-To provide a single static value as a dependency, you can use the `provider.singleton`
-function. This is useful when you have a value that doesn't need to be computed or
-cleaned up.
-
-```python
-from typing import NewType
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solved
-
-Recipient = NewType("Recipient", str)
-
-
-@injector.function
-def get_message(*, recipient: Recipient = required) -> str:
-    return f"Hello, {recipient}!"
-
-
-with solved(provider.singleton(Recipient, "Alice")):
-    assert get_message() == "Hello, Alice!"
-```
 
 ### Binding Parameters
 

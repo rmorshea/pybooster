@@ -13,7 +13,6 @@ from typing import Self
 from typing import TypeAlias
 from typing import TypeVar
 from typing import cast
-from typing import overload
 
 from paramorator import paramorator
 
@@ -38,34 +37,6 @@ if TYPE_CHECKING:
 P = ParamSpec("P")
 R = TypeVar("R")
 G = TypeVar("G")
-
-
-@overload
-def singleton(provides: type[R], value: R) -> SyncProvider[[], R]: ...
-
-
-@overload
-def singleton(provides: Callable[[G], R], value: G) -> SyncProvider[[], R]: ...
-
-
-def singleton(provides: type[R] | Callable[[G], R], value: R | G) -> SyncProvider[[], Any]:
-    """Create a provider for a singleton value.
-
-    Args:
-        provides: The type that the value provides.
-        value: The value to provide
-    """
-    if isinstance(provides, type):
-
-        def get_value() -> R:
-            return value  # type: ignore[reportReturnType]
-
-    else:
-
-        def get_value() -> R:
-            return provides(value)  # type: ignore[reportArgumentType]
-
-    return function(provides=cast(type, provides))(get_value)
 
 
 @paramorator
