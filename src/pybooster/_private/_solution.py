@@ -106,6 +106,8 @@ class Solution(Generic[P]):
 
     def descendant_types(self, cls: type) -> Set[type]:
         type_by_index = self.type_by_index  # avoid extra attribute accesses
+        if cls not in self.index_by_type:
+            return set()
         return {type_by_index[i] for i in descendants(self.index_graph, self.index_by_type[cls])}
 
     def execution_order_for(

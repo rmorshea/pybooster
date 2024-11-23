@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > [!WARNING]
-> This project is still under development - use at your own risk
+> This project is still under development - use at your own risk.
 
 PyBooster - dependency injection without the boilerplate.
 
@@ -66,5 +66,5 @@ This works by inspecting the type hints of the provider `sqlite_connection` to s
 it produces a `sqlite3.Connection`. Simarly, the signature of the dependant function
 `query_database` is inspected to see that it requires a `sqlite3.Connection`. At that
 point, when `query_database` is called it checks to see if there's a
-`sqlite3.Connection` provider in the current soltion and, if so, injects it into the
+`sqlite3.Connection` provider in the current solution and, if so, injects it into the
 function.

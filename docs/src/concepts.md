@@ -5,7 +5,8 @@
 In order to [inject](#injectors) a set of [dependencies](#dependencies) PyBooster must
 resolve the execution order of their [providers](#providers). That execution order is
 determined by performing a topological sort on the dependency graph that gets saved as a
-"solution". You can declare one using the `solution` context manager.
+"solution". You can declare one using the [`solved`][pybooster.core.solution.solved]
+context manager.
 
 ```python
 from typing import NewType
@@ -32,6 +33,11 @@ with solved(alice_provider):
     # alice is available to inject as a recipient
     assert get_message() == "Hello, Alice!"
 ```
+
+!!! tip
+
+    To avoid performance overhead you should try to establish a solution once at the
+    beginning of your program.
 
 ### Nesting Solutions
 
@@ -136,6 +142,47 @@ PyBooster supports decorators for the following types of functions or methods:
 - [`injector.asynciterator`][pybooster.core.injector.asynciterator]
 - [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
+#### Sharing Parameters
+
+You can declare that injected parameter should be shared for the duration of a function
+call by setting `shared=True` in the decorator:
+
+```python
+from typing import NewType
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+from pybooster import solved
+
+Recipient = NewType("Recipient", str)
+
+
+@provider.function
+def recipient_provider() -> Recipient:
+    return Recipient("Alice")
+
+
+@injector.function
+def get_current_values(*, _: Recipient = required) -> injector.CurrentValues:
+    return injector.current_values()
+
+
+@injector.function(shared=True)
+def get_current_values_with_shared(*, _: Recipient = required) -> injector.CurrentValues:
+    return injector.current_values()
+
+
+with solved(recipient_provider):
+    assert get_current_values() == {}
+    assert get_current_values_with_shared() == {Recipient: "Alice"}
+```
+
+Setting `shared=True` is effectively equivalent to wrapping function calls in the
+[`shared`][pybooster.core.injector.shared] context manager. Doing this might be useful
+when dealing with database connections or other resources that should be shared across
+multiple functions.
+
 #### Overriding Parameters
 
 You can pass values to a required parameter of a function with an
@@ -221,14 +268,13 @@ def get_auth(*, auth: Auth = required) -> Auth:
 
 with solved(auth):
     assert get_auth() is not get_auth()
-
-    with injector.shared(dependencies=[Auth]) as values:
+    with injector.shared(Auth) as values:
         assert values[Auth] is get_auth()
         assert get_auth() is get_auth()
 ```
 
 You can, instead or additionally, override the current values for a dependencies by
-passing a mapping of dependency types to desired values under the `overrides` keyword:
+passing a mapping of dependency types to desired values under the `values` keyword:
 
 ```python
 from dataclasses import dataclass
@@ -271,8 +317,27 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
 
 with solved(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
-    with injector.shared(overrides={UserId: UserId(2)}):
+    with injector.shared((UserId, 2)):
         assert get_profile_summary() == "#2 Bob: Bob's bio"
+```
+
+### Current Values
+
+You can access a mapping of the current values for all dependencies by calling the
+[`current_values`][pybooster.core.injector.current_values] function. This can be useful
+for debugging:
+
+```python
+from typing import NewType
+
+from pybooster import injector
+
+UserId = NewType("UserId", int)
+
+
+assert injector.current_values() == {}
+with injector.shared((UserId, 1)):
+    assert injector.current_values() == {UserId: 1}
 ```
 
 ## Providers
@@ -308,7 +373,7 @@ resources that need to be cleaned up when the dependency's value is no longer in
 
 ```python
 import sqlite3
-from typing import Iterator
+from collections.abc import Iterator
 
 from pybooster import provider
 
@@ -350,7 +415,7 @@ in use.
 ```python
 from asyncio import StreamReader
 from asyncio import open_connection
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from pybooster import provider
 
@@ -480,31 +545,6 @@ with solved(config_file_provider.bind(Config, json_file)):
 
     This approach also works great for a provider that has `overload` implementations.
 
-### Singleton Providers
-
-To provide a single static value as a dependency, you can use the `provider.singleton`
-function. This is useful when you have a value that doesn't need to be computed or
-cleaned up.
-
-```python
-from typing import NewType
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solved
-
-Recipient = NewType("Recipient", str)
-
-
-@injector.function
-def get_message(*, recipient: Recipient = required) -> str:
-    return f"Hello, {recipient}!"
-
-
-with solved(provider.singleton(Recipient, "Alice")):
-    assert get_message() == "Hello, Alice!"
-```
 ### Binding Parameters
 
 You can pass additional arguments to a provider by adding parameters to a provider
@@ -512,8 +552,8 @@ function signature that are not [dependencies](#dependencies):
 
 ```python
 import sqlite3
+from collections.abc import Iterator
 from sqlite3 import Connection
-from typing import Iterator
 
 from pybooster import provider
 

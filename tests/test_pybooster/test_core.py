@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from asyncio import wait_for
-from collections.abc import Callable  # noqa: TC003
-from collections.abc import Iterator  # noqa: TC003
+from collections.abc import Callable
+from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from typing import Any
 from typing import NewType
 from typing import TypeVar
@@ -17,6 +18,10 @@ from pybooster import required
 from pybooster import solved
 from pybooster.types import InjectionError
 from pybooster.types import SolutionError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Iterator
 
 T = TypeVar("T")
 
@@ -373,7 +378,7 @@ def test_overwritten_value_causes_descendant_providers_to_reevaluate():
         return f"#{user_id} {profile.name}: {profile.bio}"
 
     with solved(user_id_provider, profile_provider):
-        with injector.shared(dependencies=[Profile]):
+        with injector.shared(Profile):
             assert call_count == 1
             assert get_profile_summary() == "#1 Alice: Alice's bio"
             assert call_count == 1
@@ -449,7 +454,7 @@ def test_cannot_enter_shared_context_more_than_once():
         return Greeting("Hello")
 
     with solved(greeting_provider):
-        ctx = injector.shared(dependencies=[Greeting])
+        ctx = injector.shared(Greeting)
         with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
                 with ctx:
@@ -462,7 +467,7 @@ async def test_cannot_async_enter_shared_context_more_than_once():
         return Greeting("Hello")
 
     with solved(greeting_provider):
-        ctx = injector.shared(dependencies=[Greeting])
+        ctx = injector.shared(Greeting)
         async with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
                 async with ctx:
@@ -510,3 +515,58 @@ def test_cannot_provide_union():
     with pytest.raises(TypeError, match=r"Cannot provide a union type .*"):
         with solved(greeting_provider):
             raise AssertionError
+
+
+async def test_async_func_requires_only_sync_providers():
+    @provider.function
+    def greeting_provider() -> Greeting:
+        return Greeting("Hello")
+
+    @provider.function
+    def recipient_provider() -> Recipient:
+        return Recipient("World")
+
+    @injector.asyncfunction
+    async def get_message(*, greeting: Greeting = required, recipient: Recipient = required):
+        return f"{greeting}, {recipient}!"
+
+    with solved(greeting_provider, recipient_provider):
+        assert (await get_message()) == "Hello, World!"
+
+
+def test_injecting_current_value_does_not_invalidate_providers():
+    call_count = 0
+
+    @provider.function
+    def greeting_provider() -> Greeting:
+        return Greeting("Hello")
+
+    @provider.function
+    def message_provider(*, greeting: Greeting = required) -> Message:
+        nonlocal call_count
+        call_count += 1
+        return Message(f"{greeting}, World!")
+
+    @injector.function
+    def get_double_greeting_message(*, greeting: Greeting = required, message: Message = required):
+        return f"{greeting} {message}"
+
+    with solved(greeting_provider, message_provider):
+        with injector.shared(Greeting, Message) as values:
+            assert call_count == 1
+            assert get_double_greeting_message(greeting=values[Greeting]) == "Hello Hello, World!"
+            assert call_count == 1
+
+
+async def test_async_shared_context_with_dependencies_and_overrides():
+    @provider.asyncfunction
+    async def greeting_provider() -> Greeting:
+        raise AssertionError  # nocov
+
+    @provider.asyncfunction
+    async def recipient_provider() -> Recipient:
+        raise AssertionError  # nocov
+
+    with solved(greeting_provider, recipient_provider):
+        async with injector.shared((Greeting, "Hello"), (Recipient, "World")) as values:
+            assert values == {Greeting: "Hello", Recipient: "World"}

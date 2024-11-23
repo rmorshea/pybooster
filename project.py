@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Literal
@@ -19,6 +20,7 @@ def main():
 @main.command("test")
 @click.argument("args", nargs=-1)
 def test(args: list[str]):
+    """Run the test suite."""
     run(["pytest", "-v", *args])
 
 
@@ -26,7 +28,7 @@ def test(args: list[str]):
 @click.option("--no-test", is_flag=True, help="Skip running tests with coverage")
 @click.option("--old-coverage-xml", default=None, type=str, help="Path to target coverage.xml.")
 def cov(no_test: bool, old_coverage_xml: str | None):
-    """Test commands."""
+    """Run the test suite with coverage."""
     if not no_test:
         try:
             run(["coverage", "run", "-m", "pytest", "-v"])
@@ -71,8 +73,6 @@ def lint(
     no_yml_style: bool,
 ):
     """Linting commands."""
-    if not no_py_types:
-        run(["pyright"])
     if not no_py_style:
         if check:
             run(["ruff", "format", "--check", "--diff"])
@@ -82,14 +82,20 @@ def lint(
             run(["ruff", "check", "--fix"])
     if not no_md_style:
         if check:
-            run(["mdformat", "--ignore-missing-references", "--check", "."])
+            run(["mdformat", "--ignore-missing-references", "--check", "README.md", "docs"])
+            doc_cmd(["ruff", "format", "--check"], no_pad=True)
+            doc_cmd(["ruff", "check"], no_pad=True)
         else:
-            run(["mdformat", "--ignore-missing-references", "."])
+            run(["mdformat", "--ignore-missing-references", "README.md", "docs"])
+            doc_cmd(["ruff", "format"], no_pad=True)
+            doc_cmd(["ruff", "check", "--fix"], no_pad=True)
     if not no_yml_style:
         if check:
-            run(["yamlfix", "--check", "."])
+            run(["yamlfix", "--check", "docs", ".github"])
         else:
-            run(["yamlfix", "."])
+            run(["yamlfix", "docs", ".github"])
+    if not no_py_types:
+        run(["pyright"])
     if not no_uv_locked:
         run(["uv", "sync", "--locked"])
 
@@ -180,6 +186,24 @@ def report(
                 if end_col:
                     file_parts.append(f"endCol={end_col}")
         click.echo(f"::{kind} {','.join(file_parts)}")
+
+
+def doc_cmd(cmd: Sequence[str], *, no_pad: bool = False):
+    run(
+        list(
+            filter(
+                None,
+                [
+                    "doccmd",
+                    "--language=python",
+                    "--no-pad-file" if no_pad else "",
+                    "--command",
+                    " ".join(cmd),
+                    "docs",
+                ],
+            )
+        )
+    )
 
 
 if __name__ == "__main__":

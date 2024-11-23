@@ -1,3 +1,4 @@
+---
 name: check
 on:
   push:
@@ -11,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ['3.11', '3.12', '3.13']
     steps:
       - uses: actions/checkout@v4
       - name: UV cache
@@ -38,7 +39,7 @@ jobs:
     if: github.ref != format('refs/heads/{0}', github.event.repository.default_branch)
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 50 }
+        with: {fetch-depth: 50}
       - name: UV cache
         uses: actions/cache@v4
         with:
@@ -75,7 +76,7 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Check lint
-        run: uv run project.py lint
+        run: uv run project.py lint --check
   py-build:
     runs-on: ubuntu-latest
     steps:

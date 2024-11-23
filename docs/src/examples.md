@@ -8,6 +8,7 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Annotated
+from typing import LiteralString
 from typing import NewType
 
 from boto3.session import Session
@@ -23,7 +24,7 @@ from pybooster import solved
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
 else:
-    S3Client = Annotated[BaseClient, "mypy_boto3_s3.S3Client"]
+    S3Client = Annotated[BaseClient, "S3Client"]
 
 
 BucketName = NewType("BucketName", str)
@@ -36,7 +37,7 @@ class User:
 
 
 @provider.function
-def client_provider(service_name: str, *, session: Session = required) -> BaseClient:
+def client_provider(service_name: LiteralString, *, session: Session = required) -> BaseClient:
     return session.client(service_name)
 
 
@@ -79,12 +80,9 @@ def get_user(
 def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
-            solved(
-                provider.singleton(Session, Session()),
-                client_provider[S3Client].bind("s3"),
-                bucket_provider.bind("my-bucket"),
-            ),
-            injector.shared(dependencies=[BucketName]),
+            injector.shared((Session, Session())),
+            solved(client_provider[S3Client].bind("s3"), bucket_provider.bind("my-bucket")),
+            injector.shared(BucketName),
         ):
             user = User(id=1, name="Alice")
             put_user(user)
@@ -138,7 +136,7 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
     with solved(async_engine_provider.bind(DB_URL), async_session_provider):
-        async with injector.shared(dependencies=[AsyncEngine]) as values:
+        async with injector.shared(AsyncEngine) as values:
             async with values[AsyncEngine].begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             yield
@@ -240,7 +238,7 @@ def main():
             engine_provider.bind(url),
             session_provider.bind(expire_on_commit=False),
         ),
-        injector.shared(dependencies=[Engine]),
+        injector.shared(Engine),
     ):
         create_tables()
         user_id = add_user("Alice")
@@ -306,7 +304,7 @@ async def main():
         async_engine_provider.bind(url),
         async_session_provider.bind(expire_on_commit=False),
     ):
-        async with injector.shared(dependencies=[AsyncEngine]):
+        async with injector.shared(AsyncEngine):
             await create_tables()
             user_id = await add_user("Alice")
             user = await get_user(user_id)
@@ -364,7 +362,7 @@ def main():
     with (
         solved(sqlite_connection.bind(":memory:")),
         # Reusing the same connection is only needed for in-memory databases.
-        injector.shared(dependencies=[sqlite3.Connection]),
+        injector.shared(sqlite3.Connection),
     ):
         make_user_table()
         user = User(1, "Alice")
