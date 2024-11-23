@@ -12,9 +12,8 @@ from typing import TypeVar
 
 from paramorator import paramorator
 
-from pybooster._private._injector import async_inject_keywords
-from pybooster._private._injector import overwrite_values
-from pybooster._private._injector import sync_inject_keywords
+from pybooster._private._injector import async_inject_known_params
+from pybooster._private._injector import sync_inject_known_params
 from pybooster._private._utils import AsyncFastStack
 from pybooster._private._utils import FastStack
 from pybooster._private._utils import get_required_parameters
@@ -22,6 +21,7 @@ from pybooster._private._utils import make_sentinel_value
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Collection
     from collections.abc import Mapping
 
 if TYPE_CHECKING:
@@ -59,7 +59,7 @@ def function(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         stack = FastStack()
         try:
-            sync_inject_keywords(stack, required_params, kwargs)
+            sync_inject_known_params(stack, required_params, kwargs)
             return func(*args, **kwargs)
         finally:
             stack.close()
@@ -85,7 +85,7 @@ def asyncfunction(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[reportReturnType]
         stack = AsyncFastStack()
         try:
-            await async_inject_keywords(stack, required_params, kwargs)
+            await async_inject_known_params(stack, required_params, kwargs)
             return await func(*args, **kwargs)
         finally:
             await stack.aclose()
@@ -111,7 +111,7 @@ def iterator(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
         stack = FastStack()
         try:
-            sync_inject_keywords(stack, required_params, kwargs)
+            sync_inject_known_params(stack, required_params, kwargs)
             yield from func(*args, **kwargs)
         finally:
             stack.close()
@@ -137,7 +137,7 @@ def asynciterator(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         stack = AsyncFastStack()
         try:
-            await async_inject_keywords(stack, required_params, kwargs)
+            await async_inject_known_params(stack, required_params, kwargs)
             async for value in func(*args, **kwargs):
                 yield value
         finally:
@@ -176,52 +176,50 @@ def asynccontextmanager(
     return _asynccontextmanager(asynciterator(func, dependencies=dependencies))
 
 
-def overwrite(values: Mapping[type, Any]) -> _OverwriteContext:
-    """Overwrite the current values of the given dependencies."""
-    return _OverwriteContext(values)
+def shared(
+    *,
+    overrides: Mapping[type[R], R] | None = None,
+    dependencies: Collection[type[R]] | None = None,
+) -> _SharedContext[R]:
+    """Declare that a set of dependency values should be shared for the duration of a context.
+
+    Args:
+        overrides: Declare the exact values for each dependency that should be shared.
+        dependencies: Declare the dependency types that should be shared.
+    """
+    return _SharedContext(overrides or {}, dependencies or [])
 
 
-class _OverwriteContext(AbstractContextManager[None]):
-    def __init__(self, values: Mapping[type, Any]) -> None:
-        self._values = values
+class _SharedContext(
+    AbstractContextManager[dict[type[R], R]],
+    AbstractAsyncContextManager[dict[type[R], R]],
+):
+    def __init__(
+        self,
+        overrides: Mapping[type[R], R],
+        dependencies: Collection[type[R]],
+    ) -> None:
+        self._known_params: dict[str, R] = {}
+        self._required_params: dict[str, type[R]] = {}
+        for i, cls in enumerate(overrides.keys() | dependencies):
+            key = f"key_{i}"
+            self._required_params[key] = cls
+            if cls in overrides:
+                self._known_params[key] = overrides[cls]
 
-    def __enter__(self) -> None:
-        if hasattr(self, "_reset"):
-            msg = "Cannot reuse a context manager."
-            raise RuntimeError(msg)
-        self._reset = overwrite_values(self._values)
-
-    def __exit__(self, *_: Any) -> None:
-        try:
-            self._reset()
-        finally:
-            del self._reset
-
-
-def current(cls: type[R]) -> _CurrentContext[R]:
-    """Get the current value of a dependency."""
-    return _CurrentContext(cls)
-
-
-_KEY = ""
-
-
-class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R]):
-    """A context manager to provide the current value of a dependency."""
-
-    def __init__(self, cls: type[R]) -> None:
-        self._required_params: dict[str, type[R]] = {_KEY: cls}
-
-    def __enter__(self) -> R:
+    def __enter__(self) -> dict[type[R], R]:
         if hasattr(self, "_sync_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
         self._sync_stack = FastStack()
-        values = {}
-        sync_inject_keywords(
-            self._sync_stack, self._required_params, values, keep_current_values=True
+        values: dict[str, R] = self._known_params.copy()
+        sync_inject_known_params(
+            self._sync_stack,
+            self._required_params,
+            values,
+            keep_current_values=True,
         )
-        return values[_KEY]
+        return {self._required_params[k]: v for k, v in values.items()}
 
     def __exit__(self, *_: Any) -> None:
         try:
@@ -229,16 +227,19 @@ class _CurrentContext(AbstractContextManager[R], AbstractAsyncContextManager[R])
         finally:
             del self._sync_stack
 
-    async def __aenter__(self) -> R:
+    async def __aenter__(self) -> dict[type[R], R]:
         if hasattr(self, "_async_stack"):
             msg = "Cannot reuse a context manager."
             raise RuntimeError(msg)
         self._async_stack = AsyncFastStack()
-        values = {}
-        await async_inject_keywords(
-            self._async_stack, self._required_params, values, keep_current_values=True
+        values: dict[str, R] = self._known_params.copy()
+        await async_inject_known_params(
+            self._async_stack,
+            self._required_params,
+            values,
+            keep_current_values=True,
         )
-        return values[_KEY]
+        return {self._required_params[k]: v for k, v in values.items()}
 
     async def __aexit__(self, *exc: Any) -> None:
         try:

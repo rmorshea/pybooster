@@ -17,7 +17,7 @@ from moto import mock_aws
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 # Avoid importing mypy_boto3_s3 but still make S3Client available at runtime.
 if TYPE_CHECKING:
@@ -79,12 +79,12 @@ def get_user(
 def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
-            solution(
+            solved(
                 provider.singleton(Session, Session()),
                 client_provider[S3Client].bind("s3"),
                 bucket_provider.bind("my-bucket"),
             ),
-            injector.current(BucketName),
+            injector.shared(dependencies=[BucketName]),
         ):
             user = User(id=1, name="Alice")
             put_user(user)
@@ -115,7 +115,7 @@ from starlette.testclient import TestClient
 
 from pybooster import injector
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 from pybooster.extra.asgi import PyBoosterMiddleware
 from pybooster.extra.sqlalchemy import async_engine_provider
 from pybooster.extra.sqlalchemy import async_session_provider
@@ -137,9 +137,9 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
-    with solution(async_engine_provider.bind(DB_URL), async_session_provider):
-        async with injector.current(AsyncEngine) as engine:
-            async with engine.begin() as conn:
+    with solved(async_engine_provider.bind(DB_URL), async_session_provider):
+        async with injector.shared(dependencies=[AsyncEngine]) as values:
+            async with values[AsyncEngine].begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             yield
 
@@ -199,7 +199,7 @@ from sqlalchemy.orm import mapped_column
 
 from pybooster import injector
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 from pybooster.extra.sqlalchemy import engine_provider
 from pybooster.extra.sqlalchemy import session_provider
 
@@ -236,11 +236,11 @@ def get_user(user_id: int, *, session: Session = required) -> User:
 def main():
     url = "sqlite:///:memory:"
     with (
-        solution(
+        solved(
             engine_provider.bind(url),
             session_provider.bind(expire_on_commit=False),
         ),
-        injector.current(Engine),
+        injector.shared(dependencies=[Engine]),
     ):
         create_tables()
         user_id = add_user("Alice")
@@ -265,7 +265,7 @@ from sqlalchemy.orm import mapped_column
 
 from pybooster import injector
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 from pybooster.extra.sqlalchemy import async_engine_provider
 from pybooster.extra.sqlalchemy import async_session_provider
 
@@ -302,11 +302,11 @@ async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
 
 async def main():
     url = "sqlite+aiosqlite:///:memory:"
-    with solution(
+    with solved(
         async_engine_provider.bind(url),
         async_session_provider.bind(expire_on_commit=False),
     ):
-        async with injector.current(AsyncEngine):
+        async with injector.shared(dependencies=[AsyncEngine]):
             await create_tables()
             user_id = await add_user("Alice")
             user = await get_user(user_id)
@@ -328,7 +328,7 @@ from typing import Self
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 
 @provider.iterator
@@ -362,9 +362,9 @@ class User:
 
 def main():
     with (
-        solution(sqlite_connection.bind(":memory:")),
+        solved(sqlite_connection.bind(":memory:")),
         # Reusing the same connection is only needed for in-memory databases.
-        injector.current(sqlite3.Connection),
+        injector.shared(dependencies=[sqlite3.Connection]),
     ):
         make_user_table()
         user = User(1, "Alice")

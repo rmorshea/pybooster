@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from collections.abc import Mapping
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
@@ -30,35 +29,26 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def overwrite_values(values: Mapping[type, Any]) -> Callable[[], None]:
-    """Overwrite the current values of the given dependencies."""
-    new_values = {**_CURRENT_VALUES.get(), **values}
-    token = _CURRENT_VALUES.set(new_values)
-    return lambda: _CURRENT_VALUES.reset(token)
-
-
-def sync_inject_keywords(
+def sync_inject_known_params(
     stack: FastStack,
     required_params: HintMap,
-    overwrite_values: dict[str, Any],
+    known_params: dict[str, Any],
     *,
     keep_current_values: bool = False,
 ) -> None:
     solution = SYNC_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
-    _inject_overwrite_values(overwrite_values, required_params, current_values, solution)
-    missing_params = {k: required_params[k] for k in required_params.keys() - overwrite_values}
-    _inject_current_values(overwrite_values, missing_params, current_values)
+    _inject_known_params(known_params, required_params, current_values, solution)
+    missing_params = {k: required_params[k] for k in required_params.keys() - known_params}
+    _inject_current_values(known_params, missing_params, current_values)
 
-    if not missing_params:
+    if not keep_current_values and not missing_params:
         return
 
     current_values_token = _CURRENT_VALUES.set(current_values)
     try:
-        _sync_inject_provider_values(
-            stack, overwrite_values, missing_params, current_values, solution
-        )
+        _sync_inject_provider_values(stack, known_params, missing_params, current_values, solution)
     finally:
         if keep_current_values:
             stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
@@ -66,27 +56,27 @@ def sync_inject_keywords(
             _CURRENT_VALUES.reset(current_values_token)
 
 
-async def async_inject_keywords(
+async def async_inject_known_params(
     stack: AsyncFastStack,
     required_params: HintMap,
-    overwrite_values: dict[str, Any],
+    known_params: dict[str, Any],
     *,
     keep_current_values: bool = False,
 ) -> None:
     solution = FULL_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
-    _inject_overwrite_values(overwrite_values, required_params, current_values, solution)
-    missing_params = {k: required_params[k] for k in required_params.keys() - overwrite_values}
-    _inject_current_values(overwrite_values, missing_params, current_values)
+    _inject_known_params(known_params, required_params, current_values, solution)
+    missing_params = {k: required_params[k] for k in required_params.keys() - known_params}
+    _inject_current_values(known_params, missing_params, current_values)
 
-    if not missing_params:
+    if not keep_current_values and not missing_params:
         return
 
     current_values_token = _CURRENT_VALUES.set(current_values)
     try:
         await _async_inject_provider_values(
-            stack, overwrite_values, missing_params, current_values, solution
+            stack, known_params, missing_params, current_values, solution
         )
     finally:
         if keep_current_values:
@@ -95,16 +85,16 @@ async def async_inject_keywords(
             _CURRENT_VALUES.reset(current_values_token)
 
 
-def _inject_overwrite_values(
-    overwrite_values: dict[str, Any],
+def _inject_known_params(
+    known_params: dict[str, Any],
     required_params: HintMap,
     current_values: dict[type, Any],
     solution: Solution,
 ) -> None:
     to_invalidate: set[type] = set()
-    for name in required_params.keys() & overwrite_values:
+    for name in required_params.keys() & known_params:
         if current_values.get(cls := required_params[name], undefined) is not (
-            new_val := overwrite_values[name]
+            new_val := known_params[name]
         ):
             current_values[cls] = new_val
             to_invalidate.update(solution.descendant_types(cls))
