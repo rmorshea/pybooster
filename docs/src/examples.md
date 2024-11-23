@@ -139,8 +139,7 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
     with solved(async_engine_provider.bind(DB_URL), async_session_provider):
-        async with injector.shared(AsyncEngine):
-            values = injector.current_values()
+        async with injector.shared(AsyncEngine) as values:
             async with values[AsyncEngine].begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             yield

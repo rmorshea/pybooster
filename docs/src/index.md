@@ -2,7 +2,7 @@
 
 !!! warning
 
-    This project is still under development - use at your own risk
+    This project is still under development - use at your own risk.
 
 Dependency injection without the boilerplate.
 

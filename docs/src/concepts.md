@@ -226,6 +226,11 @@ with solved(auth):
         assert get_auth() is get_auth()
 ```
 
+!!! tip
+
+    The `shared` context can be useful for debugging if you aren't sure what the
+    current value is.
+
 You can, instead or additionally, override the current values for a dependencies by
 passing a mapping of dependency types to desired values under the `values` keyword:
 
@@ -272,37 +277,6 @@ with solved(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     with injector.shared((UserId, 2)):
         assert get_profile_summary() == "#2 Bob: Bob's bio"
-```
-
-### Current Values
-
-You can view all value that are available in the current context using the
-[`current_values`][pybooster.core.injector.current_values] function. It returns
-a mapping from dependency types to their corresponding values.
-
-```python
-from typing import NewType
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solved
-
-Greeting = NewType("Greeting", str)
-
-
-@provider.function
-def greeting_provider() -> Greeting:
-    return Greeting("Hello")
-
-
-@injector.function
-def get_current_values(*, _: Greeting = required) -> injector.CurrentValues:
-    return injector.current_values()
-
-
-with solved(greeting_provider):
-    assert get_current_values() == {Greeting: "Hello"}
 ```
 
 ## Providers

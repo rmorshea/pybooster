@@ -20,6 +20,7 @@ def main():
 @main.command("test")
 @click.argument("args", nargs=-1)
 def test(args: list[str]):
+    """Run the test suite."""
     run(["pytest", "-v", *args])
 
 
@@ -27,7 +28,7 @@ def test(args: list[str]):
 @click.option("--no-test", is_flag=True, help="Skip running tests with coverage")
 @click.option("--old-coverage-xml", default=None, type=str, help="Path to target coverage.xml.")
 def cov(no_test: bool, old_coverage_xml: str | None):
-    """Test commands."""
+    """Run the test suite with coverage."""
     if not no_test:
         try:
             run(["coverage", "run", "-m", "pytest", "-v"])

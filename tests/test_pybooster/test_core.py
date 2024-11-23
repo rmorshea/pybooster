@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from asyncio import wait_for
+from collections.abc import Callable
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
@@ -554,3 +556,17 @@ def test_injecting_current_value_does_not_invalidate_providers():
             assert call_count == 1
             assert get_double_greeting_message(greeting=values[Greeting]) == "Hello Hello, World!"
             assert call_count == 1
+
+
+async def test_async_shared_context_with_dependencies_and_overrides():
+    @provider.asyncfunction
+    async def greeting_provider() -> Greeting:
+        raise AssertionError  # nocov
+
+    @provider.asyncfunction
+    async def recipient_provider() -> Recipient:
+        raise AssertionError  # nocov
+
+    with solved(greeting_provider, recipient_provider):
+        async with injector.shared((Greeting, "Hello"), (Recipient, "World")) as values:
+            assert values == {Greeting: "Hello", Recipient: "World"}
