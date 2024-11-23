@@ -156,6 +156,9 @@ ban-relative-imports = "all"
     "TCH002", # Move third-party import into a type-checking block
 ]
 
+[tool.yamlfix]
+line_length = 100
+
 [tool.coverage.run]
 source_pkgs = ["pybooster", "tests"]
 branch = true

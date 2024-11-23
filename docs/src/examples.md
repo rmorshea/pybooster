@@ -8,7 +8,8 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Annotated
-from typing import NewType, LiteralString
+from typing import LiteralString
+from typing import NewType
 
 from boto3.session import Session
 from botocore.client import BaseClient
