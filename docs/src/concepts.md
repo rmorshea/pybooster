@@ -283,10 +283,10 @@ a mapping from dependency types to their corresponding values.
 ```python
 from typing import NewType
 
-from pybooster import provider
 from pybooster import injector
-from pybooster import solved
+from pybooster import provider
 from pybooster import required
+from pybooster import solved
 
 Greeting = NewType("Greeting", str)
 
@@ -338,7 +338,7 @@ resources that need to be cleaned up when the dependency's value is no longer in
 
 ```python
 import sqlite3
-from typing import Iterator
+from collections.abc import Iterator
 
 from pybooster import provider
 
@@ -380,7 +380,7 @@ in use.
 ```python
 from asyncio import StreamReader
 from asyncio import open_connection
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from pybooster import provider
 
@@ -543,8 +543,8 @@ function signature that are not [dependencies](#dependencies):
 
 ```python
 import sqlite3
+from collections.abc import Iterator
 from sqlite3 import Connection
-from typing import Iterator
 
 from pybooster import provider
 

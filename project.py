@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Literal
@@ -73,6 +74,7 @@ def lint(
     """Linting commands."""
     if not no_py_types:
         run(["pyright"])
+        doc_cmd(["pyright"])
     if not no_py_style:
         if check:
             run(["ruff", "format", "--check", "--diff"])
@@ -83,46 +85,12 @@ def lint(
     if not no_md_style:
         if check:
             run(["mdformat", "--ignore-missing-references", "--check", "."])
-            run(
-                [
-                    "doccmd",
-                    "--language=python",
-                    "--no-pad-file",
-                    '--command="ruff format --check"',
-                    ".",
-                ]
-            )
-            run(
-                [
-                    "doccmd",
-                    "--language=python",
-                    "--no-pad-file",
-                    '--command="ruff check"',
-                    ".",
-                ]
-            )
+            doc_cmd(["ruff", "format", "--check"], no_pad=True)
+            doc_cmd(["ruff", "check"])
         else:
             run(["mdformat", "--ignore-missing-references", "."])
-            run(
-                [
-                    "doccmd",
-                    "--language=python",
-                    "--no-pad-file",
-                    "--command",
-                    "ruff format",
-                    ".",
-                ]
-            )
-            run(
-                [
-                    "doccmd",
-                    "--language=python",
-                    "--no-pad-file",
-                    "--command",
-                    "ruff check --fix",
-                    ".",
-                ]
-            )
+            doc_cmd(["ruff", "format"], no_pad=True)
+            doc_cmd(["ruff", "check", "--fix"])
     if not no_yml_style:
         if check:
             run(["yamlfix", "--check", "."])
@@ -218,6 +186,24 @@ def report(
                 if end_col:
                     file_parts.append(f"endCol={end_col}")
         click.echo(f"::{kind} {','.join(file_parts)}")
+
+
+def doc_cmd(cmd: Sequence[str], *, no_pad: bool = False):
+    run(
+        list(
+            filter(
+                None,
+                [
+                    "doccmd",
+                    "--language=python",
+                    "--no-pad-file" if no_pad else "",
+                    "--command",
+                    " ".join(cmd),
+                    "docs",
+                ],
+            )
+        )
+    )
 
 
 if __name__ == "__main__":

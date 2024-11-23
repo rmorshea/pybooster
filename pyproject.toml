@@ -142,15 +142,17 @@ ban-relative-imports = "all"
 "**.ipynb" = [
     "T201", # Print statements
 ]
-"**.md" = [
+"doccmd_*.py" = [
     "ANN",    # Type annotations
     "B018",   # Useless expression
     "D",      # Docstrings
     "FA102",  # Unsafe __futures__ annotations usage
+    "INP001", # Implicit namespace package
     "RUF029", # No await in async function
     "S101",   # Assert statements
     "S106",   # Possible passwords
     "SIM115", # Use context manager for opening files
+    "T201",   # Print
     "TCH002", # Move third-party import into a type-checking block
 ]
 

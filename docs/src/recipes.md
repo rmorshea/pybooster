@@ -7,7 +7,7 @@ subtype of `None` with the `NewType` function from the `typing` module. This new
 can then be used as a [dependency](concepts.md#dependencies).
 
 ```python
-from typing import Iterator
+from collections.abc import Iterator
 from typing import NewType
 
 from pybooster import injector

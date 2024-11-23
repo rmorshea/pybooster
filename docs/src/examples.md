@@ -8,7 +8,7 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Annotated
-from typing import NewType
+from typing import NewType, LiteralString
 
 from boto3.session import Session
 from botocore.client import BaseClient
@@ -36,7 +36,7 @@ class User:
 
 
 @provider.function
-def client_provider(service_name: str, *, session: Session = required) -> BaseClient:
+def client_provider(service_name: LiteralString, *, session: Session = required) -> BaseClient:
     return session.client(service_name)
 
 
