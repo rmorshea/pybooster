@@ -14,6 +14,7 @@ from typing import cast
 
 from paramorator import paramorator
 
+from pybooster._private._injector import _CURRENT_VALUES
 from pybooster._private._injector import async_inject_into_params
 from pybooster._private._injector import sync_inject_into_params
 from pybooster._private._utils import AsyncFastStack
@@ -201,6 +202,11 @@ def shared(*args: type | tuple[type, Any]) -> _SharedContext:
             case cls:
                 param_deps[key] = cls
     return _SharedContext(param_vals, param_deps)
+
+
+def current_values() -> CurrentValues:
+    """Get a mapping from dependency types to their current values."""
+    return cast(CurrentValues, dict(_CURRENT_VALUES.get()))
 
 
 class CurrentValues(Mapping[type, Any]):

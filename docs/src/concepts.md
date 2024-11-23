@@ -129,12 +129,53 @@ with solved(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
-- [`injector.function`][pybooster.core.injector.function]
-- [`injector.iterator`][pybooster.core.injector.iterator]
-- [`injector.contextmanager`][pybooster.core.injector.contextmanager]
-- [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
-- [`injector.asynciterator`][pybooster.core.injector.asynciterator]
-- [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+-   [`injector.function`][pybooster.core.injector.function]
+-   [`injector.iterator`][pybooster.core.injector.iterator]
+-   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+-   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+-   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+-   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+
+#### Sharing Parameters
+
+You can declare that injected parameter should be shared for the duration of a function
+call by setting `shared=True` in the decorator:
+
+```python
+from typing import NewType
+
+from pybooster import provider
+from pybooster import injector
+from pybooster import required
+from pybooster import solved
+
+Recipient = NewType("Recipient", str)
+
+
+@provider.function
+def recipient_provider() -> Recipient:
+    return Recipient("Alice")
+
+
+@injector.function
+def get_current_values(*, _: Recipient = required) -> injector.CurrentValues:
+    return injector.current_values()
+
+
+@injector.function(shared=True)
+def get_current_values_with_shared(*, _recipient_: Recipient = required) -> injector.CurrentValues:
+    return injector.current_values()
+
+
+with solved(recipient_provider):
+    assert get_current_values() == {}
+    assert get_current_values_with_shared() == {Recipient: "Alice"}
+```
+
+Setting `shared=True` is effectively equivalent to wrapping function calls in the
+[`shared`][pybooster.core.injector.shared] context manager. Doing this might be useful
+when dealing with database connections or other resources that should be shared across
+multiple functions.
 
 #### Overriding Parameters
 
@@ -226,11 +267,6 @@ with solved(auth):
         assert get_auth() is get_auth()
 ```
 
-!!! tip
-
-    The `shared` context can be useful for debugging if you aren't sure what the
-    current value is.
-
 You can, instead or additionally, override the current values for a dependencies by
 passing a mapping of dependency types to desired values under the `values` keyword:
 
@@ -277,6 +313,25 @@ with solved(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     with injector.shared((UserId, 2)):
         assert get_profile_summary() == "#2 Bob: Bob's bio"
+```
+
+### Current Values
+
+You can access a mapping of the current values for all dependencies by calling the
+[`current_values`][pybooster.core.injector.current_values] function. This can be useful
+for debugging:
+
+```python
+from typing import NewType
+
+from pybooster import injector
+
+UserId = NewType("UserId", int)
+
+
+assert injector.current_values() == {}
+with injector.shared((UserId, 1)):
+    assert injector.current_values() == {UserId: 1}
 ```
 
 ## Providers
