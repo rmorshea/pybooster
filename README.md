@@ -4,6 +4,9 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pybooster.svg)](https://pypi.org/project/pybooster)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> [!WARNIGN]
+> This project is still under development - use at your own risk
+
 PyBooster - dependency injection without the boilerplate.
 
 ## Documentation
