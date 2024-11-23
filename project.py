@@ -72,9 +72,6 @@ def lint(
     no_yml_style: bool,
 ):
     """Linting commands."""
-    if not no_py_types:
-        run(["pyright"])
-        doc_cmd(["pyright"])
     if not no_py_style:
         if check:
             run(["ruff", "format", "--check", "--diff"])
@@ -96,6 +93,8 @@ def lint(
             run(["yamlfix", "--check", "."])
         else:
             run(["yamlfix", "."])
+    if not no_py_types:
+        run(["pyright"])
     if not no_uv_locked:
         run(["uv", "sync", "--locked"])
 

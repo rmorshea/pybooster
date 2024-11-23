@@ -23,7 +23,7 @@ from pybooster import solved
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
 else:
-    S3Client = Annotated[BaseClient, "mypy_boto3_s3.S3Client"]
+    S3Client = Annotated[BaseClient, "S3Client"]
 
 
 BucketName = NewType("BucketName", str)
