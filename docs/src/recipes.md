@@ -13,7 +13,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 SwitchOn = NewType("SwitchOn", None)
 
@@ -36,7 +36,7 @@ def is_switch_on(*, _: SwitchOn = required) -> bool:
     return SWITCH
 
 
-with solution(switch_on):
+with solved(switch_on):
     assert not SWITCH
     assert is_switch_on()
     assert not SWITCH

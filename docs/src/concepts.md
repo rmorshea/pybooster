@@ -13,7 +13,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 Recipient = NewType("Recipient", str)
 
@@ -28,7 +28,7 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solution(alice_provider):
+with solved(alice_provider):
     # alice is available to inject as a recipient
     assert get_message() == "Hello, Alice!"
 ```
@@ -43,7 +43,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 Recipient = NewType("Recipient", str)
 
@@ -63,9 +63,9 @@ def get_recipient(*, recipient: Recipient = required) -> str:
     return recipient
 
 
-with solution(alice_provider):
+with solved(alice_provider):
     assert get_recipient() == "Alice"
-    with solution(bob_provider):
+    with solved(bob_provider):
         assert get_recipient() == "Bob"
     assert get_recipient() == "Alice"
 ```
@@ -108,7 +108,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 Recipient = NewType("Recipient", str)
 
@@ -123,7 +123,7 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solution(recipient_provider):
+with solved(recipient_provider):
     assert get_message() == "Hello, Alice!"
 ```
 
@@ -136,7 +136,7 @@ PyBooster supports decorators for the following types of functions or methods:
 - [`injector.asynciterator`][pybooster.core.injector.asynciterator]
 - [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
-#### Overwrite Parameters
+#### Overriding Parameters
 
 You can pass values to a required parameter of a function with an
 [injector decorator](#decorator-injectors). The value will be passed as-is to the
@@ -150,7 +150,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 UserId = NewType("UserId", int)
 
@@ -182,42 +182,17 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
-with solution(user_id_provider, profile_provider):
+with solved(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     assert get_profile_summary(user_id=UserId(2)) == "#2 Bob: Bob's bio"
 ```
 
-### Current Injector
+### Shared Injector
 
-You can access the current value of a dependency using the `current` context manager.
-
-```python
-from dataclasses import dataclass
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import solution
-
-
-@dataclass
-class Auth:
-    username: str
-    password: str
-
-
-@provider.function
-def auth_provider() -> Auth:
-    return Auth(username="alice", password="EGwVEo3y9E")
-
-
-with solution(auth_provider):
-    with injector.current(Auth) as auth:
-        assert auth.username == "alice"
-        assert auth.password == "EGwVEo3y9E"
-```
-
-The value yielded by the context manager will also be shared across all injections for
-the duration of the context.
+You can declare that a set of dependency should be shared across all usages for the
+duration of a context using the [`shared`][pybooster.core.injector.shared] context
+manager. The `shared` context manager will also yield the current values for those
+dependencies:
 
 ```python
 from dataclasses import dataclass
@@ -225,7 +200,7 @@ from dataclasses import dataclass
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 
 @dataclass
@@ -244,19 +219,16 @@ def get_auth(*, auth: Auth = required) -> Auth:
     return auth
 
 
-with solution(auth):
+with solved(auth):
     assert get_auth() is not get_auth()
 
-    with injector.current(Auth) as auth:
-        assert auth is get_auth()
+    with injector.shared(dependencies=[Auth]) as values:
+        assert values[Auth] is get_auth()
         assert get_auth() is get_auth()
 ```
 
-### Overwrite Injector
-
-You can overwrite the current values of dependencies by using the `overwrite` context
-manager. Pass a mapping of dependency types to thir new values to establish them for the
-duration of the context.
+You can, instead or additionally, override the current values for a dependencies by
+passing a mapping of dependency types to desired values under the `overrides` keyword:
 
 ```python
 from dataclasses import dataclass
@@ -265,7 +237,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 UserId = NewType("UserId", int)
 
@@ -297,9 +269,9 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
-with solution(user_id_provider, profile_provider):
+with solved(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
-    with injector.overwrite({UserId: UserId(2)}):
+    with injector.shared(overrides={UserId: UserId(2)}):
         assert get_profile_summary() == "#2 Bob: Bob's bio"
 ```
 
@@ -398,36 +370,6 @@ async def example_reader() -> AsyncIterator[StreamReader]:
 Async providers are executed concurrently where possible in the current
 [solution](#solutions).
 
-### Parameterizing Providers
-
-You can pass additional arguments to a provider by adding parameters to a provider
-function signature that are not [dependencies](#dependencies):
-
-```python
-import sqlite3
-from sqlite3 import Connection
-from typing import Iterator
-
-from pybooster import provider
-
-
-@provider.iterator
-def sqlite_connection(database: str) -> Iterator[Connection]:
-    with sqlite3.connect(database) as conn:
-        yield conn
-```
-
-These parameters can be supplied when solving using the `bind` method:
-
-```python { test="false"}
-with solution(sqlite_connection.bind(":memory:")):
-    ...
-```
-
-!!! note
-
-    Bindable parameters are not allowed to be dependencies.
-
 ### Generic Providers
 
 A single provider can supply multiple types of dependencies if it provides a base class,
@@ -447,7 +389,7 @@ from typing import TypedDict
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 
 @provider.function
@@ -471,7 +413,7 @@ tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
 json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with solution(json_provider[ConfigDict].bind(json_file)):
+with solved(json_provider[ConfigDict].bind(json_file)):
     assert get_config() == {
         "app_name": "MyApp",
         "app_version": 1,
@@ -496,7 +438,7 @@ from typing import TypeVar
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 
 @dataclass
@@ -530,7 +472,7 @@ tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
 json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with solution(config_file_provider.bind(Config, json_file)):
+with solved(config_file_provider.bind(Config, json_file)):
     assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
@@ -550,7 +492,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 Recipient = NewType("Recipient", str)
 
@@ -560,9 +502,38 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solution(provider.singleton(Recipient, "Alice")):
+with solved(provider.singleton(Recipient, "Alice")):
     assert get_message() == "Hello, Alice!"
 ```
+### Binding Parameters
+
+You can pass additional arguments to a provider by adding parameters to a provider
+function signature that are not [dependencies](#dependencies):
+
+```python
+import sqlite3
+from sqlite3 import Connection
+from typing import Iterator
+
+from pybooster import provider
+
+
+@provider.iterator
+def sqlite_connection(database: str) -> Iterator[Connection]:
+    with sqlite3.connect(database) as conn:
+        yield conn
+```
+
+These parameters can be supplied when solving using the `bind` method:
+
+```python { test="false"}
+with solved(sqlite_connection.bind(":memory:")):
+    ...
+```
+
+!!! note
+
+    Bindable parameters are not allowed to be dependencies.
 
 ### Mixing Sync/Async
 
@@ -576,7 +547,7 @@ from dataclasses import dataclass
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 
 @dataclass
@@ -606,7 +577,7 @@ async def async_get_auth(*, auth: Auth = required) -> str:
     return f"{auth.username}:{auth.password}"
 
 
-with solution(sync_auth_provider, async_auth_provider):
+with solved(sync_auth_provider, async_auth_provider):
     assert sync_get_auth() == "sync-user:sync-pass"
     assert asyncio.run(async_get_auth()) == "async-user:async-pass"
 ```
@@ -636,7 +607,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 Username = NewType("Username", str)
 
@@ -651,7 +622,7 @@ def get_message(*, username: Username = required) -> str:
     return f"Hello, {username}!"
 
 
-with solution(username_provider):
+with solved(username_provider):
     assert get_message() == "Hello, alice!"
 ```
 
@@ -665,7 +636,7 @@ from dataclasses import dataclass
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 
 @dataclass
@@ -685,7 +656,7 @@ def get_login_message(*, auth: Auth = required) -> str:
     return f"Logged in as {auth.username}"
 
 
-with solution(auth_provider):
+with solved(auth_provider):
     assert get_login_message() == "Logged in as alice"
 ```
 
@@ -704,7 +675,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solution
+from pybooster import solved
 
 Username = NewType("Username", str)
 Password = NewType("Password", str)
@@ -726,6 +697,6 @@ def get_login_message(*, username: Username = required) -> str:
     return f"Logged in as {username}"
 
 
-with solution(username_and_password_provider):
+with solved(username_and_password_provider):
     assert get_login_message() == "Logged in as alice"
 ```

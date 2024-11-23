@@ -24,9 +24,9 @@ AnyContextManagerCallable = Callable[P, AbstractContextManager[R] | AbstractAsyn
 """A callable that returns any kind of context manager."""
 
 HintMap = Mapping[str, type]
-"""A mapping of parameter or attribute names to their possible type or types."""
+"""A mapping of parameter or attribute names to their type."""
 HintDict = dict[str, type]
-"""A dictionary of parameter or attribute names to their possible type or types."""
+"""A dictionary of parameter or attribute names to their type."""
 
 
 class InjectionError(RuntimeError):
