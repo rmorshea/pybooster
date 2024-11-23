@@ -82,11 +82,11 @@ def lint(
             run(["ruff", "check", "--fix"])
     if not no_md_style:
         if check:
-            run(["mdformat", "--ignore-missing-references", "--check", "."])
+            run(["mdformat", "--ignore-missing-references", "--check", "README.md", "docs"])
             doc_cmd(["ruff", "format", "--check"], no_pad=True)
             doc_cmd(["ruff", "check"], no_pad=True)
         else:
-            run(["mdformat", "--ignore-missing-references", "."])
+            run(["mdformat", "--ignore-missing-references", "README.md", "docs"])
             doc_cmd(["ruff", "format"], no_pad=True)
             doc_cmd(["ruff", "check", "--fix"], no_pad=True)
     if not no_yml_style:
