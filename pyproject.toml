@@ -7,8 +7,6 @@ cache-keys = [{ file = "pyproject.toml" }, { git = true }]
 requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools_scm]
-
 [project]
 name = "pybooster"
 dynamic = ["version"]
