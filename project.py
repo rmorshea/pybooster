@@ -73,6 +73,8 @@ def lint(
     no_yml_style: bool,
 ):
     """Linting commands."""
+    if not no_uv_locked:
+        run(["uv", "lock", "--locked"])
     if not no_py_style:
         if check:
             run(["ruff", "format", "--check", "--diff"])
@@ -96,8 +98,6 @@ def lint(
             run(["yamlfix", "docs", ".github"])
     if not no_py_types:
         run(["pyright"])
-    if not no_uv_locked:
-        run(["uv", "sync", "--locked"])
 
 
 @main.group("docs")

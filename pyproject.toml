@@ -1,6 +1,7 @@
 
 [tool.uv]
 default-groups = ["all"]
+cache-keys = [{ file = "pyproject.toml" }, { git = true }]
 
 [build-system]
 requires = ["setuptools>=64", "setuptools_scm>=8"]
@@ -9,7 +10,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pybooster"
 dynamic = ["version"]
-description = "A dependency injection framework for Python using type hints."
+description = "Dependency injection without the boilerplate."
 readme = "README.md"
 requires-python = ">=3.11,<4"
 license = { file = "LICENSE.txt" }
