@@ -97,7 +97,7 @@ def lint(
     if not no_py_types:
         run(["pyright"])
     if not no_uv_locked:
-        run(["uv", "sync", "--locked"])
+        run(["uv", "lock", "--locked"])
 
 
 @main.group("docs")
