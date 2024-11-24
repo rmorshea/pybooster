@@ -4,12 +4,12 @@ default-groups = ["all"]
 cache-keys = [{ file = "pyproject.toml" }, { git = true }]
 
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm>=8"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pybooster"
-dynamic = ["version"]
+version = "0.0.2"
 description = "Dependency injection without the boilerplate."
 readme = "README.md"
 requires-python = ">=3.11,<4"
