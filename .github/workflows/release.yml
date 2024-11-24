@@ -19,8 +19,6 @@ jobs:
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
-      - name: Enable dynamic versioning (https://github.com/astral-sh/uv/issues/7533)
-        run: echo "[tool.setuptools_scm]" >> pyproject.toml
       - name: Build package
         run: uv build
       - name: Publish package
