@@ -8,7 +8,7 @@ from pybooster.core.solution import solved
 
 try:
     __version__ = version(__name__)
-except PackageNotFoundError:
+except PackageNotFoundError:  # nocov
     __version__ = "0.0.0"
 
 __all__ = (
