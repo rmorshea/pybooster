@@ -6,7 +6,7 @@
 
 Dependency injection without the boilerplate.
 
-## Install
+## Installation
 
 ```bash
 pip install -U pybooster

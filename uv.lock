@@ -1198,7 +1198,7 @@ wheels = [
 
 [[package]]
 name = "pybooster"
-version = "0.0.0"
+version = "0.0.3.dev2+gaad639b.d20241124"
 source = { editable = "." }
 dependencies = [
     { name = "paramorator" },
