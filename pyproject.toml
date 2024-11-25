@@ -28,6 +28,10 @@ dependencies = [
     "rustworkx>=0.15,<0.16",
 ]
 
+[project.urls]
+Source = "https://github.com/rmorshea/pybooster"
+Documentation = "https://ryanmorshead.com/pybooster"
+
 [dependency-groups]
 all = [
     { include-group = "dev" },
