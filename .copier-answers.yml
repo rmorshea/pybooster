@@ -6,5 +6,5 @@ author_name: Ryan Morshead
 project_description: Dependency injection without the boilerplate.
 project_title: PyBooster
 python_package_name: pybooster
-python_version_range: '>=3.11,<4'
+python_version_range: ">=3.11,<4"
 repo_url: https://github.com/rmorshea/pybooster
