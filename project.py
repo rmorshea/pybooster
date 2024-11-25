@@ -134,10 +134,12 @@ if TYPE_CHECKING:
 else:
 
     def run(*args, **kwargs):
+        cmd, *args = args
+        cmd = tuple(map(str, cmd))
         kwargs.setdefault("check", True)
-        click.echo(click.style(" ".join(args[0]), bold=True))
+        click.echo(click.style(" ".join(cmd), bold=True))
         try:
-            return subprocess.run(*args, **kwargs)
+            return subprocess.run(cmd, *args, **kwargs)
         except subprocess.CalledProcessError as e:
             raise click.ClickException(e) from None
         except FileNotFoundError as e:

@@ -33,6 +33,7 @@ jobs:
           name: coverage-xml
           include-hidden-files: true
           path: ${{ github.workspace }}/coverage.xml
+          if-no-files-found: error
   py-coverage:
     runs-on: ubuntu-latest
     needs: py-tests
@@ -40,21 +41,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 50}
-      - name: UV cache
-        uses: actions/cache@v4
+      - name: Download new coverage
+        uses: actions/download-artifact@v4
         with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
+          name: coverage-xml
       - name: Download old coverage
         uses: dawidd6/action-download-artifact@v6
         with:
           branch: ${{ github.event.pull_request.base.ref }}
           name: coverage-xml
-          path: old-coverage
-      - name: Download new coverage
-        uses: actions/download-artifact@v4
+          path: ${{ github.workspace }}/old-coverage
+      - name: UV cache
+        uses: actions/cache@v4
         with:
-          name: coverage-xml
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
       - run: git fetch origin main
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -92,3 +93,18 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Check lint
         run: uv build
+  docs-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: UV cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-${{ env.latest-python-version }}-uv-${{ hashFiles('pyproject.toml') }}
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Build docs
+        run: uv run project.py docs build
