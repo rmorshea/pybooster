@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from pybooster.types import AsyncIteratorCallable
     from pybooster.types import ContextManagerCallable
     from pybooster.types import HintMap
+    from pybooster.types import HintSeq
     from pybooster.types import IteratorCallable
 
 P = ParamSpec("P")
@@ -43,7 +44,7 @@ G = TypeVar("G")
 def function(
     func: Callable[P, R],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given function.
@@ -66,7 +67,7 @@ def function(
 def asyncfunction(
     func: Callable[P, Awaitable[R]],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given coroutine.
@@ -89,7 +90,7 @@ def asyncfunction(
 def iterator(
     func: IteratorCallable[P, R],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given iterator function.
@@ -101,14 +102,14 @@ def iterator(
     """
     provides = provides or get_iterator_yield_type(func, sync=True)
     requires = get_required_parameters(func, requires)
-    return SyncProvider(_contextmanager(func), cast(type[R], provides), requires)
+    return SyncProvider(_contextmanager(func), cast("type[R]", provides), requires)
 
 
 @paramorator
 def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     provides: type[R] | Callable[..., type[R]] | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given async iterator function.
@@ -120,7 +121,7 @@ def asynciterator(
     """
     provides = provides or get_iterator_yield_type(func, sync=False)
     requires = get_required_parameters(func, requires)
-    return AsyncProvider(_asynccontextmanager(func), cast(type[R], provides), requires)
+    return AsyncProvider(_asynccontextmanager(func), cast("type[R]", provides), requires)
 
 
 class _BaseProvider(Generic[R]):
