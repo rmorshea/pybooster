@@ -164,5 +164,8 @@ def test_get_provides_type_raises_for_invalid_type():
 def test_get_required_parameters_mismatch_len_of_requires_list():
     def func(*, a: int = required, b: int = required): ...
 
-    with pytest.raises(TypeError, match=r"Could not match .* dependencies to .* parameters."):
+    with pytest.raises(
+        TypeError,
+        match=r"Could not match .* dependencies to .* required parameters.",
+    ):
         get_required_parameters(func, [int])

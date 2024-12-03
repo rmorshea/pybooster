@@ -94,7 +94,7 @@ def get_required_parameters(
         case Sequence():
             params = _get_required_sig_parameters(func)
             if (lpar := len(params)) != (ldep := len(dependencies)):
-                msg = f"Could not match {ldep} dependencies to {lpar} parameters."
+                msg = f"Could not match {ldep} dependencies to {lpar} required parameters."
                 raise TypeError(msg)
             return dict(zip((p.name for p in params), dependencies, strict=False))
         case _:  # nocov
