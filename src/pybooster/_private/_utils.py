@@ -6,6 +6,7 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Coroutine
 from collections.abc import Iterator
+from collections.abc import Mapping
 from collections.abc import Sequence
 from dataclasses import dataclass
 from inspect import Parameter
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
     from anyio.abc import TaskGroup
 
     from pybooster.types import HintMap
+    from pybooster.types import HintSeq
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -81,14 +83,29 @@ undefined = make_sentinel_value(__name__, "undefined")
 """Represents an undefined default."""
 
 
-def get_required_parameters(func: Callable, dependencies: HintMap | None = None) -> HintMap:
-    return dependencies if dependencies is not None else _get_required_parameters(func)
+def get_required_parameters(
+    func: Callable, dependencies: HintMap | HintSeq | None = None
+) -> HintMap:
+    match dependencies:
+        case None:
+            return _get_required_parameters(func)
+        case Mapping():
+            return dependencies
+        case Sequence():
+            params = _get_required_sig_parameters(func)
+            if (lpar := len(params)) != (ldep := len(dependencies)):
+                msg = f"Could not match {ldep} dependencies to {lpar} parameters."
+                raise TypeError(msg)
+            return dict(zip((p.name for p in params), dependencies, strict=False))
+        case _:  # nocov
+            msg = f"Expected a mapping or sequence of dependencies, but got {dependencies!r}."
+            raise TypeError(msg)
 
 
 def _get_required_parameters(func: Callable[P, R]) -> HintMap:
     required_params: dict[str, type] = {}
     hints = get_type_hints(func, include_extras=True)
-    for param in signature(func).parameters.values():
+    for param in _get_required_sig_parameters(func):
         if param.default is pybooster.required:
             if param.kind is not Parameter.KEYWORD_ONLY:
                 msg = f"Expected dependant parameter {param!r} to be keyword-only."
@@ -96,6 +113,10 @@ def _get_required_parameters(func: Callable[P, R]) -> HintMap:
             check_is_required_type(hint := hints[param.name])
             required_params[param.name] = hint
     return required_params
+
+
+def _get_required_sig_parameters(func: Callable[P, R]) -> list[Parameter]:
+    return [p for p in signature(func).parameters.values() if p.default is pybooster.required]
 
 
 def get_raw_annotation(anno: Any) -> RawAnnotation:

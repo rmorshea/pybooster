@@ -25,6 +25,8 @@ from pybooster._private._utils import make_sentinel_value
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from pybooster.types import HintSeq
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from collections.abc import Coroutine
@@ -46,7 +48,7 @@ required = make_sentinel_value(__name__, "required")
 def function(
     func: Callable[P, R],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     shared: bool = False,
 ) -> Callable[P, R]:
     """Inject dependencies into the given function.
@@ -102,7 +104,7 @@ def asyncfunction(
 def iterator(
     func: IteratorCallable[P, R],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     shared: bool = False,
 ) -> IteratorCallable[P, R]:
     """Inject dependencies into the given iterator.
@@ -130,7 +132,7 @@ def iterator(
 def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     shared: bool = False,
 ) -> AsyncIteratorCallable[P, R]:
     """Inject dependencies into the given async iterator.
@@ -159,7 +161,7 @@ def asynciterator(
 def contextmanager(
     func: IteratorCallable[P, R],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     shared: bool = False,
 ) -> Callable[P, AbstractContextManager[R]]:
     """Inject dependencies into the given context manager function.
@@ -176,7 +178,7 @@ def contextmanager(
 def asynccontextmanager(
     func: AsyncIteratorCallable[P, R],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     shared: bool = False,
 ) -> Callable[P, AbstractAsyncContextManager[R]]:
     """Inject dependencies into the given async context manager function.
@@ -206,7 +208,7 @@ def shared(*args: type | tuple[type, Any]) -> _SharedContext:
 
 def current_values() -> CurrentValues:
     """Get a mapping from dependency types to their current values."""
-    return cast(CurrentValues, dict(_CURRENT_VALUES.get()))
+    return cast("CurrentValues", dict(_CURRENT_VALUES.get()))
 
 
 class CurrentValues(Mapping[type, Any]):
@@ -239,7 +241,7 @@ class _SharedContext(
             self._param_deps,
             keep_current_values=True,
         )
-        return cast(CurrentValues, {self._param_deps[k]: v for k, v in params.items()})
+        return cast("CurrentValues", {self._param_deps[k]: v for k, v in params.items()})
 
     def __exit__(self, *_: Any) -> None:
         try:
@@ -259,7 +261,7 @@ class _SharedContext(
             self._param_deps,
             keep_current_values=True,
         )
-        return cast(CurrentValues, {self._param_deps[k]: v for k, v in params.items()})
+        return cast("CurrentValues", {self._param_deps[k]: v for k, v in params.items()})
 
     async def __aexit__(self, *exc: Any) -> None:
         try:

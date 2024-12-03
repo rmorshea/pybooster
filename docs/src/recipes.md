@@ -171,3 +171,102 @@ def transaction_provider() -> Iterator[Transaction]:
     with session_provider() as session, session.begin():
         yield session
 ```
+
+## NameError in Type Hints
+
+!!! note
+
+    This should not be an issue in Python 3.14 with [PEP-649](https://peps.python.org/pep-0649).
+
+If you're encountering a `NameError` when PyBooster tries to infer what type is supplied
+by a provider or required for an injector this is likely because you're using
+`from __future__ import annotations` and the type hint is imported in an
+`if TYPE_CHECKING` block. For example, this code raises `NameError`s because the
+`Connection` type is not present at runtime:
+
+```python
+from __future__ import annotations
+
+from contextlib import suppress
+from typing import TYPE_CHECKING
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+if TYPE_CHECKING:
+    from sqlite3 import Connection
+
+
+with suppress(NameError):
+
+    @provider.function
+    def connection_provider() -> Connection: ...
+
+    raise AssertionError("This should not be reached")
+
+
+with suppress(NameError):
+
+    @injector.function
+    def query_database(*, conn: Connection = required) -> None: ...
+
+    raise AssertionError("This should not be reached")
+```
+
+To fix this, you can move the import outside of the block:
+
+```python
+from __future__ import annotations
+
+from sqlite3 import Connection
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+
+@provider.function
+def connection_provider() -> Connection: ...
+
+
+@injector.function
+def query_database(*, conn: Connection = required) -> None: ...
+```
+
+However, some linters like [Ruff](https://github.com/astral-sh/ruff) will automatically
+move the import back into the block when they discover that the imported value is only
+used as a type hint. To work around this, you can ignore the linter errors or use the
+types in such a way that your linter understands they are required at runtime. In the
+case of Ruff, you'd ignore the following errors:
+
+- [TC001](https://docs.astral.sh/ruff/rules/typing-only-first-party-import/)
+- [TC002](https://docs.astral.sh/ruff/rules/typing-only-third-party-import/)
+- [TC003](https://docs.astral.sh/ruff/rules/typing-only-standard-library-import/)
+
+To convince the linter that types used by PyBooster are required at runtime, you can
+pass them to the `provides` argument of the `provider` decorator or the `requires`
+argument of an `injector` or `provider` decorator.
+
+```python
+from __future__ import annotations
+
+from sqlite3 import Connection
+
+from pybooster import injector
+from pybooster import provider
+from pybooster import required
+
+
+@provider.function(provides=Connection)
+def connection_provider() -> Connection: ...
+
+
+@injector.function(requires=[Connection])
+def query_database(*, conn: Connection = required) -> None: ...
+```
+
+!!! tip
+
+    Type checkers should still be able to check the return type using the `provides`
+    argument so it may not be necessary to annotate it in the function signature.

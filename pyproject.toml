@@ -56,7 +56,7 @@ lint = [
     "mdformat-tables==1.0.0",
     "mdformat==0.7.19",
     "pyright==1.1.389",
-    "ruff==0.7.3",
+    "ruff==0.8.1",
     "yamlfix==1.17.0",
     "doccmd==2024.11.14",
 ]
@@ -151,6 +151,7 @@ ban-relative-imports = "all"
     "ANN",    # Type annotations
     "B018",   # Useless expression
     "D",      # Docstrings
+    "EM101",  # Assign error message to string
     "FA102",  # Unsafe __futures__ annotations usage
     "INP001", # Implicit namespace package
     "RUF029", # No await in async function
@@ -158,7 +159,10 @@ ban-relative-imports = "all"
     "S106",   # Possible passwords
     "SIM115", # Use context manager for opening files
     "T201",   # Print
-    "TCH002", # Move third-party import into a type-checking block
+    "TC001",  # Move first-party import into a type-checking block
+    "TC002",  # Move third-party import into a type-checking block
+    "TC003",  # Move standard-libarary import into a type-checking block
+    "TRY003", # Avoid specifying long messages outside the exception class
 ]
 
 [tool.yamlfix]

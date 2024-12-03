@@ -55,7 +55,7 @@ def get_provides_type(
     provides: type[R] | Callable[..., type[R]], *args: Any, **kwargs: Any
 ) -> type[R]:
     if is_type(provides):
-        return cast(type[R], provides)
+        return cast("type[R]", provides)
     elif callable(provides):
         return provides(*args, **kwargs)
     else:
@@ -141,7 +141,7 @@ def _get_scalar_provider_infos(
     if is_sync:
         info = SyncProviderInfo(
             is_sync=is_sync,
-            producer=cast(ContextManagerCallable[[], Any], producer),
+            producer=cast("ContextManagerCallable[[], Any]", producer),
             provides=provides,
             required_parameters=required_parameters,
             getter=getter,
@@ -149,7 +149,7 @@ def _get_scalar_provider_infos(
     else:
         info = AsyncProviderInfo(
             is_sync=is_sync,
-            producer=cast(AsyncContextManagerCallable[[], Any], producer),
+            producer=cast("AsyncContextManagerCallable[[], Any]", producer),
             provides=provides,
             required_parameters=required_parameters,
             getter=getter,
