@@ -270,3 +270,55 @@ def query_database(*, conn: Connection = required) -> None: ...
 
     Type checkers should still be able to check the return type using the `provides`
     argument so it may not be necessary to annotate it in the function signature.
+
+## ContextVars and Pytest-Asyncio
+
+Under the hood, PyBooster uses `contextvars` to manage the state of providers and
+injectors. If you use `pytest-asyncio` to write async tests it's likely you'll run into
+[this issue](https://github.com/pytest-dev/pytest-asyncio/issues/127) where context
+established in a fixture is not propagated to your tests. As of writing, the solution
+is to create a custom event loop policy and task factory as suggested in
+[this comment](https://github.com/pytest-dev/pytest-asyncio/issues/127#issuecomment-2062158881):
+
+```python
+import asyncio
+import contextvars
+import functools
+import traceback
+from pathlib import Path
+
+import pytest
+
+
+def task_factory(loop, coro, context=None):
+    stack = traceback.extract_stack()
+    for frame in stack[-2::-1]:
+        match Path(frame.filename).parts[-2]:
+            case "pytest_asyncio":
+                break  # use shared context
+            case "asyncio":
+                pass
+            case _:  # create context copy
+                context = None
+                break
+    return asyncio.Task(coro, loop=loop, context=context)
+
+
+class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+
+    def __init__(self, context) -> None:
+        super().__init__()
+        self.context = context
+
+    def new_event_loop(self):
+        loop = super().new_event_loop()
+        loop.set_task_factory(functools.partial(task_factory, context=self.context))
+        return loop
+
+
+@pytest.fixture(scope="session")
+def event_loop_policy():
+    policy = CustomEventLoopPolicy(contextvars.copy_context())
+    yield policy
+    policy.get_event_loop().close()
+```
