@@ -305,7 +305,6 @@ def task_factory(loop, coro, context=None):
 
 
 class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
-
     def __init__(self, context) -> None:
         super().__init__()
         self.context = context
