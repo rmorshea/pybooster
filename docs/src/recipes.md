@@ -271,7 +271,7 @@ def query_database(*, conn: Connection = required) -> None: ...
     Type checkers should still be able to check the return type using the `provides`
     argument so it may not be necessary to annotate it in the function signature.
 
-## ContextVars and Pytest-Asyncio
+## Pytest-Asyncio Issue
 
 Under the hood, PyBooster uses `contextvars` to manage the state of providers and
 injectors. If you use `pytest-asyncio` to write async tests it's likely you'll run into
