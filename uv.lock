@@ -1206,6 +1206,11 @@ dependencies = [
     { name = "typing-extensions" },
 ]
 
+[package.optional-dependencies]
+sqlalchemy = [
+    { name = "sqlalchemy", extra = ["asyncio"] },
+]
+
 [package.dev-dependencies]
 all = [
     { name = "aiosqlite" },
@@ -1303,6 +1308,7 @@ test = [
 requires-dist = [
     { name = "paramorator", specifier = ">=1.0.2,<2" },
     { name = "rustworkx", specifier = ">=0.15,<0.16" },
+    { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'sqlalchemy'", specifier = ">=2,<3" },
     { name = "typing-extensions" },
 ]
 

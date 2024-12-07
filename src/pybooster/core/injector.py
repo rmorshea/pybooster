@@ -21,6 +21,7 @@ from pybooster._private._utils import AsyncFastStack
 from pybooster._private._utils import FastStack
 from pybooster._private._utils import get_required_parameters
 from pybooster._private._utils import make_sentinel_value
+from pybooster.types import Hint
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -191,10 +192,10 @@ def asynccontextmanager(
     return _asynccontextmanager(asynciterator(func, requires=requires, shared=shared))
 
 
-def shared(*args: type | tuple[type, Any]) -> _SharedContext:
+def shared(*args: Hint | tuple[Hint, Any]) -> _SharedContext:
     """Share the values for a set of dependencies for the duration of a context."""
     param_vals: dict[str, Any] = {}
-    param_deps: dict[str, type] = {}
+    param_deps: dict[str, Hint] = {}
     for index, arg in enumerate(args):
         key = f"__{index}"
         match arg:
@@ -211,7 +212,7 @@ def current_values() -> CurrentValues:
     return cast("CurrentValues", dict(_CURRENT_VALUES.get()))
 
 
-class CurrentValues(Mapping[type, Any]):
+class CurrentValues(Mapping[Hint, Any]):
     """A mapping from dependency types to their current values."""
 
     def __getitem__(self, key: type[R]) -> R: ...

@@ -25,11 +25,15 @@ AsyncContextManagerCallable = Callable[P, AbstractAsyncContextManager[R]]
 AnyContextManagerCallable = Callable[P, AbstractContextManager[R] | AbstractAsyncContextManager[R]]
 """A callable that returns any kind of context manager."""
 
-HintSeq = Sequence[Any]
+Hint = type | Any
+"""A type hint."""
+InferHint = Callable[..., Hint]
+"""A callable that infers a type hint."""
+HintSeq = Sequence[Hint]
 """A sequence of types."""
-HintMap = Mapping[str, Any]
+HintMap = Mapping[str, Hint]
 """A mapping of parameter or attribute names to their type."""
-HintDict = dict[str, Any]
+HintDict = dict[str, Hint]
 """A dictionary of parameter or attribute names to their type."""
 
 

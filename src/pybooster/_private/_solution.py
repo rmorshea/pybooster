@@ -20,6 +20,7 @@ from rustworkx import topological_generations
 from pybooster._private._provider import ProviderInfo
 from pybooster._private._provider import SyncProviderInfo
 from pybooster._private._utils import frozenclass
+from pybooster.types import Hint
 from pybooster.types import InjectionError
 from pybooster.types import SolutionError
 
@@ -28,13 +29,13 @@ if TYPE_CHECKING:
 
 P = TypeVar("P", bound=ProviderInfo)
 
-DependencySet = Set[type]
-DependencyMap = Mapping[type, DependencySet]
+DependencySet = Set[Hint]
+DependencyMap = Mapping[Hint, DependencySet]
 
 
 def set_solutions(
-    sync_infos: Mapping[type, SyncProviderInfo],
-    async_infos: Mapping[type, AsyncProviderInfo],
+    sync_infos: Mapping[Hint, SyncProviderInfo],
+    async_infos: Mapping[Hint, AsyncProviderInfo],
 ) -> Callable[[], None]:
     full_infos = {**sync_infos, **async_infos}
 
@@ -48,7 +49,7 @@ def set_solutions(
     return reset
 
 
-def _set_solution(var: ContextVar[Solution[P]], infos: Mapping[type, P]) -> Token[Solution[P]]:
+def _set_solution(var: ContextVar[Solution[P]], infos: Mapping[Hint, P]) -> Token[Solution[P]]:
     dep_map = {cls: set(info["required_parameters"].values()) for cls, info in infos.items()}
     return var.set(Solution.from_infos_and_dependency_map(infos, dep_map))
 
@@ -57,25 +58,25 @@ def _set_solution(var: ContextVar[Solution[P]], infos: Mapping[type, P]) -> Toke
 class Solution(Generic[P]):
     """A solution to the dependency graph."""
 
-    type_by_index: Mapping[int, type]
+    type_by_index: Mapping[int, Hint]
     """Mapping graph index to types."""
     index_ordering: Sequence[Set[int]]
     r"""Topologically sorted generations of type IDs."""
-    index_by_type: Mapping[type, int]
+    index_by_type: Mapping[Hint, int]
     """Mapping types to graph index."""
     index_graph: PyDiGraph
     """A directed graph of type IDs."""
     infos_by_index: Mapping[int, P]
     """Mapping graph index to provider infos."""
-    infos_by_type: Mapping[type, P]
+    infos_by_type: Mapping[Hint, P]
     """Mapping types to provider infos."""
 
     @classmethod
     def from_infos_and_dependency_map(
-        cls, infos_by_type: Mapping[type, P], deps_by_type: DependencyMap
+        cls, infos_by_type: Mapping[Hint, P], deps_by_type: DependencyMap
     ) -> Self:
-        type_by_index: dict[int, type] = {}
-        index_by_type: dict[type, int] = {}
+        type_by_index: dict[int, Hint] = {}
+        index_by_type: dict[Hint, int] = {}
 
         index_graph = PyDiGraph()
         for tp in deps_by_type:
@@ -104,14 +105,14 @@ class Solution(Generic[P]):
             infos_by_type=infos_by_type,
         )
 
-    def descendant_types(self, cls: type) -> Set[type]:
+    def descendant_types(self, cls: Hint) -> Set[Hint]:
         type_by_index = self.type_by_index  # avoid extra attribute accesses
         if cls not in self.index_by_type:
             return set()
         return {type_by_index[i] for i in descendants(self.index_graph, self.index_by_type[cls])}
 
     def execution_order_for(
-        self, include_types: Collection[type], exclude_types: Collection[type]
+        self, include_types: Collection[Hint], exclude_types: Collection[Hint]
     ) -> Sequence[Sequence[P]]:
         index_by_type = self.index_by_type  # avoid extra attribute accesses
         try:

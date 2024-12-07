@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
     from anyio.abc import TaskGroup
 
+    from pybooster.types import Hint
     from pybooster.types import HintMap
     from pybooster.types import HintSeq
 
@@ -88,12 +89,16 @@ def get_required_parameters(
 ) -> HintMap:
     match dependencies:
         case None:
-            return _get_required_parameters(func)
+            return _get_required_parameter_types(func)
         case Mapping():
+            params = _get_required_sig_parameters(func)
+            if (lpar := len(params)) > (ldep := len(dependencies)):
+                msg = f"Could not match {ldep} dependencies to {lpar} required parameters."
+                raise TypeError(msg)
             return dependencies
         case Sequence():
             params = _get_required_sig_parameters(func)
-            if (lpar := len(params)) != (ldep := len(dependencies)):
+            if (lpar := len(params)) > (ldep := len(dependencies)):
                 msg = f"Could not match {ldep} dependencies to {lpar} required parameters."
                 raise TypeError(msg)
             return dict(zip((p.name for p in params), dependencies, strict=False))
@@ -102,8 +107,8 @@ def get_required_parameters(
             raise TypeError(msg)
 
 
-def _get_required_parameters(func: Callable[P, R]) -> HintMap:
-    required_params: dict[str, type] = {}
+def _get_required_parameter_types(func: Callable[P, R]) -> HintMap:
+    required_params: dict[str, Hint] = {}
     hints = get_type_hints(func, include_extras=True)
     for param in _get_required_sig_parameters(func):
         check_is_required_type(hint := hints[param.name])
@@ -161,7 +166,7 @@ def is_builtin_type(anno: RawAnnotation) -> bool:
 
 
 class DependencyInfo(TypedDict):
-    type: type
+    type: Hint
     new: bool
 
 
@@ -182,14 +187,14 @@ def _recurse_type(cls: Any) -> Iterator[Any]:
         yield from _recurse_type(arg)
 
 
-def get_callable_return_type(func: Callable) -> type:
+def get_callable_return_type(func: Callable) -> Hint:
     anno = get_type_hints(func, include_extras=True).get("return", Any)
     raw_anno = get_raw_annotation(anno)
     check_is_not_builtin_type(raw_anno)
     return anno
 
 
-def get_coroutine_return_type(func: Callable) -> type:
+def get_coroutine_return_type(func: Callable) -> Hint:
     return_type = get_callable_return_type(func)
     if get_origin(return_type) is Coroutine:
         try:
@@ -201,7 +206,7 @@ def get_coroutine_return_type(func: Callable) -> type:
         return return_type
 
 
-def get_iterator_yield_type(func: Callable, *, sync: bool) -> type:
+def get_iterator_yield_type(func: Callable, *, sync: bool) -> Hint:
     return_type = get_callable_return_type(func)
     if sync:
         if get_origin(return_type) is not Iterator:
