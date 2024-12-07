@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
 from contextlib import AbstractContextManager
+from typing import Any
 from typing import ParamSpec
 from typing import TypeVar
 
@@ -24,11 +25,15 @@ AsyncContextManagerCallable = Callable[P, AbstractAsyncContextManager[R]]
 AnyContextManagerCallable = Callable[P, AbstractContextManager[R] | AbstractAsyncContextManager[R]]
 """A callable that returns any kind of context manager."""
 
-HintSeq = Sequence[type]
+Hint = type | Any
+"""A type hint."""
+InferHint = Callable[..., Hint]
+"""A callable that infers a type hint."""
+HintSeq = Sequence[Hint]
 """A sequence of types."""
-HintMap = Mapping[str, type]
+HintMap = Mapping[str, Hint]
 """A mapping of parameter or attribute names to their type."""
-HintDict = dict[str, type]
+HintDict = dict[str, Hint]
 """A dictionary of parameter or attribute names to their type."""
 
 

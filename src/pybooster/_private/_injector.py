@@ -14,6 +14,7 @@ from pybooster._private._solution import SYNC_SOLUTION
 from pybooster._private._solution import Solution
 from pybooster._private._utils import start_future
 from pybooster._private._utils import undefined
+from pybooster.types import Hint
 
 if TYPE_CHECKING:
     from pybooster._private._provider import AsyncProviderInfo
@@ -94,11 +95,11 @@ async def async_inject_into_params(
 def _inject_params_into_current_values(
     param_vals: dict[str, Any],
     param_deps: HintMap,
-    current_values: dict[type, Any],
+    current_values: dict[Hint, Any],
     solution: Solution,
 ) -> None:
-    to_update: dict[type, Any] = {}
-    to_invalidate: set[type] = set()
+    to_update: dict[Hint, Any] = {}
+    to_invalidate: set[Hint] = set()
     for name in param_deps.keys() & param_vals:
         cls = param_deps[name]
         if current_values.get(cls, undefined) is not (new_val := param_vals[name]):
@@ -115,7 +116,7 @@ def _inject_params_into_current_values(
 def _inject_current_values_into_params(
     param_vals: dict[str, Any],
     missing_params: HintDict,
-    current_values: Mapping[type, Any],
+    current_values: Mapping[Hint, Any],
 ) -> None:
     for name, cls in tuple(missing_params.items()):
         if cls in current_values:
@@ -127,7 +128,7 @@ def _sync_inject_from_provider_values(
     stack: FastStack,
     param_vals: dict[str, Any],
     missing_params: HintDict,
-    current_values: dict[type, Any],
+    current_values: dict[Hint, Any],
     solution: Solution[SyncProviderInfo],
 ) -> None:
     for exe_group in solution.execution_order_for(missing_params.values(), current_values):
@@ -140,7 +141,7 @@ async def _async_inject_from_provider_values(
     stack: AsyncFastStack,
     param_vals: dict[str, Any],
     missing_params: HintDict,
-    current_values: dict[type, Any],
+    current_values: dict[Hint, Any],
     solution: Solution[ProviderInfo],
 ) -> None:
     for exe_group in solution.execution_order_for(missing_params.values(), current_values):
@@ -189,7 +190,7 @@ async def _async_inject_from_provider_values(
 def _sync_enter_provider(
     stack: FastStack | AsyncFastStack,
     info: SyncProviderInfo,
-    current_values: Mapping[type, Any],
+    current_values: Mapping[Hint, Any],
 ) -> Any:
     kwargs = {n: current_values[c] for n, c in info["required_parameters"].items()}
     return info["getter"](stack.enter_context(info["producer"](**kwargs)))
@@ -198,10 +199,10 @@ def _sync_enter_provider(
 async def _async_enter_provider(
     stack: AsyncFastStack,
     info: AsyncProviderInfo,
-    current_values: Mapping[type, Any],
+    current_values: Mapping[Hint, Any],
 ) -> Any:
     kwargs = {n: current_values[c] for n, c in info["required_parameters"].items()}
     return info["getter"](await stack.enter_async_context(info["producer"](**kwargs)))
 
 
-_CURRENT_VALUES = ContextVar[Mapping[type, Any]]("CURRENT_VALUES", default={})
+_CURRENT_VALUES = ContextVar[Mapping[Hint, Any]]("CURRENT_VALUES", default={})

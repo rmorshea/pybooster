@@ -27,6 +27,8 @@ dependencies = [
     "paramorator>=1.0.2,<2",
     "rustworkx>=0.15,<0.16",
 ]
+[project.optional-dependencies]
+sqlalchemy = ["sqlalchemy[asyncio]>=2,<3"]
 
 [project.urls]
 Source = "https://github.com/rmorshea/pybooster"
@@ -85,6 +87,7 @@ line-length = 100
 
 [tool.ruff.format]
 docstring-code-format = true
+docstring-code-line-length = 80
 quote-style = "double"
 indent-style = "space"
 
@@ -164,6 +167,7 @@ ban-relative-imports = "all"
     "TC003",  # Move standard-libarary import into a type-checking block
     "TRY003", # Avoid specifying long messages outside the exception class
 ]
+
 
 [tool.yamlfix]
 line_length = 100

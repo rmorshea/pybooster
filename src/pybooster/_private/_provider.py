@@ -18,7 +18,9 @@ from pybooster._private._utils import get_raw_annotation
 from pybooster._private._utils import is_type
 from pybooster.types import AsyncContextManagerCallable
 from pybooster.types import ContextManagerCallable
+from pybooster.types import Hint
 from pybooster.types import HintMap
+from pybooster.types import InferHint
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -35,7 +37,7 @@ AnyContextManagerCallable = ContextManagerCallable[[], R] | AsyncContextManagerC
 class SyncProviderInfo(TypedDict):
     is_sync: Literal[True]
     producer: ContextManagerCallable[[], Any]
-    provides: type
+    provides: Hint
     required_parameters: HintMap
     getter: Callable[[Any], Any]
 
@@ -43,7 +45,7 @@ class SyncProviderInfo(TypedDict):
 class AsyncProviderInfo(TypedDict):
     is_sync: Literal[False]
     producer: AsyncContextManagerCallable[[], Any]
-    provides: type
+    provides: Hint
     required_parameters: HintMap
     getter: Callable[[Any], Any]
 
@@ -51,11 +53,9 @@ class AsyncProviderInfo(TypedDict):
 ProviderInfo = SyncProviderInfo | AsyncProviderInfo
 
 
-def get_provides_type(
-    provides: type[R] | Callable[..., type[R]], *args: Any, **kwargs: Any
-) -> type[R]:
+def get_provides_type(provides: Hint | Callable[..., Hint], *args: Any, **kwargs: Any) -> Hint:
     if is_type(provides):
-        return cast("type[R]", provides)
+        return provides
     elif callable(provides):
         return provides(*args, **kwargs)
     else:
@@ -66,31 +66,31 @@ def get_provides_type(
 
 @overload
 def get_provider_info(
-    producer: ContextManagerCallable[[], R],
-    provides: type[R] | Callable[[], type[R]],
+    producer: ContextManagerCallable[[], Any],
+    provides: Hint | InferHint,
     required_params: HintMap,
     *,
     is_sync: Literal[True],
-) -> Mapping[type, SyncProviderInfo]: ...
+) -> Mapping[Hint, SyncProviderInfo]: ...
 
 
 @overload
 def get_provider_info(
-    producer: AsyncContextManagerCallable[[], R],
-    provides: type[R] | Callable[[], type[R]],
+    producer: AsyncContextManagerCallable[[], Any],
+    provides: Hint | InferHint,
     required_params: HintMap,
     *,
     is_sync: Literal[False],
-) -> Mapping[type, AsyncProviderInfo]: ...
+) -> Mapping[Hint, AsyncProviderInfo]: ...
 
 
 def get_provider_info(
-    producer: ContextManagerCallable[[], R] | AsyncContextManagerCallable[[], R],
-    provides: type[R] | Callable[[], type[R]],
+    producer: ContextManagerCallable[[], Any] | AsyncContextManagerCallable[[], Any],
+    provides: Hint | InferHint,
     required_params: HintMap,
     *,
     is_sync: bool,
-) -> Mapping[type, ProviderInfo]:
+) -> Mapping[Hint, ProviderInfo]:
     provides_type = get_provides_type(provides)
     if get_origin(provides_type) is tuple:
         return _get_tuple_provider_infos(producer, provides_type, required_params, is_sync=is_sync)
@@ -99,12 +99,12 @@ def get_provider_info(
 
 
 def _get_tuple_provider_infos(
-    producer: AnyContextManagerCallable[R],
-    provides: type[R],
+    producer: AnyContextManagerCallable,
+    provides: Hint,
     required_parameters: HintMap,
     *,
     is_sync: bool,
-) -> dict[type, ProviderInfo]:
+) -> dict[Hint, ProviderInfo]:
     infos_list = (
         _get_scalar_provider_infos(producer, provides, required_parameters, is_sync=is_sync),
         *(
@@ -123,12 +123,12 @@ def _get_tuple_provider_infos(
 
 def _get_scalar_provider_infos(
     producer: AnyContextManagerCallable[R],
-    provides: type[R],
+    provides: Hint,
     required_parameters: HintMap,
     *,
     is_sync: bool,
     getter: Callable[[R], Any] = lambda x: x,
-) -> dict[type, ProviderInfo]:
+) -> dict[Hint, ProviderInfo]:
     if get_origin(provides) is Union:
         msg = f"Cannot provide a union type {provides}."
         raise TypeError(msg)

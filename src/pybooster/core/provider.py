@@ -31,8 +31,10 @@ if TYPE_CHECKING:
     from pybooster.types import AsyncContextManagerCallable
     from pybooster.types import AsyncIteratorCallable
     from pybooster.types import ContextManagerCallable
+    from pybooster.types import Hint
     from pybooster.types import HintMap
     from pybooster.types import HintSeq
+    from pybooster.types import InferHint
     from pybooster.types import IteratorCallable
 
 P = ParamSpec("P")
@@ -45,7 +47,7 @@ def function(
     func: Callable[P, R],
     *,
     requires: HintMap | HintSeq | None = None,
-    provides: type[R] | Callable[..., type[R]] | None = None,
+    provides: Hint | InferHint | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given function.
 
@@ -68,7 +70,7 @@ def asyncfunction(
     func: Callable[P, Awaitable[R]],
     *,
     requires: HintMap | HintSeq | None = None,
-    provides: type[R] | Callable[..., type[R]] | None = None,
+    provides: Hint | InferHint | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given coroutine.
 
@@ -91,7 +93,7 @@ def iterator(
     func: IteratorCallable[P, R],
     *,
     requires: HintMap | HintSeq | None = None,
-    provides: type[R] | Callable[..., type[R]] | None = None,
+    provides: Hint | InferHint | None = None,
 ) -> SyncProvider[P, R]:
     """Create a provider from the given iterator function.
 
@@ -110,7 +112,7 @@ def asynciterator(
     func: AsyncIteratorCallable[P, R],
     *,
     requires: HintMap | HintSeq | None = None,
-    provides: type[R] | Callable[..., type[R]] | None = None,
+    provides: Hint | InferHint | None = None,
 ) -> AsyncProvider[P, R]:
     """Create a provider from the given async iterator function.
 
@@ -126,10 +128,10 @@ def asynciterator(
 
 class _BaseProvider(Generic[R]):
     producer: Any
-    provides: type[R] | Callable[..., type[R]]
+    provides: Hint | InferHint
     dependencies: HintMap
 
-    def __getitem__(self, provides: type[R]) -> Self:
+    def __getitem__(self, provides: Hint) -> Self:
         """Declare a specific type for a generic provider."""
         return type(self)(self.producer, provides, self.dependencies)  # type: ignore[reportCallIssue]
 
@@ -156,7 +158,7 @@ class SyncProvider(Generic[P, R], _BaseProvider[R]):
     def __init__(
         self,
         producer: ContextManagerCallable[P, R],
-        provides: type[R] | Callable[..., type[R]],
+        provides: Hint | InferHint,
         dependencies: HintMap,
     ) -> None:
         self.producer = producer
@@ -178,7 +180,7 @@ class AsyncProvider(Generic[P, R], _BaseProvider[R]):
     def __init__(
         self,
         producer: AsyncContextManagerCallable[P, R],
-        provides: type[R] | Callable[..., type[R]],
+        provides: Hint | InferHint,
         dependencies: HintMap,
     ) -> None:
         self.producer = producer

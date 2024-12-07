@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from collections.abc import MutableMapping
 
+    from pybooster.core.state import StateSetter
+
     Scope = MutableMapping[str, Any]
     Message = MutableMapping[str, Any]
     Receive = Callable[[], Awaitable[Message]]
@@ -62,7 +64,7 @@ def _get_scope_state(scope: Scope) -> _ScopeState | None:
 
 
 class _ScopeState(TypedDict):
-    set_state: Callable[[], None]
+    set_state: StateSetter
 
 
 _SCOPE_STATE_NAME = "pybooster"
