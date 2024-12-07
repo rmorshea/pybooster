@@ -1,7 +1,6 @@
 # PyBooster 💉
 
 [![PyPI - Version](https://img.shields.io/pypi/v/pybooster.svg)](https://pypi.org/project/pybooster)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pybooster.svg)](https://pypi.org/project/pybooster)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > [!WARNING]
