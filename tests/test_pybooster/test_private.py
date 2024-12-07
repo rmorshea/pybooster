@@ -169,3 +169,13 @@ def test_get_required_parameters_mismatch_len_of_requires_list():
         match=r"Could not match .* dependencies to .* required parameters.",
     ):
         get_required_parameters(func, [int])
+
+
+def test_get_required_parameters_mismatch_len_of_requires_map():
+    def func(*, a: int = required, b: int = required): ...
+
+    with pytest.raises(
+        TypeError,
+        match=r"Could not match .* dependencies to .* required parameters.",
+    ):
+        get_required_parameters(func, {"a": int})
