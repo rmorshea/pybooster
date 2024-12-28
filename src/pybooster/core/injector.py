@@ -77,7 +77,7 @@ def function(
 def asyncfunction(
     func: Callable[P, Coroutine[Any, Any, R]],
     *,
-    requires: HintMap | None = None,
+    requires: HintMap | HintSeq | None = None,
     shared: bool = False,
 ) -> Callable[P, Coroutine[Any, Any, R]]:
     """Inject dependencies into the given coroutine.
