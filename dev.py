@@ -4,7 +4,8 @@ import os
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
+from typing import Literal
 
 import click
 

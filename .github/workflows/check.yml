@@ -23,10 +23,10 @@ jobs:
       - name: Install UV
         uses: astral-sh/setup-uv@v5
         with:
-          version: "latest"
+          version: latest
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-          cache-dependency-glob: "**/pyproject.toml"
+          cache-dependency-glob: '**/pyproject.toml'
       - name: Run tests
         run: uv run dev.py cov
       - name: Upload coverage

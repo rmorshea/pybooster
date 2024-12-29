@@ -1,6 +1,5 @@
 # PyBooster
 
-<<<<<<< before updating
 !!! warning
 
     This project is still under development - use at your own risk.
@@ -60,6 +59,3 @@ it produces a `sqlite3.Connection`. Simarly, the signature of the dependant func
 point, when `query_database` is called it checks to see if there's a
 `sqlite3.Connection` provider in the current solution and, if so, injects it into the
 function.
-=======
-Dependency injection without the boilerplate.
->>>>>>> after updating
