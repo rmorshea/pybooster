@@ -1,10 +1,10 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: v0.0.4
+_commit: v0.0.7
 _src_path: https://github.com/rmorshea/python-copier-template
 author_email: ryan.morshead@gmail.com
 author_name: Ryan Morshead
 project_description: Dependency injection without the boilerplate.
 project_title: PyBooster
 python_package_name: pybooster
-python_version_range: ">=3.11,<4"
+python_version_range: '>=3.11,<4'
 repo_url: https://github.com/rmorshea/pybooster

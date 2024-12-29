@@ -20,7 +20,7 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Build docs
-        run: uv run project.py docs build
+        run: uv run dev.py docs build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

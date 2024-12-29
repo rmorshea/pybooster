@@ -12,43 +12,42 @@ you'll need to do is [install it](https://docs.astral.sh/uv/getting-started/inst
 From here you should be able to run the test suite:
 
 ```bash
-uv run project.py test
+uv run dev.py test
 ```
 
 !!! note
 
     By default, UV will install an appropriate Python version and make a virtual environment under the `.venv`.
 
-All developer scripts are located in a `project.py` file at the root of the repository.
+All developer scripts are located in a `dev.py` file at the root of the repository.
 To see a full list of commands run:
 
 ```bash
-uv run project.py --help
+uv run dev.py --help
 ```
 
 !!! tip
 
-    It can be helpful to define an alias if you find yourself typing `uv run project.py` frequently. For example:
+    It can be helpful to define an alias if you find yourself typing `uv run dev.py` frequently. For example:
 
-    - `alias uvr="uv run"`
-    - `alias uvp="uv run project.py"`
-
-    Alternatively, if you want a more virtualenv
+    ```bash
+    alias uvr="uv run"
+    ```
 
 Common commands include:
 
 ```bash
 # run the test suite
-uv run project.py test
+uv run dev.py test
 
 # run the test suite with coverage enabled
-uv run project.py cov
+uv run dev.py cov
 
 # run lint checks on the source code and docs
-uv run project.py lint
+uv run dev.py lint
 
 # build and serve the documentation locally
-uv run project.py docs serve
+uv run dev.py docs serve
 ```
 
 ## Project Template
