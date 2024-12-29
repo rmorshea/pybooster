@@ -21,11 +21,14 @@ jobs:
           path: ~/.cache/uv
           key: ${{ runner.os }}-${{ matrix.python-version }}-uv-${{ hashFiles('pyproject.toml') }}
       - name: Install UV
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - name: Install Python
-        run: uv python install ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
       - name: Run tests
-        run: uv run project.py cov
+        run: uv run dev.py cov
       - name: Upload coverage
         if: matrix.python-version == env.latest-python-version
         uses: actions/upload-artifact@v4
@@ -45,6 +48,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: coverage-xml
+          path: ${{ github.workspace }}
       - name: Download old coverage
         uses: dawidd6/action-download-artifact@v6
         with:
@@ -62,7 +66,7 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Check coverage
-        run: uv run project.py cov --no-test --old-coverage-xml=${{ github.workspace }}/old-coverage/coverage.xml
+        run: uv run dev.py cov --no-test --old-coverage-xml=${{ github.workspace }}/old-coverage/coverage.xml
   py-lint:
     runs-on: ubuntu-latest
     steps:
@@ -77,7 +81,7 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Check lint
-        run: uv run project.py lint --check
+        run: uv run dev.py lint --check
   py-build:
     runs-on: ubuntu-latest
     steps:
@@ -107,4 +111,4 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Build docs
-        run: uv run project.py docs build
+        run: uv run dev.py docs build

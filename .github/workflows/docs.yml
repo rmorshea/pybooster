@@ -20,7 +20,7 @@ jobs:
       - name: Install Python
         run: uv python install ${{ matrix.python-version }}
       - name: Build docs
-        run: uv run project.py docs build
+        run: uv run dev.py docs build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -28,8 +28,8 @@ jobs:
   publish:
     needs: build
     permissions:
-      pages: write  # to deploy to Pages
-      id-token: write  # to verify the deployment originates from an appropriate source
+      pages: write # to deploy to Pages
+      id-token: write # to verify the deployment originates from an appropriate source
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -37,4 +37,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4  # or specific "vX.X.X" version tag for this action
+        uses: actions/deploy-pages@v4 # or specific "vX.X.X" version tag for this action

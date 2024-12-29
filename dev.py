@@ -4,8 +4,7 @@ import os
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import click
 
@@ -84,7 +83,15 @@ def lint(
             run(["ruff", "check", "--fix"])
     if not no_md_style:
         if check:
-            run(["mdformat", "--ignore-missing-references", "--check", "README.md", "docs"])
+            run(
+                [
+                    "mdformat",
+                    "--ignore-missing-references",
+                    "--check",
+                    "README.md",
+                    "docs",
+                ]
+            )
             doc_cmd(["ruff", "format", "--check"], no_pad=True)
             doc_cmd(["ruff", "check"], no_pad=True)
         else:

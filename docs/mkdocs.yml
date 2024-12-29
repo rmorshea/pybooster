@@ -6,11 +6,14 @@ docs_dir: src
 repo_url: https://github.com/rmorshea/pybooster
 nav:
   - Home: index.md
+<<<<<<< before updating
   - Concepts: concepts.md
   - Recipes: recipes.md
   - Integrations: integrations.md
   - Examples: examples.md
   - Reference: reference.md
+=======
+>>>>>>> after updating
   - Contributing: contributing.md
 theme:
   name: material
