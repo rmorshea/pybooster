@@ -30,10 +30,9 @@ uv run dev.py --help
 
     It can be helpful to define an alias if you find yourself typing `uv run dev.py` frequently. For example:
 
-    - `alias uvr="uv run"`
-    - `alias uvd="uv run dev.py"`
-
-    Alternatively, if you want a more virtualenv
+    ```bash
+    alias uvr="uv run"
+    ```
 
 Common commands include:
 
