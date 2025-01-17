@@ -570,3 +570,16 @@ async def test_async_shared_context_with_dependencies_and_overrides():
     with solved(greeting_provider, recipient_provider):
         async with injector.shared((Greeting, "Hello"), (Recipient, "World")) as values:
             assert values == {Greeting: "Hello", Recipient: "World"}
+
+
+def test_can_pass_directly_without_any_solution():
+    @provider.function
+    def greeting_provider() -> Greeting:
+        return Greeting("Hello")
+
+    @injector.function
+    def get_message(*, greeting: Greeting = required, recipient: Recipient = required):
+        return f"{greeting}, {recipient}!"
+
+    with solved(greeting_provider):
+        assert get_message(recipient=Recipient("World")) == "Hello, World!"

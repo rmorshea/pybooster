@@ -115,16 +115,17 @@ class Solution(Generic[P]):
         self, include_types: Collection[Hint], exclude_types: Collection[Hint]
     ) -> Sequence[Sequence[P]]:
         index_by_type = self.index_by_type  # avoid extra attribute accesses
+        solution_type_set = set(index_by_type)
         try:
             type_indices = {index_by_type[t] for t in include_types}
         except KeyError:
-            missing = set(include_types) - set(index_by_type)
+            missing = set(include_types) - solution_type_set
             msg = f"Missing providers for {missing}"
             raise InjectionError(msg) from None
         ancestor_indices = {p_i for i in type_indices for p_i in ancestors(self.index_graph, (i))}
         ancestor_pred_indices = ancestor_indices | type_indices
 
-        filter_indicies = {index_by_type[t] for t in exclude_types}
+        filter_indicies = {index_by_type[t] for t in solution_type_set.intersection(exclude_types)}
         infos = self.infos_by_index  # avoid extra attribute accesses
         return [
             [infos[i] for i in union]
