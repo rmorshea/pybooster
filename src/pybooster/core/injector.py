@@ -9,10 +9,10 @@ from functools import wraps
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import ParamSpec
-from typing import TypeVar
 from typing import cast
 
 from paramorator import paramorator
+from typing_extensions import TypeVar
 
 from pybooster._private._injector import _CURRENT_VALUES
 from pybooster._private._injector import async_inject_into_params
