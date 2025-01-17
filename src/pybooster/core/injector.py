@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
+N = TypeVar("N", default=None)
 
 
 required = make_sentinel_value(__name__, "required")
@@ -216,7 +217,7 @@ class CurrentValues(Mapping[Hint, Any]):
     """A mapping from dependency types to their current values."""
 
     def __getitem__(self, key: type[R]) -> R: ...
-    def get(self, key: type[R], default: R = ...) -> R: ...  # noqa: D102
+    def get(self, key: type[R], default: N = ...) -> R | N: ...  # noqa: D102
 
 
 class _SharedContext(
