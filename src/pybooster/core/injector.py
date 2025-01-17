@@ -9,10 +9,10 @@ from functools import wraps
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import ParamSpec
-from typing import TypeVar
 from typing import cast
 
 from paramorator import paramorator
+from typing_extensions import TypeVar
 
 from pybooster._private._injector import _CURRENT_VALUES
 from pybooster._private._injector import async_inject_into_params
@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
+N = TypeVar("N", default=None)
 
 
 required = make_sentinel_value(__name__, "required")
@@ -216,7 +217,7 @@ class CurrentValues(Mapping[Hint, Any]):
     """A mapping from dependency types to their current values."""
 
     def __getitem__(self, key: type[R]) -> R: ...
-    def get(self, key: type[R], default: R = ...) -> R: ...  # noqa: D102
+    def get(self, key: type[R], default: N = ...) -> R | N: ...  # noqa: D102
 
 
 class _SharedContext(
