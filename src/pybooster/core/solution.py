@@ -5,12 +5,11 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from typing import Any
 
+from pybooster._private._injector import _CURRENT_VALUES
 from pybooster._private._provider import AsyncProviderInfo
 from pybooster._private._provider import SyncProviderInfo
 from pybooster._private._provider import get_provider_info
 from pybooster._private._solution import set_solutions
-from pybooster.core import provider
-from pybooster.core.injector import _CURRENT_VALUES
 from pybooster.core.provider import Provider
 from pybooster.core.provider import SyncProvider
 
@@ -32,10 +31,7 @@ def solved(*providers: Provider[[], Any] | Sequence[Provider[[], Any]]) -> Itera
         raise ValueError(msg)
     sync_infos: dict[type, SyncProviderInfo] = {}
     async_infos: dict[type, AsyncProviderInfo] = {}
-    for p in [
-        *_implicit_providers_from_current_values(),
-        *_normalize_providers(providers),
-    ]:
+    for p in _normalize_providers(providers):
         if isinstance(p, SyncProvider):
             sync_infos.update(
                 get_provider_info(p.producer, p.provides, p.dependencies, is_sync=True)
@@ -44,18 +40,11 @@ def solved(*providers: Provider[[], Any] | Sequence[Provider[[], Any]]) -> Itera
             async_infos.update(
                 get_provider_info(p.producer, p.provides, p.dependencies, is_sync=False)
             )
-    reset = set_solutions(sync_infos, async_infos)
+    reset = set_solutions(sync_infos, async_infos, _CURRENT_VALUES.get().keys())
     try:
         yield
     finally:
         reset()
-
-
-def _implicit_providers_from_current_values() -> list[Provider[[], Any]]:
-    return [
-        provider.function(lambda val=val: val, provides=cls)
-        for cls, val in _CURRENT_VALUES.get().items()
-    ]
 
 
 def _normalize_providers(

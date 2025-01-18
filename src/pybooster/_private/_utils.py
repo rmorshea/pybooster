@@ -140,7 +140,10 @@ def check_is_required_type(anno: Any) -> Any:
 
 def check_is_not_union_type(anno: RawAnnotation) -> None:
     if get_origin(get_raw_annotation(anno)) is Union:
-        msg = f"Cannot use Union type {anno} as a dependency."
+        msg = (
+            f"Cannot use union type {anno} as a dependency "
+            "- use NewType to make a distinct subtype."
+        )
         raise TypeError(msg)
 
 
@@ -199,7 +202,7 @@ def get_coroutine_return_type(func: Callable) -> Hint:
     if get_origin(return_type) is Coroutine:
         try:
             return get_args(return_type)[2]
-        except IndexError:
+        except IndexError:  # nocov
             msg = f"Expected return type {return_type} to have three arguments"
             raise TypeError(msg) from None
     else:
@@ -209,16 +212,16 @@ def get_coroutine_return_type(func: Callable) -> Hint:
 def get_iterator_yield_type(func: Callable, *, sync: bool) -> Hint:
     return_type = get_callable_return_type(func)
     if sync:
-        if get_origin(return_type) is not Iterator:
+        if get_origin(return_type) is not Iterator:  # nocov
             msg = f"Expected return type {return_type} to be an iterator"
             raise TypeError(msg)
     else:
-        if get_origin(return_type) is not AsyncIterator:
+        if get_origin(return_type) is not AsyncIterator:  # nocov
             msg = f"Expected return type {return_type} to be an async iterator"
             raise TypeError(msg)
     try:
         return get_args(return_type)[0]
-    except IndexError:
+    except IndexError:  # nocov
         msg = f"Expected return type {return_type} to have a single argument"
         raise TypeError(msg) from None
 
