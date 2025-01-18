@@ -36,11 +36,12 @@ DependencyMap = Mapping[Hint, DependencySet]
 def set_solutions(
     sync_infos: Mapping[Hint, SyncProviderInfo],
     async_infos: Mapping[Hint, AsyncProviderInfo],
+    current_types: Set[Hint],
 ) -> Callable[[], None]:
     full_infos = {**sync_infos, **async_infos}
 
-    sync_solution_token = _set_solution(SYNC_SOLUTION, sync_infos)
-    full_solution_token = _set_solution(FULL_SOLUTION, full_infos)
+    sync_solution_token = _set_solution(SYNC_SOLUTION, sync_infos, current_types)
+    full_solution_token = _set_solution(FULL_SOLUTION, full_infos, current_types)
 
     def reset() -> None:
         FULL_SOLUTION.reset(full_solution_token)
@@ -49,9 +50,13 @@ def set_solutions(
     return reset
 
 
-def _set_solution(var: ContextVar[Solution[P]], infos: Mapping[Hint, P]) -> Token[Solution[P]]:
+def _set_solution(
+    var: ContextVar[Solution[P]],
+    infos: Mapping[Hint, P],
+    current_types: Set[Hint],
+) -> Token[Solution[P]]:
     dep_map = {cls: set(info["required_parameters"].values()) for cls, info in infos.items()}
-    return var.set(Solution.from_infos_and_dependency_map(infos, dep_map))
+    return var.set(Solution.from_infos_and_dependency_map(infos, dep_map, current_types))
 
 
 @frozenclass
@@ -73,13 +78,16 @@ class Solution(Generic[P]):
 
     @classmethod
     def from_infos_and_dependency_map(
-        cls, infos_by_type: Mapping[Hint, P], deps_by_type: DependencyMap
+        cls,
+        infos_by_type: Mapping[Hint, P],
+        deps_by_type: DependencyMap,
+        current_types: Set[Hint],
     ) -> Self:
         type_by_index: dict[int, Hint] = {}
         index_by_type: dict[Hint, int] = {}
 
         index_graph = PyDiGraph()
-        for tp in deps_by_type:
+        for tp in current_types | set(deps_by_type):
             index = index_graph.add_node(tp)
             type_by_index[index] = tp
             index_by_type[tp] = index
@@ -112,7 +120,9 @@ class Solution(Generic[P]):
         return {type_by_index[i] for i in descendants(self.index_graph, self.index_by_type[cls])}
 
     def execution_order_for(
-        self, include_types: Collection[Hint], exclude_types: Collection[Hint]
+        self,
+        include_types: Collection[Hint],
+        exclude_types: Collection[Hint],
     ) -> Sequence[Sequence[P]]:
         index_by_type = self.index_by_type  # avoid extra attribute accesses
         solution_type_set = set(index_by_type)
@@ -134,6 +144,6 @@ class Solution(Generic[P]):
         ]
 
 
-_NO_SOLUTION = Solution.from_infos_and_dependency_map({}, {})
+_NO_SOLUTION = Solution.from_infos_and_dependency_map({}, {}, set())
 SYNC_SOLUTION = ContextVar[Solution[SyncProviderInfo]]("SYNC_SOLUTION", default=_NO_SOLUTION)
 FULL_SOLUTION = ContextVar[Solution[ProviderInfo]]("FULL_SOLUTION", default=_NO_SOLUTION)

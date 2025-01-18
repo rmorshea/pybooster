@@ -193,6 +193,13 @@ def test_disallow_builtin_type_as_provided_depdency(returns):
         provider.function(f)
 
 
+def test_disallow_union_as_dependency():
+    with pytest.raises(TypeError, match=r"Cannot use union type"):
+
+        @injector.function
+        def bad(*, _: Greeting | Recipient = required): ...
+
+
 def test_disallow_builtin_type_as_injector_dependency():
     with pytest.raises(TypeError, match=r"Cannot use built-in type"):
 
@@ -583,3 +590,17 @@ def test_can_pass_directly_without_any_solution():
 
     with solved(greeting_provider):
         assert get_message(recipient=Recipient("World")) == "Hello, World!"
+
+
+def test_implicit_provider_from_current_values():
+    @provider.function
+    def message_provider(*, greeting: Greeting = required) -> Message:
+        return Message(f"{greeting}, World!")
+
+    @injector.function
+    def get_message(*, message: Message = required):
+        return message
+
+    with injector.shared((Greeting, "Hello")):
+        with solved(message_provider):
+            assert get_message() == "Hello, World!"

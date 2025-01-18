@@ -216,8 +216,8 @@ def current_values() -> CurrentValues:
 class CurrentValues(Mapping[Hint, Any]):
     """A mapping from dependency types to their current values."""
 
-    def __getitem__(self, key: type[R]) -> R: ...
-    def get(self, key: type[R], default: N = ...) -> R | N: ...  # noqa: D102
+    def __getitem__(self, key: type[R]) -> R: ...  # nocov
+    def get(self, key: type[R], default: N = ...) -> R | N: ...  # nocov # noqa: D102
 
 
 class _SharedContext(

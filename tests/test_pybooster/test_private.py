@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from collections.abc import Coroutine
+from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from contextlib import contextmanager
 
@@ -9,6 +12,8 @@ from pybooster import required
 from pybooster._private._provider import get_provides_type
 from pybooster._private._utils import AsyncFastStack
 from pybooster._private._utils import FastStack
+from pybooster._private._utils import get_coroutine_return_type
+from pybooster._private._utils import get_iterator_yield_type
 from pybooster._private._utils import get_required_parameters
 from pybooster._private._utils import start_future
 
@@ -179,3 +184,26 @@ def test_get_required_parameters_mismatch_len_of_requires_map():
         match=r"Could not match .* dependencies to .* required parameters.",
     ):
         get_required_parameters(func, {"a": int})
+
+
+class Expected: ...
+
+
+def test_get_coroutine_return_type():
+    def returns_coroutine() -> Coroutine[None, None, Expected]: ...
+
+    assert get_coroutine_return_type(returns_coroutine) is Expected
+
+    async def coroutine_func() -> Expected: ...
+
+    assert get_coroutine_return_type(coroutine_func) is Expected
+
+
+def test_get_iterator_yield_type():
+    def returns_iterator() -> Iterator[Expected]: ...
+
+    assert get_iterator_yield_type(returns_iterator, sync=True) is Expected
+
+    async def async_returns_iterator() -> AsyncIterator[Expected]: ...
+
+    assert get_iterator_yield_type(async_returns_iterator, sync=False) is Expected
