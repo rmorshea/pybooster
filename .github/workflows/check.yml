@@ -35,7 +35,9 @@ jobs:
         with:
           name: coverage-xml
           include-hidden-files: true
-          path: ${{ github.workspace }}/coverage.xml
+          path: |
+            ${{ github.workspace }}/coverage.xml
+            ${{ github.workspace }}/.coverage
           if-no-files-found: error
   py-coverage:
     runs-on: ubuntu-latest
@@ -67,6 +69,8 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Check coverage
         run: uv run dev.py cov --no-test --old-coverage-xml=${{ github.workspace }}/old-coverage/coverage.xml
+      - name: Coverage summary
+        run: uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
   py-lint:
     runs-on: ubuntu-latest
     steps:
