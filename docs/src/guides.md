@@ -1,4 +1,4 @@
-# Recipes
+# Guides
 
 ## Side Effects
 

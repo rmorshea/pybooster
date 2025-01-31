@@ -273,8 +273,8 @@ with solved(auth):
         assert get_auth() is get_auth()
 ```
 
-You can, instead or additionally, override the current values for a dependencies by
-passing a mapping of dependency types to desired values under the `values` keyword:
+You can also override the current values by passing a tuple with the dependency and its
+value to the `shared` context manager:
 
 ```python
 from dataclasses import dataclass
@@ -324,8 +324,7 @@ with solved(user_id_provider, profile_provider):
 ### Current Values
 
 You can access a mapping of the current values for all dependencies by calling the
-[`current_values`][pybooster.core.injector.current_values] function. This can be useful
-for debugging:
+[`current_values`][pybooster.core.injector.current_values] function.
 
 ```python
 from typing import NewType
@@ -339,6 +338,10 @@ assert injector.current_values() == {}
 with injector.shared((UserId, 1)):
     assert injector.current_values() == {UserId: 1}
 ```
+
+!!! note
+
+    This can be useful for debugging.
 
 ## Providers
 

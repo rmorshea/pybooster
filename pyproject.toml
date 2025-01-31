@@ -1,6 +1,7 @@
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
 [tool.hatch.build.targets.sdist]
 include = ["src/pybooster", "docs"]
 [tool.hatch.build.targets.wheel]
@@ -43,10 +44,11 @@ util = ["click==8.1.7", "ipykernel==6.29.5", "copier==9.4.1"]
 docs = [
     { include-group = "test" },
     "mkdocs-gen-files==0.5.0",
-    "mkdocs-material==9.5.39",
+    "mkdocs-literate-nav==0.6.1",
+    "mkdocs-material==9.5.50",
     "mkdocs-open-in-new-tab==1.0.5",
     "mkdocs==1.6.1",
-    "mkdocstrings-python==1.11.1",
+    "mkdocstrings-python==1.13.0",
 ]
 lint = [
     { include-group = "test" },
@@ -82,13 +84,11 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 100
-
 [tool.ruff.format]
 docstring-code-format = true
 docstring-code-line-length = 80
 quote-style = "double"
 indent-style = "space"
-
 [tool.ruff.lint]
 preview = true
 select = ["ALL"]
@@ -127,16 +127,12 @@ unfixable = [
     "COM819", # Trailing comma
 ]
 fixable = ["ALL"]
-
 extend-safe-fixes = ["TCH"]
-
 [tool.ruff.lint.isort]
 known-first-party = ["pybooster"]
 force-single-line = true
-
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
-
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
     "PLC2701", # Private imports
@@ -148,13 +144,14 @@ ban-relative-imports = "all"
 "**.ipynb" = [
     "T201", # Print statements
 ]
+"docs/**" = [
+    "INP001", # Implicit namespace package
+    "D",      # Docstrings
+]
 "doccmd_*.py" = [
     "ANN",    # Type annotations
     "B018",   # Useless expression
-    "D",      # Docstrings
-    "EM101",  # Assign error message to string
     "FA102",  # Unsafe __futures__ annotations usage
-    "INP001", # Implicit namespace package
     "RUF029", # No await in async function
     "S101",   # Assert statements
     "S106",   # Possible passwords
@@ -165,7 +162,6 @@ ban-relative-imports = "all"
     "TC003",  # Move standard-libarary import into a type-checking block
     "TRY003", # Avoid specifying long messages outside the exception class
 ]
-
 
 [tool.yamlfix]
 line_length = 100
@@ -198,3 +194,6 @@ sort = "Name"
 compare_branch = "origin/main"
 fail_under = 100
 include_untracked = true
+
+[tool.uv.workspace]
+members = ["docs/src/tutorial-project"]

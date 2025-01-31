@@ -1,0 +1,141 @@
+# Tutorial
+
+This tutorial will walk you through creating an application which takes advantage of
+PyBooster. Specifically, a media storage app similar to the one described in
+[this video](https://www.youtube.com/watch?v=J1f5b4vcxCQ)
+by [CodeAesthetic](https://www.youtube.com/@CodeAesthetic). The app will include an
+`/upload` endpoint that accepts a file, processes it, and saves it using a blob storage
+service. The business of uploading a file will be broken down into several steps where
+a preview of the file is generated, the content is encrypted, and the file is saved
+to a storage service. Each step will be represented by a separate interface, allowing
+for easy testing and modular development. Visually, that should all look something like
+this:
+
+```mermaid
+flowchart LR
+    media@{ shape: pill, label: "Media"}
+    preview@{ shape: pill, label: "Preview"}
+    bytes@{ shape: pill, label: "Data"}
+    preview_generator@{shape: rect, label: "Generate Generator"}
+    encryptor@{ shape: rect, label: "Encryptor" }
+    storage@{ shape: rect, label: "Storage" }
+
+    media-->preview_generator
+    preview_generator-->preview
+    preview-->encryptor
+    media-->encryptor
+    encryptor-->bytes
+    bytes-->storage
+```
+
+## Project Setup
+
+To get started you can initialize a project using [UV](https://docs.astral.sh/uv/):
+
+```bash
+uv init
+```
+
+Among other things, this will spawn new `pyproject.toml` and `main.py` files.
+You'll then want to add a few dependencies:
+
+```bash
+uv add litestar pybooster
+```
+
+!!! note
+
+    This tutorial will use [Litestar](https://docs.litestar.dev) for the web framework, but
+    you can use any framework you like. The concepts will be the same.
+
+## Server Setup
+
+To the `main.py` file you'll begin by establishing a server with a single `/upload`
+route handler that's responsible for processing file uploads. To this you'll specify
+the necessary request and response contracts:
+
+```python
+from dataclasses import dataclass
+
+from litestar import Litestar, put, get
+
+
+@dataclass
+class UploadRequest:
+    content_b64: str
+    content_type: str
+    storage_name: str
+
+
+@put("/upload")
+async def upload(request: UploadRequest) -> str: ...
+
+
+app = Litestar(route_handlers=[upload])
+```
+
+!!! hint
+
+    See [Litestar's documentation](https://docs.litestar.dev/) for more info on
+    the details of defining route handlers.
+
+## Route Logic
+
+To start out you'll want to establishing interfaces that match up with the
+components in the diagram above:
+
+```python
+from typing import Protocol
+
+
+class Encryptor(Protocol):
+    def encrypt(self, content: bytes) -> bytes: ...
+
+class PreviewGenerator(Protocol):
+    def generate(self, content: bytes) -> bytes: ...
+
+class Storage(Protocol):
+    async def save(self, prefix: str, data: dict[str, bytes]) -> None: ...
+```
+
+You can flesh out the `/upload` route's logic assuming these interfaces exist:
+
+!!! note
+
+    In the next section you'll see how to get instances of these interfaces into the
+    route handler using PyBooster.
+
+```python
+import asyncio
+from uuid import uuid4
+from base64 import b64decode
+from dataclasses import dataclass
+
+from litestar import Litestar, put
+
+
+@dataclass
+class UploadRequest:
+    content_b64: str
+    content_type: str
+    storage_name: str
+
+
+@put("/upload")
+async def upload(request: UploadRequest) -> str:
+    encryptor: Encryptor = ...
+    preview_generators: Mapping[str, PreviewGenerator] = ...
+    storages: Mapping[str, Storage] = ...
+
+    raw = b64decode(request.content_b64)
+    preview = preview_generators[request.content_type].generate(raw)
+
+    raw_encrypted = encryptor.encrypt(request.content_b64)
+    preview_encrypted = encryptor.encrypt(preview)
+
+    prefix = uuid4().hex
+    data = {"raw": raw_encrypted,"preview": preview_encrypted}
+    await storages[request.storage_name].save(prefix, data)
+
+    return prefix
+```
