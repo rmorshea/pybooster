@@ -49,6 +49,7 @@ docs = [
     "mkdocs-open-in-new-tab==1.0.5",
     "mkdocs==1.6.1",
     "mkdocstrings-python==1.13.0",
+    "litestar>=2.14.0",
 ]
 lint = [
     { include-group = "test" },

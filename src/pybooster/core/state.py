@@ -29,14 +29,14 @@ def copy_state() -> StateSetter:
         from threading import Thread
         from typing import NewType
 
-        from pybooster import injector
+        from pybooster import injector, new_scope, get_scope
         from pybooster.core.state import copy_state
 
         Greeting = NewType("Greeting", str)
 
 
         def from_thread(future):
-            with injector.shared((Greeting, "Hello")):
+            with new_scope((Greeting, "Hello")):
                 set_state = copy_state()
                 future.set_result(set_state)
 
@@ -47,10 +47,10 @@ def copy_state() -> StateSetter:
         set_state = set_state_future.result()
 
         reset_state = set_state()
-        assert injector.current_values().get(Greeting) == "Hello"
+        assert get_scope().get(Greeting) == "Hello"
 
         reset_state()
-        assert injector.current_values().get(Greeting) is None
+        assert get_scope().get(Greeting) is None
         ```
     """
     current_values = _CURRENT_VALUES.get()

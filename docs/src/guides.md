@@ -49,15 +49,15 @@ There's a couple different ways to provide singleton dependencies.
 ### Eager Singletons
 
 The easiest way to declare singleton values is with the
-[shared](concepts.md#shared-injector) injector. Functions requiring a dependency
-supplied by a shared injector and which are called in its context will use the same
-value:
+[`new_scope`](concepts.md#creating-scopes) injector. Functions requiring a dependency
+already available in the current scope and which are called in its context will use the =
+same value:
 
 ```python
 from dataclasses import dataclass
 
 from pybooster import injector
-from pybooster import required
+from pybooster import required, new_scope
 
 
 @dataclass
@@ -71,7 +71,7 @@ def get_dataset(*, dataset: Dataset = required) -> Dataset:
     return dataset
 
 
-with injector.shared((Dataset, Dataset(x=[1, 2, 3], y=[4, 5, 6]))):
+with new_scope((Dataset, Dataset(x=[1, 2, 3], y=[4, 5, 6]))):
     dataset_1 = get_dataset()
     dataset_2 = get_dataset()
     assert dataset_1 is dataset_2

@@ -13,6 +13,7 @@ import pytest
 from anyio import Event
 
 from pybooster import injector
+from pybooster import new_scope
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
@@ -385,7 +386,7 @@ def test_overwritten_value_causes_descendant_providers_to_reevaluate():
         return f"#{user_id} {profile.name}: {profile.bio}"
 
     with solution(user_id_provider, profile_provider):
-        with injector.shared(Profile):
+        with new_scope(Profile):
             assert call_count == 1
             assert get_profile_summary() == "#1 Alice: Alice's bio"
             assert call_count == 1
@@ -461,7 +462,7 @@ def test_cannot_enter_shared_context_more_than_once():
         return Greeting("Hello")
 
     with solution(greeting_provider):
-        ctx = injector.shared(Greeting)
+        ctx = new_scope(Greeting)
         with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
                 with ctx:
@@ -474,7 +475,7 @@ async def test_cannot_async_enter_shared_context_more_than_once():
         return Greeting("Hello")
 
     with solution(greeting_provider):
-        ctx = injector.shared(Greeting)
+        ctx = new_scope(Greeting)
         async with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
                 async with ctx:
@@ -559,7 +560,7 @@ def test_injecting_current_value_does_not_invalidate_providers():
         return f"{greeting} {message}"
 
     with solution(greeting_provider, message_provider):
-        with injector.shared(Greeting, Message) as values:
+        with new_scope(Greeting, Message) as values:
             assert call_count == 1
             assert get_double_greeting_message(greeting=values[Greeting]) == "Hello Hello, World!"
             assert call_count == 1
@@ -575,7 +576,7 @@ async def test_async_shared_context_with_dependencies_and_overrides():
         raise AssertionError  # nocov
 
     with solution(greeting_provider, recipient_provider):
-        async with injector.shared((Greeting, "Hello"), (Recipient, "World")) as values:
+        async with new_scope((Greeting, "Hello"), (Recipient, "World")) as values:
             assert values == {Greeting: "Hello", Recipient: "World"}
 
 
@@ -601,6 +602,6 @@ def test_implicit_provider_from_current_values():
     def get_message(*, message: Message = required):
         return message
 
-    with injector.shared((Greeting, "Hello")):
+    with new_scope((Greeting, "Hello")):
         with solution(message_provider):
             assert get_message() == "Hello, World!"

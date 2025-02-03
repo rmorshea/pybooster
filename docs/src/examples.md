@@ -16,6 +16,7 @@ from botocore.client import BaseClient
 from moto import mock_aws
 
 from pybooster import injector
+from pybooster import new_scope
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
@@ -80,9 +81,9 @@ def get_user(
 def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
-            injector.shared((Session, Session())),
+            new_scope((Session, Session())),
             solution(client_provider[S3Client].bind("s3"), bucket_provider.bind("my-bucket")),
-            injector.shared(BucketName),
+            new_scope(BucketName),
         ):
             user = User(id=1, name="Alice")
             put_user(user)
@@ -112,6 +113,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from pybooster import injector
+from pybooster import new_scope
 from pybooster import required
 from pybooster import solution
 from pybooster.extra.asgi import PyBoosterMiddleware
@@ -136,7 +138,7 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
     with solution(async_engine_provider.bind(DB_URL), async_session_provider):
-        async with injector.shared(AsyncEngine) as values:
+        async with new_scope(AsyncEngine) as values:
             async with values[AsyncEngine].begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             yield
@@ -196,6 +198,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm import mapped_column
 
 from pybooster import injector
+from pybooster import new_scope
 from pybooster import required
 from pybooster import solution
 from pybooster.extra.sqlalchemy import engine_provider
@@ -238,7 +241,7 @@ def main():
             engine_provider.bind(url),
             session_provider.bind(expire_on_commit=False),
         ),
-        injector.shared(Engine),
+        new_scope(Engine),
     ):
         create_tables()
         user_id = add_user("Alice")
@@ -262,6 +265,7 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
 from pybooster import injector
+from pybooster import new_scope
 from pybooster import required
 from pybooster import solution
 from pybooster.extra.sqlalchemy import async_engine_provider
@@ -304,7 +308,7 @@ async def main():
         async_engine_provider.bind(url),
         async_session_provider.bind(expire_on_commit=False),
     ):
-        async with injector.shared(AsyncEngine):
+        async with new_scope(AsyncEngine):
             await create_tables()
             user_id = await add_user("Alice")
             user = await get_user(user_id)
@@ -324,6 +328,7 @@ from collections.abc import Iterator
 from typing import Self
 
 from pybooster import injector
+from pybooster import new_scope
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
@@ -362,7 +367,7 @@ def main():
     with (
         solution(sqlite_connection.bind(":memory:")),
         # Reusing the same connection is only needed for in-memory databases.
-        injector.shared(sqlite3.Connection),
+        new_scope(sqlite3.Connection),
     ):
         make_user_table()
         user = User(1, "Alice")
