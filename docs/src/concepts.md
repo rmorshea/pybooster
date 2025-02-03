@@ -5,7 +5,7 @@
 In order to [inject](#injectors) a set of [dependencies](#dependencies) PyBooster must
 resolve the execution order of their [providers](#providers). That execution order is
 determined by performing a topological sort on the dependency graph that gets saved as a
-"solution". You can declare one using the [`solved`][pybooster.core.solution.solved]
+"solution". You can declare one using the [`solution`][pybooster.core.solution.solution]
 context manager.
 
 ```python
@@ -14,7 +14,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
@@ -29,7 +29,7 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solved(alice_provider):
+with solution(alice_provider):
     # alice is available to inject as a recipient
     assert get_message() == "Hello, Alice!"
 ```
@@ -49,7 +49,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
@@ -69,9 +69,9 @@ def get_recipient(*, recipient: Recipient = required) -> str:
     return recipient
 
 
-with solved(alice_provider):
+with solution(alice_provider):
     assert get_recipient() == "Alice"
-    with solved(bob_provider):
+    with solution(bob_provider):
         assert get_recipient() == "Bob"
     assert get_recipient() == "Alice"
 ```
@@ -114,7 +114,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
@@ -129,7 +129,7 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solved(recipient_provider):
+with solution(recipient_provider):
     assert get_message() == "Hello, Alice!"
 ```
 
@@ -153,7 +153,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
@@ -173,7 +173,7 @@ def get_current_values_with_shared(*, _: Recipient = required) -> injector.Curre
     return injector.current_values()
 
 
-with solved(recipient_provider):
+with solution(recipient_provider):
     assert get_current_values() == {}
     assert get_current_values_with_shared() == {Recipient: "Alice"}
 ```
@@ -197,7 +197,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 UserId = NewType("UserId", int)
 
@@ -229,7 +229,7 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
-with solved(user_id_provider, profile_provider):
+with solution(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     assert get_profile_summary(user_id=UserId(2)) == "#2 Bob: Bob's bio"
 ```
@@ -247,7 +247,7 @@ from dataclasses import dataclass
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @dataclass
@@ -266,7 +266,7 @@ def get_auth(*, auth: Auth = required) -> Auth:
     return auth
 
 
-with solved(auth):
+with solution(auth):
     assert get_auth() is not get_auth()
     with injector.shared(Auth) as values:
         assert values[Auth] is get_auth()
@@ -283,7 +283,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 UserId = NewType("UserId", int)
 
@@ -315,7 +315,7 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
-with solved(user_id_provider, profile_provider):
+with solution(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     with injector.shared((UserId, 2)):
         assert get_profile_summary() == "#2 Bob: Bob's bio"
@@ -457,7 +457,7 @@ from typing import TypedDict
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @provider.function
@@ -481,7 +481,7 @@ tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
 json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with solved(json_provider[ConfigDict].bind(json_file)):
+with solution(json_provider[ConfigDict].bind(json_file)):
     assert get_config() == {
         "app_name": "MyApp",
         "app_version": 1,
@@ -506,7 +506,7 @@ from typing import TypeVar
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @dataclass
@@ -540,7 +540,7 @@ tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
 json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with solved(config_file_provider.bind(Config, json_file)):
+with solution(config_file_provider.bind(Config, json_file)):
     assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
@@ -570,7 +570,7 @@ def sqlite_connection(database: str) -> Iterator[Connection]:
 These parameters can be supplied when solving using the `bind` method:
 
 ```python { test="false"}
-with solved(sqlite_connection.bind(":memory:")):
+with solution(sqlite_connection.bind(":memory:")):
     ...
 ```
 
@@ -590,7 +590,7 @@ from dataclasses import dataclass
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @dataclass
@@ -620,7 +620,7 @@ async def async_get_auth(*, auth: Auth = required) -> str:
     return f"{auth.username}:{auth.password}"
 
 
-with solved(sync_auth_provider, async_auth_provider):
+with solution(sync_auth_provider, async_auth_provider):
     assert sync_get_auth() == "sync-user:sync-pass"
     assert asyncio.run(async_get_auth()) == "async-user:async-pass"
 ```
@@ -650,7 +650,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Username = NewType("Username", str)
 
@@ -665,7 +665,7 @@ def get_message(*, username: Username = required) -> str:
     return f"Hello, {username}!"
 
 
-with solved(username_provider):
+with solution(username_provider):
     assert get_message() == "Hello, alice!"
 ```
 
@@ -679,7 +679,7 @@ from dataclasses import dataclass
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @dataclass
@@ -699,7 +699,7 @@ def get_login_message(*, auth: Auth = required) -> str:
     return f"Logged in as {auth.username}"
 
 
-with solved(auth_provider):
+with solution(auth_provider):
     assert get_login_message() == "Logged in as alice"
 ```
 
@@ -718,7 +718,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Username = NewType("Username", str)
 Password = NewType("Password", str)
@@ -740,6 +740,6 @@ def get_login_message(*, username: Username = required) -> str:
     return f"Logged in as {username}"
 
 
-with solved(username_and_password_provider):
+with solution(username_and_password_provider):
     assert get_login_message() == "Logged in as alice"
 ```

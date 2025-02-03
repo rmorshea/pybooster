@@ -39,7 +39,7 @@ from tempfile import NamedTemporaryFile
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @provider.iterator
@@ -54,7 +54,7 @@ def sql(cmd: str, *, conn: sqlite3.Connection = required) -> sqlite3.Cursor:
 
 
 tempfile = NamedTemporaryFile()
-with solved(sqlite_connection.bind(tempfile.name)):
+with solution(sqlite_connection.bind(tempfile.name)):
     sql("CREATE TABLE example (id INTEGER PRIMARY KEY, name TEXT)")
     sql("INSERT INTO example (name) VALUES ('alice')")
     cursor = sql("SELECT * FROM example")

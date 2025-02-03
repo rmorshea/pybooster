@@ -13,7 +13,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 SwitchOn = NewType("SwitchOn", None)
 
@@ -36,7 +36,7 @@ def is_switch_on(*, _: SwitchOn = required) -> bool:
     return SWITCH
 
 
-with solved(switch_on):
+with solution(switch_on):
     assert not SWITCH
     assert is_switch_on()
     assert not SWITCH
@@ -96,7 +96,7 @@ from functools import lru_cache
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @dataclass
@@ -120,7 +120,7 @@ def get_dataset(*, dataset: Dataset = required) -> Dataset:
     return dataset
 
 
-with solved(dataset_provider):
+with solution(dataset_provider):
     assert not calls
     dataset_1 = get_dataset()
     assert len(calls) == 1

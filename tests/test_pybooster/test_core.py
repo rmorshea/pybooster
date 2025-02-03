@@ -15,7 +15,7 @@ from anyio import Event
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 from pybooster.types import InjectionError
 from pybooster.types import SolutionError
 
@@ -52,7 +52,7 @@ def test_sync_function_injection():
     def get_message(*, greeting: Greeting = required):
         return f"{greeting} World"
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         assert get_message() == "Hello World"
 
 
@@ -65,7 +65,7 @@ def test_sync_iterator_injection():
     def get_message(*, greeting: Greeting = required):
         yield f"{greeting} World"
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         assert list(get_message()) == ["Hello World"]
 
 
@@ -78,7 +78,7 @@ def test_sync_context_manager_injection():
     def get_message(*, greeting: Greeting = required):
         yield f"{greeting} World"
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         with get_message() as message:
             assert message == "Hello World"
 
@@ -92,7 +92,7 @@ async def test_async_function_injection():
     async def get_message(*, greeting: Greeting = required):
         return f"{greeting} World"
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         assert await get_message() == "Hello World"
 
 
@@ -105,7 +105,7 @@ async def test_async_iterator_injection():
     async def get_message(*, greeting: Greeting = required):
         yield f"{greeting} World"
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         assert [v async for v in get_message()] == ["Hello World"]
 
 
@@ -118,7 +118,7 @@ async def test_async_context_manager_injection():
     async def get_message(*, greeting: Greeting = required):
         yield f"{greeting} World"
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         async with get_message() as message:
             assert message == "Hello World"
 
@@ -140,7 +140,7 @@ async def test_sync_and_async_providers_do_not_overwrite_each_other():
     async def async_get_message(*, message: Message = required):
         return message
 
-    with solved(sync_message_provider, async_message_provider):
+    with solution(sync_message_provider, async_message_provider):
         assert sync_get_message() == "Hello, Sync"
         assert await async_get_message() == "World, Async"
 
@@ -158,7 +158,7 @@ async def test_async_provider_can_depend_on_sync_provider():
     async def get_message(*, message: Message = required):
         return message
 
-    with solved(greeting_provider, message_provider):
+    with solution(greeting_provider, message_provider):
         assert await get_message() == "Hello World"
 
 
@@ -177,7 +177,7 @@ async def test_sync_provider_cannot_depend_on_async_provider():
 
     with (
         pytest.raises(SolutionError, match=r"No provider for .*"),
-        solved(greeting_provider, message_provider),
+        solution(greeting_provider, message_provider),
     ):
         pass  # nocov
 
@@ -217,7 +217,7 @@ def test_solution_requires_provider_types_to_be_concrete(returns):
 
     f_provider = provider.function(f)
 
-    with pytest.raises(TypeError, match=r"Can only provide concrete type"), solved(f_provider):
+    with pytest.raises(TypeError, match=r"Can only provide concrete type"), solution(f_provider):
         raise AssertionError
 
 
@@ -230,7 +230,7 @@ def test_allow_provider_return_any_if_concrete_type_declared_before_entering_sco
     def get_greeting(*, greeting: Greeting = required) -> Greeting:
         return greeting
 
-    with solved(greeting[Greeting]):
+    with solution(greeting[Greeting]):
         assert get_greeting() == "Hello"
 
 
@@ -243,7 +243,7 @@ def test_allow_provider_return_typevar_if_concrete_type_declared_before_entering
     def get_greeting(*, greeting: Greeting = required) -> Greeting:
         return greeting
 
-    with solved(make_string[Greeting].bind(Greeting, "Hello")):
+    with solution(make_string[Greeting].bind(Greeting, "Hello")):
         assert get_greeting() == "Hello"
 
 
@@ -256,7 +256,7 @@ def test_generic_with_provides_inference_function():
     def get_greeting(*, greeting: Greeting = required) -> Greeting:
         return greeting
 
-    with solved(make_string.bind(Greeting, "Hello")):
+    with solution(make_string.bind(Greeting, "Hello")):
         assert get_greeting() == "Hello"
 
 
@@ -285,7 +285,7 @@ def test_sync_dependencies_reused_across_providers():
     def get_bottom(*, bottom: Bottom = required) -> Bottom:
         return bottom
 
-    with solved(top_provider, left_provider, right_provider, bottom_provider):
+    with solution(top_provider, left_provider, right_provider, bottom_provider):
         assert get_bottom() == "bottom"
         assert call_count == 1
 
@@ -315,7 +315,7 @@ async def test_async_dependencies_reused_across_providers():
     async def get_bottom(*, bottom: Bottom = required) -> Bottom:
         return bottom
 
-    with solved(top_provider, left_provider, right_provider, bottom_provider):
+    with solution(top_provider, left_provider, right_provider, bottom_provider):
         assert (await get_bottom()) == "bottom"
         assert call_count == 1
 
@@ -347,7 +347,7 @@ def test_dependency_not_reused_by_inner_calls():
         assert exit_count == 1
         return Greeting(f"{greeting} {inner_greeting}")
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         assert get_greeting_outer() == "Hello Hello"
         assert exit_count == 2
         assert call_count == 2
@@ -384,7 +384,7 @@ def test_overwritten_value_causes_descendant_providers_to_reevaluate():
     def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
         return f"#{user_id} {profile.name}: {profile.bio}"
 
-    with solved(user_id_provider, profile_provider):
+    with solution(user_id_provider, profile_provider):
         with injector.shared(Profile):
             assert call_count == 1
             assert get_profile_summary() == "#1 Alice: Alice's bio"
@@ -421,7 +421,7 @@ async def test_async_provider_can_depend_on_sync_and_async_providers_at_the_same
     async def get_message(*, message: Message = required):
         return message
 
-    with solved(greeting_provider, recipient_provider, message_provider):
+    with solution(greeting_provider, recipient_provider, message_provider):
         assert await get_message() == "Hello World"
 
 
@@ -451,7 +451,7 @@ async def test_async_providers_are_executed_concurrently_if_possible():
     async def get_message(*, message: Message = required):
         return message
 
-    with solved(greeting_provider, recipient_provider, message_provider):
+    with solution(greeting_provider, recipient_provider, message_provider):
         assert await wait_for(get_message(), 3) == "Hello World"
 
 
@@ -460,7 +460,7 @@ def test_cannot_enter_shared_context_more_than_once():
     def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         ctx = injector.shared(Greeting)
         with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
@@ -473,7 +473,7 @@ async def test_cannot_async_enter_shared_context_more_than_once():
     def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         ctx = injector.shared(Greeting)
         async with ctx:
             with pytest.raises(RuntimeError, match=r"Cannot reuse a context manager."):
@@ -510,7 +510,7 @@ async def test_can_call_async_provider_directly():
 
 def test_solution_requires_at_least_one_provider():
     with pytest.raises(ValueError, match=r"At least one provider must be given"):
-        with solved():
+        with solution():
             raise AssertionError
 
 
@@ -520,7 +520,7 @@ def test_cannot_provide_union():
         raise AssertionError
 
     with pytest.raises(TypeError, match=r"Cannot provide a union type .*"):
-        with solved(greeting_provider):
+        with solution(greeting_provider):
             raise AssertionError
 
 
@@ -537,7 +537,7 @@ async def test_async_func_requires_only_sync_providers():
     async def get_message(*, greeting: Greeting = required, recipient: Recipient = required):
         return f"{greeting}, {recipient}!"
 
-    with solved(greeting_provider, recipient_provider):
+    with solution(greeting_provider, recipient_provider):
         assert (await get_message()) == "Hello, World!"
 
 
@@ -558,7 +558,7 @@ def test_injecting_current_value_does_not_invalidate_providers():
     def get_double_greeting_message(*, greeting: Greeting = required, message: Message = required):
         return f"{greeting} {message}"
 
-    with solved(greeting_provider, message_provider):
+    with solution(greeting_provider, message_provider):
         with injector.shared(Greeting, Message) as values:
             assert call_count == 1
             assert get_double_greeting_message(greeting=values[Greeting]) == "Hello Hello, World!"
@@ -574,7 +574,7 @@ async def test_async_shared_context_with_dependencies_and_overrides():
     async def recipient_provider() -> Recipient:
         raise AssertionError  # nocov
 
-    with solved(greeting_provider, recipient_provider):
+    with solution(greeting_provider, recipient_provider):
         async with injector.shared((Greeting, "Hello"), (Recipient, "World")) as values:
             assert values == {Greeting: "Hello", Recipient: "World"}
 
@@ -588,7 +588,7 @@ def test_can_pass_directly_without_any_solution():
     def get_message(*, greeting: Greeting = required, recipient: Recipient = required):
         return f"{greeting}, {recipient}!"
 
-    with solved(greeting_provider):
+    with solution(greeting_provider):
         assert get_message(recipient=Recipient("World")) == "Hello, World!"
 
 
@@ -602,5 +602,5 @@ def test_implicit_provider_from_current_values():
         return message
 
     with injector.shared((Greeting, "Hello")):
-        with solved(message_provider):
+        with solution(message_provider):
             assert get_message() == "Hello, World!"

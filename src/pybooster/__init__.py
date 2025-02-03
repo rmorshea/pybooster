@@ -4,7 +4,7 @@ from importlib.metadata import version
 from pybooster.core import injector
 from pybooster.core import provider
 from pybooster.core.injector import required
-from pybooster.core.solution import solved
+from pybooster.core.solution import solution
 
 try:
     __version__ = version(__name__)
@@ -15,5 +15,5 @@ __all__ = (
     "injector",
     "provider",
     "required",
-    "solved",
+    "solution",
 )

@@ -57,7 +57,8 @@ the necessary request and response contracts:
 ```python
 from dataclasses import dataclass
 
-from litestar import Litestar, put, get
+from litestar import Litestar
+from litestar import put
 
 
 @dataclass
@@ -91,8 +92,10 @@ from typing import Protocol
 class Encryptor(Protocol):
     def encrypt(self, content: bytes) -> bytes: ...
 
+
 class PreviewGenerator(Protocol):
     def generate(self, content: bytes) -> bytes: ...
+
 
 class Storage(Protocol):
     async def save(self, prefix: str, data: dict[str, bytes]) -> None: ...
@@ -106,12 +109,11 @@ You can flesh out the `/upload` route's logic assuming these interfaces exist:
     route handler using PyBooster.
 
 ```python
-import asyncio
-from uuid import uuid4
 from base64 import b64decode
 from dataclasses import dataclass
+from uuid import uuid4
 
-from litestar import Litestar, put
+from litestar import put
 
 
 @dataclass
@@ -134,7 +136,7 @@ async def upload(request: UploadRequest) -> str:
     preview_encrypted = encryptor.encrypt(preview)
 
     prefix = uuid4().hex
-    data = {"raw": raw_encrypted,"preview": preview_encrypted}
+    data = {"raw": raw_encrypted, "preview": preview_encrypted}
     await storages[request.storage_name].save(prefix, data)
 
     return prefix

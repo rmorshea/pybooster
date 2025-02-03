@@ -18,7 +18,7 @@ from moto import mock_aws
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 # Avoid importing mypy_boto3_s3 but still make S3Client available at runtime.
 if TYPE_CHECKING:
@@ -81,7 +81,7 @@ def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
             injector.shared((Session, Session())),
-            solved(client_provider[S3Client].bind("s3"), bucket_provider.bind("my-bucket")),
+            solution(client_provider[S3Client].bind("s3"), bucket_provider.bind("my-bucket")),
             injector.shared(BucketName),
         ):
             user = User(id=1, name="Alice")
@@ -113,7 +113,7 @@ from starlette.testclient import TestClient
 
 from pybooster import injector
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 from pybooster.extra.asgi import PyBoosterMiddleware
 from pybooster.extra.sqlalchemy import async_engine_provider
 from pybooster.extra.sqlalchemy import async_session_provider
@@ -135,7 +135,7 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
-    with solved(async_engine_provider.bind(DB_URL), async_session_provider):
+    with solution(async_engine_provider.bind(DB_URL), async_session_provider):
         async with injector.shared(AsyncEngine) as values:
             async with values[AsyncEngine].begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
@@ -197,7 +197,7 @@ from sqlalchemy.orm import mapped_column
 
 from pybooster import injector
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 from pybooster.extra.sqlalchemy import engine_provider
 from pybooster.extra.sqlalchemy import session_provider
 
@@ -234,7 +234,7 @@ def get_user(user_id: int, *, session: Session = required) -> User:
 def main():
     url = "sqlite:///:memory:"
     with (
-        solved(
+        solution(
             engine_provider.bind(url),
             session_provider.bind(expire_on_commit=False),
         ),
@@ -263,7 +263,7 @@ from sqlalchemy.orm import mapped_column
 
 from pybooster import injector
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 from pybooster.extra.sqlalchemy import async_engine_provider
 from pybooster.extra.sqlalchemy import async_session_provider
 
@@ -300,7 +300,7 @@ async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
 
 async def main():
     url = "sqlite+aiosqlite:///:memory:"
-    with solved(
+    with solution(
         async_engine_provider.bind(url),
         async_session_provider.bind(expire_on_commit=False),
     ):
@@ -326,7 +326,7 @@ from typing import Self
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @provider.iterator
@@ -360,7 +360,7 @@ class User:
 
 def main():
     with (
-        solved(sqlite_connection.bind(":memory:")),
+        solution(sqlite_connection.bind(":memory:")),
         # Reusing the same connection is only needed for in-memory databases.
         injector.shared(sqlite3.Connection),
     ):

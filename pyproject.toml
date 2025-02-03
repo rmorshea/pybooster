@@ -60,7 +60,7 @@ lint = [
     "pyright==1.1.389",
     "ruff==0.8.1",
     "yamlfix==1.17.0",
-    "doccmd==2024.11.14",
+    "doccmd==2025.1.11",
 ]
 test = [
     { include-group = "util" },

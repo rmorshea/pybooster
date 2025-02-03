@@ -472,7 +472,7 @@ wheels = [
 
 [[package]]
 name = "doccmd"
-version = "2024.11.14"
+version = "2025.1.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beartype" },
@@ -481,9 +481,9 @@ dependencies = [
     { name = "sybil" },
     { name = "sybil-extras" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/9f/c9d97a4bb8d3193d6fd87a527c31d2155f70a6dbb579c84227d75524680f/doccmd-2024.11.14.tar.gz", hash = "sha256:4a2262c2f6f9834b3e05de2498c48b060eae0fa9b7ae89d9a9ed28cd005e031e", size = 38965 }
+sdist = { url = "https://files.pythonhosted.org/packages/e6/49/c3aa796435746e06b259bd0a3ea92781ab3ae3b061d6e9210d8c94d1ac1f/doccmd-2025.1.11.tar.gz", hash = "sha256:89b3820042543ac401b25d406a9c9a4cf6409263237e1583a21cfbe9575c5bc0", size = 39362 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/bd/416721dc67ef0feb4604375d4d33d64792ab333d6c239a2e1d02d6d199d3/doccmd-2024.11.14-py2.py3-none-any.whl", hash = "sha256:78c1bf0d243c436156fc860b34cbd71298dce1fed914745faf18cc621edc9313", size = 12270 },
+    { url = "https://files.pythonhosted.org/packages/e3/f7/5f01dcf688688ec85562b78bc1d035f73db4b602ada5cc5e6c7e25540b82/doccmd-2025.1.11-py2.py3-none-any.whl", hash = "sha256:7a85ce8f56c7c8a4224e7d73fd2e32f540e7b9931465dd8fdc1b06f87a12c654", size = 12332 },
 ]
 
 [[package]]
@@ -1636,7 +1636,7 @@ dev = [
     { name = "copier", specifier = "==9.4.1" },
     { name = "coverage", extras = ["toml"], specifier = "==7.6.1" },
     { name = "diff-cover", specifier = "==9.2.0" },
-    { name = "doccmd", specifier = "==2024.11.14" },
+    { name = "doccmd", specifier = "==2025.1.11" },
     { name = "ipykernel", specifier = "==6.29.5" },
     { name = "mdformat", specifier = "==0.7.19" },
     { name = "mdformat-admon", git = "https://github.com/rmorshea/mdformat-admon.git?rev=0e513d7a2c265faf74441938ccbd1010660609f4#0e513d7a2c265faf74441938ccbd1010660609f4" },
@@ -1691,7 +1691,7 @@ lint = [
     { name = "copier", specifier = "==9.4.1" },
     { name = "coverage", extras = ["toml"], specifier = "==7.6.1" },
     { name = "diff-cover", specifier = "==9.2.0" },
-    { name = "doccmd", specifier = "==2024.11.14" },
+    { name = "doccmd", specifier = "==2025.1.11" },
     { name = "ipykernel", specifier = "==6.29.5" },
     { name = "mdformat", specifier = "==0.7.19" },
     { name = "mdformat-admon", git = "https://github.com/rmorshea/mdformat-admon.git?rev=0e513d7a2c265faf74441938ccbd1010660609f4#0e513d7a2c265faf74441938ccbd1010660609f4" },
@@ -2368,15 +2368,15 @@ wheels = [
 
 [[package]]
 name = "sybil-extras"
-version = "2024.10.18"
+version = "2025.1.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beartype" },
     { name = "sybil" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b2/f1/c6b687e62b8deceeb47c47a9730fc40d794058e98fd43d4bbf47ca2e356b/sybil_extras-2024.10.18.tar.gz", hash = "sha256:1d3fa585c852958c27a8cafadf50d75c8abbf6793be0c4c1d06aff57bb2c59ae", size = 24660 }
+sdist = { url = "https://files.pythonhosted.org/packages/0c/25/a4467e637abf0087d52e81b29123f7f43e8c845cd5c35b010607f5212a09/sybil_extras-2025.1.11.tar.gz", hash = "sha256:7ddeb9c367a7f85a9b8dac25e0648697b6bee79cffea007608f9f70620abe8d2", size = 26304 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/01/80/f8a4f182971e9f5fdceae437152b0d7b0c92de00ed56a68f07f7678a998e/sybil_extras-2024.10.18-py2.py3-none-any.whl", hash = "sha256:adb76a783b4e8bfa15c21ef5a66afec3c989bf583bb52294fb448d4421b0b9c4", size = 11909 },
+    { url = "https://files.pythonhosted.org/packages/6a/0e/85a820d635cf2f796d340b2ca31aecb2c5d2fa5bc2034ebd44c8fe23018a/sybil_extras-2025.1.11-py2.py3-none-any.whl", hash = "sha256:9fe11b89933f107f8de68553de57937befa760cec4a6bb091400932f15a4e182", size = 12696 },
 ]
 
 [[package]]
