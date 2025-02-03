@@ -142,7 +142,9 @@ PyBooster supports decorators for the following types of functions or methods:
 ### Scoping Parameters
 
 You can declare that any dependencies resolved for a function should be shared for the
-duration of the function's execution by setting `scope=True` in the injector:
+duration of the function's execution by setting `scope=True` in the injector. More
+specifically, the `scope` parameter creates a new [scope](#scopes) that lasts the
+duration of the function's execution:
 
 ```python
 from typing import NewType
@@ -176,9 +178,6 @@ with solution(recipient_provider):
     assert get_current_values() == {}
     assert get_current_values_with_scope() == {Recipient: "Alice"}
 ```
-
-More specifically, the `scope` parameter creates a new [scope](#scopes) for the
-duration of the function's execution.
 
 ### Overriding Parameters
 
@@ -573,6 +572,9 @@ with solution(auth):
     async with new_scope(...) as values:
         ...
     ```
+
+    In general, if you're in an async function then you should default to using `async with`
+    when calling `new_scope`.
 
 You can also override the current values by passing a tuple with the dependency and its
 value to the `new_scope` context manager:
