@@ -34,7 +34,7 @@ from pybooster import required
 from pybooster import solution
 
 
-@provider.iterator
+@provider.contextmanager
 def sqlite_connection(database: str) -> Iterator[sqlite3.Connection]:
     with sqlite3.connect(database) as conn:
         yield conn

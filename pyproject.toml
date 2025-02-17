@@ -43,13 +43,15 @@ dev = [
 util = ["click==8.1.7", "ipykernel==6.29.5", "copier==9.4.1"]
 docs = [
     { include-group = "test" },
+    "litestar>=2.14.0",
     "mkdocs-gen-files==0.5.0",
     "mkdocs-literate-nav==0.6.1",
-    "mkdocs-material==9.5.50",
+    "mkdocs-material==9.6.4",
     "mkdocs-open-in-new-tab==1.0.5",
     "mkdocs==1.6.1",
+    "pymdown-extensions==10.14.3",
     "mkdocstrings-python==1.13.0",
-    "litestar>=2.14.0",
+    "pillow==11.1.0",
 ]
 lint = [
     { include-group = "test" },

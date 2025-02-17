@@ -325,7 +325,7 @@ def test_dependency_not_reused_by_inner_calls():
     call_count = 0
     exit_count = 0
 
-    @provider.iterator
+    @provider.contextmanager
     def greeting_provider() -> Iterator[Greeting]:
         nonlocal call_count
         call_count += 1

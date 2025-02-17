@@ -40,7 +40,7 @@ Among other things, this will spawn new `pyproject.toml` and `main.py` files.
 You'll then want to add a few dependencies:
 
 ```bash
-uv add litestar pybooster aiocache
+uv add litestar pybooster aiocache pillow
 ```
 
 !!! note
@@ -86,11 +86,13 @@ To start out you'll want to establishing interfaces that match up with the
 components in the diagram above:
 
 ```python
+from collections.abc import Collection
 from typing import Protocol
 
 
 class Encryptor(Protocol):
-    def encrypt(self, content: bytes) -> bytes: ...
+    def encrypt(self, plain: bytes) -> bytes: ...
+    def decrypt(self, cipher: bytes) -> bytes: ...
 
 
 class PreviewGenerator(Protocol):
@@ -99,6 +101,7 @@ class PreviewGenerator(Protocol):
 
 class Storage(Protocol):
     async def save(self, prefix: str, data: dict[str, bytes]) -> None: ...
+    async def load(self, prefix: str, keys: Collection[str]) -> dict[str, bytes]: ...
 ```
 
 You can flesh out the `/upload` route's logic assuming these interfaces exist:
@@ -132,7 +135,7 @@ async def upload(request: UploadRequest) -> str:
     raw = b64decode(request.content_b64)
     preview = preview_generators[request.content_type].generate(raw)
 
-    raw_encrypted = encryptor.encrypt(request.content_b64)
+    raw_encrypted = encryptor.encrypt(raw)
     preview_encrypted = encryptor.encrypt(preview)
 
     prefix = uuid4().hex
@@ -140,14 +143,17 @@ async def upload(request: UploadRequest) -> str:
     await storages[request.storage_name].save(prefix, data)
 
     return prefix
+
+
+app = Litestar(route_handlers=[upload])
 ```
 
 ## Injecting Parameters
 
 To inject the interfaces you'll now want to replace the `...` placeholder variables in
 the `/upload` route handler with parameters that are resolved using PyBooster. This is
-done by adding the [`asyncfunction`][pybooster.core.injector.asyncfunction] decorator
-and corresponding [`required`][pybooster.core.injector.required] parameters to the route
+done by adding the [`asyncfunction`][pybooster.core.injector.asyncfunction] injector and
+corresponding [`required`][pybooster.core.injector.required] parameters to the route
 handler:
 
 ```python
@@ -156,6 +162,7 @@ from pybooster import required
 
 
 @put("/upload")
+@injector.asyncfunction
 async def upload(
     request: UploadRequest,
     *,
@@ -165,12 +172,14 @@ async def upload(
 ) -> str: ...
 ```
 
-## Providing Implementations
+## Provider Setup
 
 Supplying the implementations for each interface starts by defining
 [providers](concepts.md#providers).
 
 ```python
+from collections.abc import Iterator
+
 from pybooster import provider
 
 
@@ -182,8 +191,8 @@ def encryptor_provider() -> Encryptor: ...
 def preview_generators_provider() -> Mapping[str, PreviewGenerator]: ...
 
 
-@provider.function
-def storages_provider() -> Mapping[str, Storage]: ...
+@provider.contextmanager
+def storages_provider() -> Iterator[Mapping[str, Storage]]: ...
 ```
 
 !!! note
@@ -194,24 +203,137 @@ These provider must then be wired together into a [solution](concepts.md#solutio
 Solutions can be relatively expensive to create, so it's best to create them once
 at the start of your application and reuse them throughout its lifetime. For this,
 there's a Litestar [`lifespan` hook](https://docs.litestar.dev/2/usage/applications.html#lifespan-context-managers),
-and a PyBooster [ASGI middleware](integrations.md#asgi-apps).
+and supporting PyBooster [ASGI middleware](integrations.md#asgi-apps).
 
 ```python
+from contextlib import asynccontextmanager
+
+from litestart import Litestar
+
 from pybooster import solution
 from pybooster.extra.asgi import PyBoosterMiddleware
-from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
 
 
 @asynccontextmanager
-async def lifespan():
+async def lifespan(_: Litestar) -> AsyncIterator[None]:
     with solution(encryptor_provider, preview_generators_provider, storages_provider):
         yield
 
 
-app = Litestar(lifespan=[lifespan], middleware=[PyBoosterMiddleware()])
+app = Litestar(route_handlers=[upload], lifespan=[lifespan], middleware=[PyBoosterMiddleware()])
 ```
 
 At this stage, the providers will be re-evaluated each time a request is made to the
-`/upload` route. This is because no [scopes](concepts.md#scopes) have been defined.
-In our case there's no
+`/upload` route. This is because no [scope](concepts.md#scopes) has been defined. In our
+case there's no reason to re-evaluate the providers for each request, so you can define
+a scope that will also be used for the lifespan of the application:
+
+```python
+from contextlib import asynccontextmanager
+
+from litestart import Litestar
+
+from pybooster import new_scope
+from pybooster import solution
+from pybooster.extra.asgi import PyBoosterMiddleware
+
+
+@asynccontextmanager
+async def lifespan(_: Litestar) -> AsyncIterator[None]:
+    with solution(encryptor_provider, preview_generators_provider, storages_provider):
+        async with new_scope(Encryptor, Mapping[str, PreviewGenerator], Mapping[str, Storage]):
+            yield
+
+
+app = Litestar(route_handlers=[upload], lifespan=[lifespan], middleware=[PyBoosterMiddleware()])
+```
+
+!!! note
+
+    Technically you don't need to create the scope using `async with` since none of the
+    providers are async, but it's good practice to do so in case you need to add async
+    providers in the future. For example, establishing storage or encrytor instances
+    might require a network call to perform authentication that could be made async.
+
+## Implementing Providers
+
+For the purposes of this tutorial the implementations can be local and mocked since
+the focus is on the PyBooster integration and not the details of making a real media
+storage app. As such the encryptor will be a simple XOR cipher, the preview generator
+mapping will just handle PNG files, and the storage will be a save to a temporary
+directory.
+
+```python
+from collections.abc import Iterator
+from collections.abc import Mapping
+from io import BytesIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from PIL import Image
+
+from pybooster import provider
+
+
+class InsecureXOREncryptor(Encryptor):
+    """DO NOT USE THIS IN PRODUCTION!"""
+
+    def __init__(self, key: bytes):
+        self.key = key
+
+    def encrypt(self, plain: bytes) -> bytes:
+        return bytes([b ^ self.key[i % len(self.key)] for i, b in enumerate(plain)])
+
+    def decrypt(self, cipher: bytes) -> bytes:
+        return bytes([b ^ self.key[i % len(self.key)] for i, b in enumerate(cipher)])
+
+
+@provider.function
+def encryptor_provider() -> Encryptor:
+    return InsecureXOREncryptor(b"secret")
+
+
+class PngPreviewGenerator:
+    def __init__(self, size: tuple[int, int]) -> None:
+        self.size = size
+
+    def generate(self, content: bytes) -> bytes:
+        image = Image.open(BytesIO(content))
+        image.thumbnail(self.size)
+        output = BytesIO()
+        image.save(output, format="PNG")
+        return output.getvalue()
+
+
+@provider.function
+def preview_generators_provider() -> Mapping[str, PreviewGenerator]:
+    return {"image/png": PngPreviewGenerator((128, 128))}
+
+
+class FileStorage(Storage):
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    async def save(self, prefix: str, data: dict[str, bytes]) -> None:
+        for key, content in data.items():
+            (self.path / prefix / key).write_bytes(content)
+
+    async def load(self, prefix: str, keys: Collection[str]) -> dict[str, bytes]:
+        return {key: (self.path / prefix / key).read_bytes() for key in keys}
+
+
+@provider.contextmanager
+def storages_provider() -> Iterator[Mapping[str, Storage]]:
+    with TemporaryDirectory() as tempdir:
+        yield {"temp": FileStorage(Path(tempdir))}
+```
+
+## Putting It All Together
+
+With the providers in place, the `/upload` route handler should now be able to
+successfully process file uploads. If you take all the code snippets from this tutorial
+and put them together you should have a working media storage app:
+
+```python
+--8<-- "docs/src/tutorial.py"
+```

@@ -3,8 +3,8 @@
 ## Solutions
 
 In order to [inject](#injectors) a set of [dependencies](#dependencies) PyBooster must
-save the execution order of their [providers](#providers) as a "solution". You can declare
-one using the [`solution`][pybooster.core.solution.solution] context manager.
+save the execution order of their [providers](#providers) as a "solution". You can
+declare one using the [`solution`][pybooster.core.solution.solution] context manager.
 
 ```python
 from typing import NewType
@@ -36,6 +36,11 @@ with solution(alice_provider):
 
     To avoid performance overhead you should try to establish a solution once at the
     beginning of your program.
+
+!!! note
+
+    In other dependency injection frameworks the act solving the dependency graph can sometimes
+    be referred to as "wiring".
 
 ### Overriding Solutions
 
@@ -179,6 +184,16 @@ with solution(recipient_provider):
     assert get_current_values_with_scope() == {Recipient: "Alice"}
 ```
 
+Adding `scope=True` is roughly equivalent to the more verbose usage of
+[`new_scope`][pybooster.core.scope.new_scope]:
+
+```python
+@injector.function
+def get_current_values_with_scope(*, recipient: Recipient = required) -> Scope:
+    with new_scope((Recipient, recipient)) as values:
+        return values
+```
+
 ### Overriding Parameters
 
 You can pass values to a required parameter of a function with an
@@ -268,7 +283,7 @@ from collections.abc import Iterator
 from pybooster import provider
 
 
-@provider.iterator
+@provider.contextmanager
 def sqlite_connection() -> Iterator[sqlite3.Connection]:
     with sqlite3.connect("example.db") as conn:
         yield conn
@@ -310,7 +325,7 @@ from collections.abc import AsyncIterator
 from pybooster import provider
 
 
-@provider.asynciterator
+@provider.asynccontextmanager
 async def example_reader() -> AsyncIterator[StreamReader]:
     reader, writer = await open_connection("example.com", 80)
     writer.write(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
@@ -448,7 +463,7 @@ from sqlite3 import Connection
 from pybooster import provider
 
 
-@provider.iterator
+@provider.contextmanager
 def sqlite_connection(database: str) -> Iterator[Connection]:
     with sqlite3.connect(database) as conn:
         yield conn

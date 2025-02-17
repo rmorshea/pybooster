@@ -62,7 +62,7 @@ def function(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
         yield func(*args, **kwargs)
 
-    return iterator(wrapper, provides=provides, requires=requires)
+    return contextmanager(wrapper, provides=provides, requires=requires)
 
 
 @paramorator
@@ -85,11 +85,11 @@ def asyncfunction(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         yield await func(*args, **kwargs)
 
-    return asynciterator(wrapper, provides=provides, requires=requires)
+    return asynccontextmanager(wrapper, provides=provides, requires=requires)
 
 
 @paramorator
-def iterator(
+def contextmanager(
     func: IteratorCallable[P, R],
     *,
     requires: HintMap | HintSeq | None = None,
@@ -108,7 +108,7 @@ def iterator(
 
 
 @paramorator
-def asynciterator(
+def asynccontextmanager(
     func: AsyncIteratorCallable[P, R],
     *,
     requires: HintMap | HintSeq | None = None,

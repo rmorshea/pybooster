@@ -71,7 +71,7 @@ else:
             yield session
 
 
-@provider.iterator
+@provider.contextmanager
 @copy_signature(create_engine)
 def engine_provider(*args: Any, **kwargs: Any) -> Iterator[Engine]:
     """Provide a SQLAlchemy engine."""
@@ -82,7 +82,7 @@ def engine_provider(*args: Any, **kwargs: Any) -> Iterator[Engine]:
         engine.dispose()
 
 
-@provider.asynciterator
+@provider.asynccontextmanager
 @copy_signature(create_async_engine)
 async def async_engine_provider(*args: Any, **kwargs: Any) -> AsyncIterator[AsyncEngine]:
     """Provide an async SQLAlchemy engine."""
@@ -101,7 +101,7 @@ def _infer_async_session_type(cls: type[A] = AsyncSession, *_args, **_kwargs) ->
     return cls
 
 
-session_provider = provider.iterator(
+session_provider = provider.contextmanager(
     _session_provider,
     requires={"bind": Engine},
     provides=_infer_session_type,
@@ -109,7 +109,7 @@ session_provider = provider.iterator(
 """Provide a SQLAlchemy session."""
 
 
-async_session_provider = provider.asynciterator(
+async_session_provider = provider.asynccontextmanager(
     _async_session_provider,
     requires={"bind": AsyncEngine},
     provides=_infer_async_session_type,

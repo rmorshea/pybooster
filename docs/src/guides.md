@@ -21,7 +21,7 @@ SwitchOn = NewType("SwitchOn", None)
 SWITCH = False
 
 
-@provider.iterator
+@provider.contextmanager
 def switch_on() -> Iterator[SwitchOn]:
     global SWITCH
     SWITCH = True
@@ -82,7 +82,7 @@ To have a static value that is created at the last possible moment, you'll need 
 define a [solution](concepts.md#solutions) with a [provider](concepts.md#providers) that
 returns the value. Then you'll create a new [scope](concepts.md#scopes) with the
 [`new_scope`](concepts.md#creating-scopes) context manager while passing the desired
-dependency.
+dependency without a value to instead request it from the provider.
 
 ```python
 from dataclasses import dataclass
@@ -118,12 +118,18 @@ def get_dataset(*, dataset: Dataset = required) -> Dataset:
 with solution(dataset_provider):
     dataset_1 = get_dataset()
     dataset_2 = get_dataset()
+
+    # The provider is called twice because the dataset
+    # dependency is not active in the current scope.
     assert count == 2
     assert dataset_1 is not dataset_2
 
     with new_scope(Dataset):
         dataset_3 = get_dataset()
         dataset_4 = get_dataset()
+
+        # The provider is only called one additional time because
+        # the dataset dependency is active in the current scope.
         assert count == 3
         assert dataset_3 is dataset_4
 ```
@@ -165,7 +171,7 @@ from pybooster.extra.sqlalchemy import session_provider
 Transaction = NewType("Transaction", Session)
 
 
-@provider.iterator
+@provider.contextmanager
 def transaction_provider() -> Iterator[Transaction]:
     with session_provider() as session, session.begin():
         yield session

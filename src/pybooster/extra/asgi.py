@@ -14,8 +14,7 @@ if TYPE_CHECKING:
 
     from pybooster.core.state import StateSetter
 
-    Scope = MutableMapping[str, Any]
-    Message = MutableMapping[str, Any]
+    Message = Scope = Any  # we annotate these as any to avoid conflicts with other libraries
     Receive = Callable[[], Awaitable[Message]]
     Send = Callable[[Message], Awaitable[None]]
     Asgi = Callable[[Scope, Receive, Send], Awaitable[None]]
@@ -47,7 +46,7 @@ class PyBoosterMiddleware:
             raise RuntimeError(msg)
 
 
-def _set_scope_state(scope: Scope, state: _ScopeState) -> None:
+def _set_scope_state(scope: MutableMapping[str, Any], state: _ScopeState) -> None:
     try:
         scope["state"][_SCOPE_STATE_NAME] = state
     except KeyError:  # nocov
@@ -55,7 +54,7 @@ def _set_scope_state(scope: Scope, state: _ScopeState) -> None:
         raise RuntimeError(msg) from None
 
 
-def _get_scope_state(scope: Scope) -> _ScopeState | None:
+def _get_scope_state(scope: MutableMapping[str, Any]) -> _ScopeState | None:
     try:
         return scope["state"].get(_SCOPE_STATE_NAME)
     except KeyError:  # nocov

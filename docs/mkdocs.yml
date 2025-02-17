@@ -18,7 +18,17 @@ theme:
   icon:
     repo: fontawesome/brands/git-alt
     logo: material/needle
-  features: [content.code.copy, toc.integrate, content.code.annotate, navigation.tabs]
+  features:
+    - content.code.annotate
+    - content.code.copy
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tabs
+    - navigation.top
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.integrate
   palette:
     # Palette toggle for automatic mode
     - media: (prefers-color-scheme)
@@ -26,13 +36,13 @@ theme:
         icon: material/brightness-auto
         name: Switch to light mode
         # Palette toggle for light mode
-    - media: '(prefers-color-scheme: light)'
+    - media: "(prefers-color-scheme: light)"
       scheme: default
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
         # Palette toggle for dark mode
-    - media: '(prefers-color-scheme: dark)'
+    - media: "(prefers-color-scheme: dark)"
       scheme: slate
       toggle:
         icon: material/brightness-4
@@ -51,7 +61,7 @@ plugins:
             docstring_options:
               ignore_init_summary: true
             docstring_section_style: list
-            filters: ['!^_']
+            filters: ["!^_"]
             heading_level: 1
             inherited_members: true
             merge_init_into_class: true
@@ -76,7 +86,8 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      check_paths: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
