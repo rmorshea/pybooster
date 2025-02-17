@@ -146,13 +146,13 @@ ban-relative-imports = "all"
     "T201", # Print statements
 ]
 "docs/**" = [
-    "INP001", # Implicit namespace package
-    "D",      # Docstrings
-]
-"doccmd_*.py" = [
     "ANN",    # Type annotations
     "B018",   # Useless expression
+    "D",      # Docstrings
+    "EM101",  # Assign exception message to variable
+    "F821",   # Undefined name
     "FA102",  # Unsafe __futures__ annotations usage
+    "INP001", # Implicit namespace package
     "RUF029", # No await in async function
     "S101",   # Assert statements
     "S106",   # Possible passwords

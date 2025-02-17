@@ -39,7 +39,10 @@ N = TypeVar("N", default=None)
 
 
 required = make_sentinel_value(__name__, "required")
-"""A sentinel object used to indicate that a dependency is required."""
+"""A sentinel object used to indicate that a dependency is required.
+
+Refer to the [core concepts](../../concepts.md#injectors) for more information.
+"""
 
 
 @paramorator
@@ -50,6 +53,8 @@ def function(
     scope: bool = False,
 ) -> Callable[P, R]:
     """Inject dependencies into the given function.
+
+    Refer to the [core concepts](../../concepts.md#injectors) for more information.
 
     Args:
         func: The function to inject dependencies into.
@@ -79,6 +84,8 @@ def asyncfunction(
 ) -> Callable[P, Coroutine[Any, Any, R]]:
     """Inject dependencies into the given coroutine.
 
+    Refer to the [core concepts](../../concepts.md#injectors) for more information.
+
     Args:
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
@@ -107,6 +114,8 @@ def iterator(
 ) -> IteratorCallable[P, R]:
     """Inject dependencies into the given iterator.
 
+    Refer to the [core concepts](../../concepts.md#injectors) for more information.
+
     Args:
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
@@ -134,6 +143,8 @@ def asynciterator(
     scope: bool = False,
 ) -> AsyncIteratorCallable[P, R]:
     """Inject dependencies into the given async iterator.
+
+    Refer to the [core concepts](../../concepts.md#injectors) for more information.
 
     Args:
         func: The function to inject dependencies into.
@@ -164,6 +175,8 @@ def contextmanager(
 ) -> Callable[P, AbstractContextManager[R]]:
     """Inject dependencies into the given context manager function.
 
+    Refer to the [core concepts](../../concepts.md#injectors) for more information.
+
     Args:
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
@@ -180,6 +193,8 @@ def asynccontextmanager(
     scope: bool = False,
 ) -> Callable[P, AbstractAsyncContextManager[R]]:
     """Inject dependencies into the given async context manager function.
+
+    Refer to the [core concepts](../../concepts.md#injectors) for more information.
 
     Args:
         func: The function to inject dependencies into.

@@ -16,7 +16,7 @@ flowchart LR
     media@{ shape: pill, label: "Media"}
     preview@{ shape: pill, label: "Preview"}
     bytes@{ shape: pill, label: "Data"}
-    preview_generator@{shape: rect, label: "Generate Generator"}
+    preview_generator@{shape: rect, label: "Preview Generator"}
     encryptor@{ shape: rect, label: "Encryptor" }
     storage@{ shape: rect, label: "Storage" }
 
@@ -40,7 +40,7 @@ Among other things, this will spawn new `pyproject.toml` and `main.py` files.
 You'll then want to add a few dependencies:
 
 ```bash
-uv add litestar pybooster
+uv add litestar pybooster aiocache
 ```
 
 !!! note
@@ -48,7 +48,7 @@ uv add litestar pybooster
     This tutorial will use [Litestar](https://docs.litestar.dev) for the web framework, but
     you can use any framework you like. The concepts will be the same.
 
-## Server Setup
+## Basic Server
 
 To the `main.py` file you'll begin by establishing a server with a single `/upload`
 route handler that's responsible for processing file uploads. To this you'll specify
@@ -141,3 +141,77 @@ async def upload(request: UploadRequest) -> str:
 
     return prefix
 ```
+
+## Injecting Parameters
+
+To inject the interfaces you'll now want to replace the `...` placeholder variables in
+the `/upload` route handler with parameters that are resolved using PyBooster. This is
+done by adding the [`asyncfunction`][pybooster.core.injector.asyncfunction] decorator
+and corresponding [`required`][pybooster.core.injector.required] parameters to the route
+handler:
+
+```python
+from pybooster import injector
+from pybooster import required
+
+
+@put("/upload")
+async def upload(
+    request: UploadRequest,
+    *,
+    encryptor: Encryptor = required,
+    preview_generators: Mapping[str, PreviewGenerator] = required,
+    storages: Mapping[str, Storage] = required,
+) -> str: ...
+```
+
+## Providing Implementations
+
+Supplying the implementations for each interface starts by defining
+[providers](concepts.md#providers).
+
+```python
+from pybooster import provider
+
+
+@provider.function
+def encryptor_provider() -> Encryptor: ...
+
+
+@provider.function
+def preview_generators_provider() -> Mapping[str, PreviewGenerator]: ...
+
+
+@provider.function
+def storages_provider() -> Mapping[str, Storage]: ...
+```
+
+!!! note
+
+    The bodies of these providers will be filled in later.
+
+These provider must then be wired together into a [solution](concepts.md#solutions).
+Solutions can be relatively expensive to create, so it's best to create them once
+at the start of your application and reuse them throughout its lifetime. For this,
+there's a Litestar [`lifespan` hook](https://docs.litestar.dev/2/usage/applications.html#lifespan-context-managers),
+and a PyBooster [ASGI middleware](integrations.md#asgi-apps).
+
+```python
+from pybooster import solution
+from pybooster.extra.asgi import PyBoosterMiddleware
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+
+
+@asynccontextmanager
+async def lifespan():
+    with solution(encryptor_provider, preview_generators_provider, storages_provider):
+        yield
+
+
+app = Litestar(lifespan=[lifespan], middleware=[PyBoosterMiddleware()])
+```
+
+At this stage, the providers will be re-evaluated each time a request is made to the
+`/upload` route. This is because no [scopes](concepts.md#scopes) have been defined.
+In our case there's no

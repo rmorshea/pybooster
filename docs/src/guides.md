@@ -44,20 +44,19 @@ with solution(switch_on):
 
 ## Singletons
 
-There's a couple different ways to provide singleton dependencies.
-
 ### Eager Singletons
 
-The easiest way to declare singleton values is with the
-[`new_scope`](concepts.md#creating-scopes) injector. Functions requiring a dependency
-already available in the current scope and which are called in its context will use the =
-same value:
+The easiest way to declare a static value is by defining a [scope](concepts.md#scopes)
+with the [`new_scope`](concepts.md#creating-scopes) context manager while passing a
+tuple with the dependency and its value. This will bind the dependency's value to the
+scope and reuse it whenever the dependency is requested.
 
 ```python
 from dataclasses import dataclass
 
 from pybooster import injector
-from pybooster import required, new_scope
+from pybooster import new_scope
+from pybooster import required
 
 
 @dataclass
@@ -79,21 +78,17 @@ with new_scope((Dataset, Dataset(x=[1, 2, 3], y=[4, 5, 6]))):
 
 ### Lazy Singletons
 
-If you want to ensure that a provider function is only called once, and that the value
-it returns is shared across all functions requiring it, you can apply the
-[`lru_cache`](https://docs.python.org/3/library/functools.html#functools.lru_cache)
-decorator. This will cache the result so the same value is returned each time.
-
-!!! note
-
-    You'll need to use a different decorator for async functions. One option
-    is [`aiocache`](https://github.com/aio-libs/aiocache).
+To have a static value that is created at the last possible moment, you'll need to
+define a [solution](concepts.md#solutions) with a [provider](concepts.md#providers) that
+returns the value. Then you'll create a new [scope](concepts.md#scopes) with the
+[`new_scope`](concepts.md#creating-scopes) context manager while passing the desired
+dependency.
 
 ```python
 from dataclasses import dataclass
-from functools import lru_cache
 
 from pybooster import injector
+from pybooster import new_scope
 from pybooster import provider
 from pybooster import required
 from pybooster import solution
@@ -105,13 +100,13 @@ class Dataset:
     y: list[float]
 
 
-calls = []
+count = 0
 
 
 @provider.function
-@lru_cache
 def dataset_provider() -> Dataset:
-    calls.append(None)
+    global count
+    count += 1
     return Dataset(x=[1, 2, 3], y=[4, 5, 6])
 
 
@@ -121,12 +116,16 @@ def get_dataset(*, dataset: Dataset = required) -> Dataset:
 
 
 with solution(dataset_provider):
-    assert not calls
     dataset_1 = get_dataset()
-    assert len(calls) == 1
     dataset_2 = get_dataset()
-    assert len(calls) == 1
-    assert dataset_1 is dataset_2
+    assert count == 2
+    assert dataset_1 is not dataset_2
+
+    with new_scope(Dataset):
+        dataset_3 = get_dataset()
+        dataset_4 = get_dataset()
+        assert count == 3
+        assert dataset_3 is dataset_4
 ```
 
 ## Calling Providers
