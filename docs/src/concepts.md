@@ -137,12 +137,12 @@ with solution(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
--   [`injector.function`][pybooster.core.injector.function]
--   [`injector.iterator`][pybooster.core.injector.iterator]
--   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
--   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
--   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
--   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+- [`injector.function`][pybooster.core.injector.function]
+- [`injector.iterator`][pybooster.core.injector.iterator]
+- [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+- [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+- [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+- [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
 ### Scoping Parameters
 
@@ -258,16 +258,20 @@ done by setting `hide_signature=True` in the injector decorator:
 
 ```python
 from inspect import signature
+from typing import Any
+from typing import NewType
+
 from pybooster import injector
+
+Thing = NewType("Thing", Any)
 
 
 @injector.function(hide_signature=True)
-def get_current_values(*, recipient: Recipient = required) -> Scope:
-    return get_scope()
+def do_something(*, thing: Thing = required) -> None: ...
 
 
-sig = signature(get_current_values)
-assert "recipient" not in sig.parameters
+sig = signature(do_something)
+assert "thing" not in sig.parameters
 ```
 
 ## Providers
