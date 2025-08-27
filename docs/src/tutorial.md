@@ -62,14 +62,14 @@ from litestar import put
 
 
 @dataclass
-class UploadRequest:
+class UploadData:
     content_b64: str
     content_type: str
     storage_name: str
 
 
 @put("/upload")
-async def upload(request: UploadRequest) -> str: ...
+async def upload(data: UploadData) -> str: ...
 
 
 app = Litestar(route_handlers=[upload])
@@ -113,35 +113,25 @@ You can flesh out the `/upload` route's logic assuming these interfaces exist:
 
 ```python
 from base64 import b64decode
-from dataclasses import dataclass
+from collections.abc import Mapping
 from uuid import uuid4
-
-from litestar import Litestar
-from litestar import put
-
-
-@dataclass
-class UploadRequest:
-    content_b64: str
-    content_type: str
-    storage_name: str
 
 
 @put("/upload")
-async def upload(request: UploadRequest) -> str:
+async def upload(data: UploadData) -> str:
     encryptor: Encryptor = ...
     preview_generators: Mapping[str, PreviewGenerator] = ...
     storages: Mapping[str, Storage] = ...
 
-    raw = b64decode(request.content_b64)
-    preview = preview_generators[request.content_type].generate(raw)
+    raw = b64decode(data.content_b64)
+    preview = preview_generators[data.content_type].generate(raw)
 
     raw_encrypted = encryptor.encrypt(raw)
     preview_encrypted = encryptor.encrypt(preview)
 
     prefix = uuid4().hex
-    data = {"raw": raw_encrypted, "preview": preview_encrypted}
-    await storages[request.storage_name].save(prefix, data)
+    img_data = {"raw": raw_encrypted, "preview": preview_encrypted}
+    await storages[data.storage_name].save(prefix, img_data)
 
     return prefix
 
@@ -162,8 +152,6 @@ request parameters.
 ```python
 from collections.abc import Mapping
 
-from litestar import put
-
 from pybooster import injector
 from pybooster import required
 
@@ -171,7 +159,7 @@ from pybooster import required
 @put("/upload")
 @injector.asyncfunction(hide_signature=True)
 async def upload(
-    request: UploadRequest,
+    data: UploadData,
     *,
     encryptor: Encryptor = required,
     preview_generators: Mapping[str, PreviewGenerator] = required,
