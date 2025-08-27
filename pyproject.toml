@@ -1,6 +1,7 @@
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
 [tool.hatch.build.targets.sdist]
 include = ["src/pybooster", "docs"]
 [tool.hatch.build.targets.wheel]
@@ -42,11 +43,16 @@ dev = [
 util = ["click==8.1.7", "ipykernel==6.29.5", "copier==9.4.1"]
 docs = [
     { include-group = "test" },
+    "litestar==2.14.0",
     "mkdocs-gen-files==0.5.0",
-    "mkdocs-material==9.5.39",
+    "mkdocs-literate-nav==0.6.1",
+    "mkdocs-material==9.6.4",
     "mkdocs-open-in-new-tab==1.0.5",
     "mkdocs==1.6.1",
-    "mkdocstrings-python==1.11.1",
+    "pymdown-extensions==10.14.3",
+    "mkdocstrings-python==1.13.0",
+    "pillow==11.1.0",
+    "asgi-lifespan>=2.1.0",
 ]
 lint = [
     { include-group = "test" },
@@ -58,7 +64,7 @@ lint = [
     "pyright==1.1.389",
     "ruff==0.8.1",
     "yamlfix==1.17.0",
-    "doccmd==2024.11.14",
+    "doccmd==2025.1.11",
 ]
 test = [
     { include-group = "util" },
@@ -79,16 +85,15 @@ test = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore:datetime.datetime.utcnow:DeprecationWarning"]
 
 [tool.ruff]
 line-length = 100
-
 [tool.ruff.format]
 docstring-code-format = true
 docstring-code-line-length = 80
 quote-style = "double"
 indent-style = "space"
-
 [tool.ruff.lint]
 preview = true
 select = ["ALL"]
@@ -127,16 +132,12 @@ unfixable = [
     "COM819", # Trailing comma
 ]
 fixable = ["ALL"]
-
 extend-safe-fixes = ["TCH"]
-
 [tool.ruff.lint.isort]
 known-first-party = ["pybooster"]
 force-single-line = true
-
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
-
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
     "PLC2701", # Private imports
@@ -148,11 +149,12 @@ ban-relative-imports = "all"
 "**.ipynb" = [
     "T201", # Print statements
 ]
-"doccmd_*.py" = [
+"docs/**" = [
     "ANN",    # Type annotations
     "B018",   # Useless expression
     "D",      # Docstrings
-    "EM101",  # Assign error message to string
+    "EM101",  # Assign exception message to variable
+    "F821",   # Undefined name
     "FA102",  # Unsafe __futures__ annotations usage
     "INP001", # Implicit namespace package
     "RUF029", # No await in async function
@@ -165,7 +167,6 @@ ban-relative-imports = "all"
     "TC003",  # Move standard-libarary import into a type-checking block
     "TRY003", # Avoid specifying long messages outside the exception class
 ]
-
 
 [tool.yamlfix]
 line_length = 100
@@ -198,3 +199,6 @@ sort = "Name"
 compare_branch = "origin/main"
 fail_under = 100
 include_untracked = true
+
+[tool.uv.workspace]
+members = ["docs/src/tutorial-project"]

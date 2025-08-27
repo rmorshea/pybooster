@@ -3,10 +3,8 @@
 ## Solutions
 
 In order to [inject](#injectors) a set of [dependencies](#dependencies) PyBooster must
-resolve the execution order of their [providers](#providers). That execution order is
-determined by performing a topological sort on the dependency graph that gets saved as a
-"solution". You can declare one using the [`solved`][pybooster.core.solution.solved]
-context manager.
+save the execution order of their [providers](#providers) as a "solution". You can
+declare one using the [`solution`][pybooster.core.solution.solution] context manager.
 
 ```python
 from typing import NewType
@@ -14,7 +12,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
@@ -29,7 +27,7 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solved(alice_provider):
+with solution(alice_provider):
     # alice is available to inject as a recipient
     assert get_message() == "Hello, Alice!"
 ```
@@ -39,9 +37,14 @@ with solved(alice_provider):
     To avoid performance overhead you should try to establish a solution once at the
     beginning of your program.
 
-### Nesting Solutions
+!!! note
 
-You can override a dependency's provider by declaring a new solution for it:
+    In other dependency injection frameworks the act solving the dependency graph can sometimes
+    be referred to as "wiring".
+
+### Overriding Solutions
+
+You can override providers for dependency's by declaring a new solution:
 
 ```python
 from typing import NewType
@@ -49,7 +52,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
@@ -69,18 +72,14 @@ def get_recipient(*, recipient: Recipient = required) -> str:
     return recipient
 
 
-with solved(alice_provider):
+with solution(alice_provider):
     assert get_recipient() == "Alice"
-    with solved(bob_provider):
+    with solution(bob_provider):
         assert get_recipient() == "Bob"
     assert get_recipient() == "Alice"
 ```
 
 ## Injectors
-
-Injectors are used to supply a set of dependencies to a function.
-
-### Decorator Injectors
 
 PyBooster supplies a set of decorators that can be added to functions in order to inject
 [dependencies](#dependencies) into them. Dependencies for a decorated function are
@@ -106,7 +105,8 @@ def get_message(*, recipient: Recipient = required) -> str:
     Don't forget to add the `required` default value. Without it, PyBooster will not
     know that the argument is a dependency that needs to be injected.
 
-In order for a value to be injected you'll need to solve the depen
+In order for a value to be injected you'll need to create a [solution](#solutions) which
+includes a [provider](#providers) for the dependency:
 
 ```python
 from typing import NewType
@@ -114,7 +114,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
@@ -129,9 +129,11 @@ def get_message(*, recipient: Recipient = required) -> str:
     return f"Hello, {recipient}!"
 
 
-with solved(recipient_provider):
+with solution(recipient_provider):
     assert get_message() == "Hello, Alice!"
 ```
+
+### Supported Functions
 
 PyBooster supports decorators for the following types of functions or methods:
 
@@ -142,18 +144,22 @@ PyBooster supports decorators for the following types of functions or methods:
 - [`injector.asynciterator`][pybooster.core.injector.asynciterator]
 - [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
-#### Sharing Parameters
+### Scoping Parameters
 
-You can declare that injected parameter should be shared for the duration of a function
-call by setting `shared=True` in the decorator:
+You can declare that any dependencies resolved for a function should be shared for the
+duration of the function's execution by setting `scope=True` in the injector. More
+specifically, the `scope` parameter creates a new [scope](#scopes) that lasts the
+duration of the function's execution:
 
 ```python
 from typing import NewType
 
+from pybooster import Scope
+from pybooster import get_scope
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Recipient = NewType("Recipient", str)
 
@@ -164,26 +170,34 @@ def recipient_provider() -> Recipient:
 
 
 @injector.function
-def get_current_values(*, _: Recipient = required) -> injector.CurrentValues:
-    return injector.current_values()
+def get_current_values(*, _: Recipient = required) -> Scope:
+    return get_scope()
 
 
-@injector.function(shared=True)
-def get_current_values_with_shared(*, _: Recipient = required) -> injector.CurrentValues:
-    return injector.current_values()
+@injector.function(scope=True)
+def get_current_values_with_scope(*, _: Recipient = required) -> Scope:
+    return get_scope()
 
 
-with solved(recipient_provider):
+with solution(recipient_provider):
     assert get_current_values() == {}
-    assert get_current_values_with_shared() == {Recipient: "Alice"}
+    assert get_current_values_with_scope() == {Recipient: "Alice"}
 ```
 
-Setting `shared=True` is effectively equivalent to wrapping function calls in the
-[`shared`][pybooster.core.injector.shared] context manager. Doing this might be useful
-when dealing with database connections or other resources that should be shared across
-multiple functions.
+Adding `scope=True` is roughly equivalent to the more verbose usage of
+[`new_scope`][pybooster.core.scope.new_scope]:
 
-#### Overriding Parameters
+```python
+from pybooster import injector
+
+
+@injector.function
+def get_current_values_with_scope(*, recipient: Recipient = required) -> Scope:
+    with new_scope((Recipient, recipient)) as values:
+        return values
+```
+
+### Overriding Parameters
 
 You can pass values to a required parameter of a function with an
 [injector decorator](#decorator-injectors). The value will be passed as-is to the
@@ -197,7 +211,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 UserId = NewType("UserId", int)
 
@@ -229,115 +243,35 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
     return f"#{user_id} {profile.name}: {profile.bio}"
 
 
-with solved(user_id_provider, profile_provider):
+with solution(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     assert get_profile_summary(user_id=UserId(2)) == "#2 Bob: Bob's bio"
 ```
 
-### Shared Injector
+### Hiding Parameters
 
-You can declare that a set of dependency should be shared across all usages for the
-duration of a context using the [`shared`][pybooster.core.injector.shared] context
-manager. The `shared` context manager will also yield the current values for those
-dependencies:
-
-```python
-from dataclasses import dataclass
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solved
-
-
-@dataclass
-class Auth:
-    username: str
-    password: str
-
-
-@provider.function
-def auth() -> Auth:
-    return Auth(username="alice", password="EGwVEo3y9E")
-
-
-@injector.function
-def get_auth(*, auth: Auth = required) -> Auth:
-    return auth
-
-
-with solved(auth):
-    assert get_auth() is not get_auth()
-    with injector.shared(Auth) as values:
-        assert values[Auth] is get_auth()
-        assert get_auth() is get_auth()
-```
-
-You can, instead or additionally, override the current values for a dependencies by
-passing a mapping of dependency types to desired values under the `values` keyword:
+In a minority of cases you may want to hide injected parameters from the function
+signature. This is typically necessary if other libraries or tools are used to
+introspect function signatures for their own purposes. One such case can be seen
+[here](tutorial.md#injecting-parameters) in the tutorial. Hiding injected parameters is
+done by setting `hide_signature=True` in the injector decorator:
 
 ```python
-from dataclasses import dataclass
-from typing import NewType
-
-from pybooster import injector
-from pybooster import provider
-from pybooster import required
-from pybooster import solved
-
-UserId = NewType("UserId", int)
-
-
-@dataclass
-class Profile:
-    name: str
-    bio: str
-
-
-DB = {
-    1: Profile(name="Alice", bio="Alice's bio"),
-    2: Profile(name="Bob", bio="Bob's bio"),
-}
-
-
-@provider.function
-def user_id_provider() -> UserId:
-    return UserId(1)
-
-
-@provider.function
-def profile_provider(*, user_id: UserId = required) -> Profile:
-    return DB[user_id]
-
-
-@injector.function
-def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
-    return f"#{user_id} {profile.name}: {profile.bio}"
-
-
-with solved(user_id_provider, profile_provider):
-    assert get_profile_summary() == "#1 Alice: Alice's bio"
-    with injector.shared((UserId, 2)):
-        assert get_profile_summary() == "#2 Bob: Bob's bio"
-```
-
-### Current Values
-
-You can access a mapping of the current values for all dependencies by calling the
-[`current_values`][pybooster.core.injector.current_values] function. This can be useful
-for debugging:
-
-```python
+from inspect import signature
+from typing import Any
 from typing import NewType
 
 from pybooster import injector
 
-UserId = NewType("UserId", int)
+Thing = NewType("Thing", Any)
 
 
-assert injector.current_values() == {}
-with injector.shared((UserId, 1)):
-    assert injector.current_values() == {UserId: 1}
+@injector.function(hide_signature=True)
+def do_something(*, thing: Thing = required) -> None: ...
+
+
+sig = signature(do_something)
+assert "thing" not in sig.parameters
 ```
 
 ## Providers
@@ -378,7 +312,7 @@ from collections.abc import Iterator
 from pybooster import provider
 
 
-@provider.iterator
+@provider.contextmanager
 def sqlite_connection() -> Iterator[sqlite3.Connection]:
     with sqlite3.connect("example.db") as conn:
         yield conn
@@ -420,7 +354,7 @@ from collections.abc import AsyncIterator
 from pybooster import provider
 
 
-@provider.asynciterator
+@provider.asynccontextmanager
 async def example_reader() -> AsyncIterator[StreamReader]:
     reader, writer = await open_connection("example.com", 80)
     writer.write(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
@@ -454,7 +388,7 @@ from typing import TypedDict
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @provider.function
@@ -478,7 +412,7 @@ tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
 json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with solved(json_provider[ConfigDict].bind(json_file)):
+with solution(json_provider[ConfigDict].bind(json_file)):
     assert get_config() == {
         "app_name": "MyApp",
         "app_version": 1,
@@ -503,7 +437,7 @@ from typing import TypeVar
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @dataclass
@@ -537,7 +471,7 @@ tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
 json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with solved(config_file_provider.bind(Config, json_file)):
+with solution(config_file_provider.bind(Config, json_file)):
     assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
@@ -558,7 +492,7 @@ from sqlite3 import Connection
 from pybooster import provider
 
 
-@provider.iterator
+@provider.contextmanager
 def sqlite_connection(database: str) -> Iterator[Connection]:
     with sqlite3.connect(database) as conn:
         yield conn
@@ -567,7 +501,7 @@ def sqlite_connection(database: str) -> Iterator[Connection]:
 These parameters can be supplied when solving using the `bind` method:
 
 ```python { test="false"}
-with solved(sqlite_connection.bind(":memory:")):
+with solution(sqlite_connection.bind(":memory:")):
     ...
 ```
 
@@ -587,7 +521,7 @@ from dataclasses import dataclass
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @dataclass
@@ -617,10 +551,146 @@ async def async_get_auth(*, auth: Auth = required) -> str:
     return f"{auth.username}:{auth.password}"
 
 
-with solved(sync_auth_provider, async_auth_provider):
+with solution(sync_auth_provider, async_auth_provider):
     assert sync_get_auth() == "sync-user:sync-pass"
     assert asyncio.run(async_get_auth()) == "async-user:async-pass"
 ```
+
+## Scopes
+
+A "scope" represents the set of dependencies whose values have been resolved and which
+will be used when requested by an [injector](#injectors). If a dependency has not been
+resolved yet it will not be present in the current scope. The absence of a dependency in
+the current scope does not mean that it cannot be resolved. It just means that it will
+be resolved using a [provider](#providers) from the current [solution](#solutions) if
+requested.
+
+### Creating a new Scope
+
+You can request that the values for set dependencies be resolved in a new scope using
+the [`new_scope`][pybooster.core.scope.new_scope] context manager. The object yielded by
+the context manager is a mapping of dependencies to their currently resolved values.
+
+```python
+from dataclasses import dataclass
+
+from pybooster import injector
+from pybooster import new_scope
+from pybooster import provider
+from pybooster import required
+from pybooster import solution
+
+
+@dataclass
+class Auth:
+    username: str
+    password: str
+
+
+@provider.function
+def auth() -> Auth:
+    return Auth(username="alice", password="EGwVEo3y9E")
+
+
+@injector.function
+def get_auth(*, auth: Auth = required) -> Auth:
+    return auth
+
+
+with solution(auth):
+    # Note how the value for the Auth dependency is resolved anew on each call.
+    assert get_auth() is not get_auth()
+
+    # By declaring a new scope the same value is used for the duration of the context.
+    with new_scope(Auth) as values:
+        # Here, the value is resolved once and reused.
+        assert values[Auth] is get_auth()
+        assert get_auth() is get_auth()
+```
+
+!!! warning
+
+    If the resolver for a requested dependency is asynchronous then you'll need to use `async with`:
+
+    ```python { test="false" }
+    async with new_scope(...) as values:
+        ...
+    ```
+
+    In general, if you're in an async function then you should default to using `async with`
+    when calling `new_scope`.
+
+You can also override the current values by passing a tuple with the dependency and its
+value to the `new_scope` context manager:
+
+```python
+from dataclasses import dataclass
+from typing import NewType
+
+from pybooster import injector
+from pybooster import new_scope
+from pybooster import provider
+from pybooster import required
+from pybooster import solution
+
+UserId = NewType("UserId", int)
+
+
+@dataclass
+class Profile:
+    name: str
+    bio: str
+
+
+DB = {
+    1: Profile(name="Alice", bio="Alice's bio"),
+    2: Profile(name="Bob", bio="Bob's bio"),
+}
+
+
+@provider.function
+def user_id_provider() -> UserId:
+    return UserId(1)
+
+
+@provider.function
+def profile_provider(*, user_id: UserId = required) -> Profile:
+    return DB[user_id]
+
+
+@injector.function
+def get_profile_summary(*, user_id: UserId = required, profile: Profile = required) -> str:
+    return f"#{user_id} {profile.name}: {profile.bio}"
+
+
+with solution(user_id_provider, profile_provider):
+    assert get_profile_summary() == "#1 Alice: Alice's bio"
+    with new_scope((UserId, 2)):
+        assert get_profile_summary() == "#2 Bob: Bob's bio"
+```
+
+### Getting the Current Scope
+
+You can access the current scope using the [`get_scope`][pybooster.core.scope.get_scope]
+function. This returns a mapping of dependencies to their current values:
+
+```python
+from typing import NewType
+
+from pybooster import get_scope
+from pybooster import new_scope
+
+UserId = NewType("UserId", int)
+
+
+assert get_scope() == {}
+with new_scope((UserId, 1)):
+    assert get_scope() == {UserId: 1}
+```
+
+!!! note
+
+    This can be useful for debugging.
 
 ## Dependencies
 
@@ -647,7 +717,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Username = NewType("Username", str)
 
@@ -662,7 +732,7 @@ def get_message(*, username: Username = required) -> str:
     return f"Hello, {username}!"
 
 
-with solved(username_provider):
+with solution(username_provider):
     assert get_message() == "Hello, alice!"
 ```
 
@@ -676,7 +746,7 @@ from dataclasses import dataclass
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 
 @dataclass
@@ -696,7 +766,7 @@ def get_login_message(*, auth: Auth = required) -> str:
     return f"Logged in as {auth.username}"
 
 
-with solved(auth_provider):
+with solution(auth_provider):
     assert get_login_message() == "Logged in as alice"
 ```
 
@@ -715,7 +785,7 @@ from typing import NewType
 from pybooster import injector
 from pybooster import provider
 from pybooster import required
-from pybooster import solved
+from pybooster import solution
 
 Username = NewType("Username", str)
 Password = NewType("Password", str)
@@ -737,6 +807,6 @@ def get_login_message(*, username: Username = required) -> str:
     return f"Logged in as {username}"
 
 
-with solved(username_and_password_provider):
+with solution(username_and_password_provider):
     assert get_login_message() == "Logged in as alice"
 ```

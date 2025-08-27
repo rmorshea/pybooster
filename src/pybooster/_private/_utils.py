@@ -4,6 +4,7 @@ import builtins
 from collections.abc import AsyncIterator
 from collections.abc import Awaitable
 from collections.abc import Callable
+from collections.abc import Collection
 from collections.abc import Coroutine
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -47,6 +48,14 @@ R = TypeVar("R")
 
 RawAnnotation = NewType("RawAnnotation", object)
 """A type annotation without any "extras" (e.g. `Annotated` metadata)."""
+
+
+def hide_parameters_in_signature(func: Callable, parameter_names: Collection[str]) -> None:
+    """Hide the specified parameters from the function's signature."""
+    original_sig = signature(func)
+    func.__signature__ = original_sig.replace(  # pyright: ignore[reportFunctionMemberAccess]
+        parameters=[p for p in original_sig.parameters.values() if p.name not in parameter_names]
+    )
 
 
 def start_future(task_group: TaskGroup, coro: Coroutine[None, None, R]) -> Callable[[], R]:

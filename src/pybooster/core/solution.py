@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 @contextmanager
-def solved(*providers: Provider[[], Any] | Sequence[Provider[[], Any]]) -> Iterator[None]:
+def solution(*providers: Provider[[], Any] | Sequence[Provider[[], Any]]) -> Iterator[None]:
     """Resolve the dependency graph defined by the given providers during the context.
 
     Args:
