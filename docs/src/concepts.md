@@ -105,8 +105,8 @@ def get_message(*, recipient: Recipient = required) -> str:
     Don't forget to add the `required` default value. Without it, PyBooster will not
     know that the argument is a dependency that needs to be injected.
 
-In order for a value to be injected you'll need to create a [solution](#solutions)
-which includes a [provider](#providers) for the dependency:
+In order for a value to be injected you'll need to create a [solution](#solutions) which
+includes a [provider](#providers) for the dependency:
 
 ```python
 from typing import NewType
@@ -137,12 +137,12 @@ with solution(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
-- [`injector.function`][pybooster.core.injector.function]
-- [`injector.iterator`][pybooster.core.injector.iterator]
-- [`injector.contextmanager`][pybooster.core.injector.contextmanager]
-- [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
-- [`injector.asynciterator`][pybooster.core.injector.asynciterator]
-- [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+-   [`injector.function`][pybooster.core.injector.function]
+-   [`injector.iterator`][pybooster.core.injector.iterator]
+-   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+-   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+-   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+-   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
 ### Scoping Parameters
 
@@ -188,6 +188,9 @@ Adding `scope=True` is roughly equivalent to the more verbose usage of
 [`new_scope`][pybooster.core.scope.new_scope]:
 
 ```python
+from pybooster import injector
+
+
 @injector.function
 def get_current_values_with_scope(*, recipient: Recipient = required) -> Scope:
     with new_scope((Recipient, recipient)) as values:
@@ -243,6 +246,28 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
 with solution(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
     assert get_profile_summary(user_id=UserId(2)) == "#2 Bob: Bob's bio"
+```
+
+### Hiding Parameters
+
+In a minority of cases you may want to hide injected parameters from the function
+signature. This is typically necessary if other libraries or tools are used to
+introspect function signatures for their own purposes. One such case can be seen
+[here](tutorial.md#injecting-parameters) in the tutorial. Hiding injected parameters is
+done by setting `hide_signature=True` in the injector decorator:
+
+```python
+from inspect import signature
+from pybooster import injector
+
+
+@injector.function(hide_signature=True)
+def get_current_values(*, recipient: Recipient = required) -> Scope:
+    return get_scope()
+
+
+sig = signature(get_current_values)
+assert "recipient" not in sig.parameters
 ```
 
 ## Providers
@@ -529,12 +554,12 @@ with solution(sync_auth_provider, async_auth_provider):
 
 ## Scopes
 
-A "scope" represents the set of dependencies whose values have been resolved and
-which will be used when requested by an [injector](#injectors). If a dependency
-has not been resolved yet it will not be present in the current scope. The
-absence of a dependency in the current scope does not mean that it cannot be
-resolved. It just means that it will be resolved using a [provider](#providers)
-from the current [solution](#solutions) if requested.
+A "scope" represents the set of dependencies whose values have been resolved and which
+will be used when requested by an [injector](#injectors). If a dependency has not been
+resolved yet it will not be present in the current scope. The absence of a dependency in
+the current scope does not mean that it cannot be resolved. It just means that it will
+be resolved using a [provider](#providers) from the current [solution](#solutions) if
+requested.
 
 ### Creating a new Scope
 
@@ -642,9 +667,8 @@ with solution(user_id_provider, profile_provider):
 
 ### Getting the Current Scope
 
-You can access the current scope using the
-[`get_scope`][pybooster.core.scope.get_scope] function. This returns a mapping of
-dependencies to their current values:
+You can access the current scope using the [`get_scope`][pybooster.core.scope.get_scope]
+function. This returns a mapping of dependencies to their current values:
 
 ```python
 from typing import NewType

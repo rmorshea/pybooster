@@ -17,6 +17,7 @@ from pybooster._private._injector import sync_inject_into_params
 from pybooster._private._utils import AsyncFastStack
 from pybooster._private._utils import FastStack
 from pybooster._private._utils import get_required_parameters
+from pybooster._private._utils import hide_parameters_in_signature
 from pybooster._private._utils import make_sentinel_value
 
 if TYPE_CHECKING:
@@ -51,6 +52,7 @@ def function(
     *,
     requires: HintMap | HintSeq | None = None,
     scope: bool = False,
+    hide_signature: bool = False,
 ) -> Callable[P, R]:
     """Inject dependencies into the given function.
 
@@ -60,6 +62,7 @@ def function(
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
         scope: Whether injected values should be shared for the duration of any calls.
+        hide_signature: Whether to hide required parameters from the function signature.
     """
     requires = get_required_parameters(func, requires)
 
@@ -72,6 +75,9 @@ def function(
         finally:
             stack.close()
 
+    if hide_signature:
+        hide_parameters_in_signature(wrapper, requires)
+
     return wrapper
 
 
@@ -81,6 +87,7 @@ def asyncfunction(
     *,
     requires: HintMap | HintSeq | None = None,
     scope: bool = False,
+    hide_signature: bool = False,
 ) -> Callable[P, Coroutine[Any, Any, R]]:
     """Inject dependencies into the given coroutine.
 
@@ -90,6 +97,7 @@ def asyncfunction(
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
         scope: Whether injected values should be shared for the duration of any calls.
+        hide_signature: Whether to hide required parameters from the function signature.
     """
     requires = get_required_parameters(func, requires)
 
@@ -102,6 +110,9 @@ def asyncfunction(
         finally:
             await stack.aclose()
 
+    if hide_signature:
+        hide_parameters_in_signature(wrapper, requires)
+
     return wrapper
 
 
@@ -111,6 +122,7 @@ def iterator(
     *,
     requires: HintMap | HintSeq | None = None,
     scope: bool = False,
+    hide_signature: bool = False,
 ) -> IteratorCallable[P, R]:
     """Inject dependencies into the given iterator.
 
@@ -120,6 +132,7 @@ def iterator(
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
         scope: Whether injected values should be shared for the duration of any calls.
+        hide_signature: Whether to hide required parameters from the function signature.
     """
     requires = get_required_parameters(func, requires)
 
@@ -132,6 +145,9 @@ def iterator(
         finally:
             stack.close()
 
+    if hide_signature:
+        hide_parameters_in_signature(wrapper, requires)
+
     return wrapper
 
 
@@ -141,6 +157,7 @@ def asynciterator(
     *,
     requires: HintMap | HintSeq | None = None,
     scope: bool = False,
+    hide_signature: bool = False,
 ) -> AsyncIteratorCallable[P, R]:
     """Inject dependencies into the given async iterator.
 
@@ -150,6 +167,7 @@ def asynciterator(
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
         scope: Whether injected values should be shared for the duration of any calls.
+        hide_signature: Whether to hide required parameters from the function signature.
     """
     requires = get_required_parameters(func, requires)
 
@@ -163,6 +181,9 @@ def asynciterator(
         finally:
             await stack.aclose()
 
+    if hide_signature:
+        hide_parameters_in_signature(wrapper, requires)
+
     return wrapper
 
 
@@ -172,6 +193,7 @@ def contextmanager(
     *,
     requires: HintMap | HintSeq | None = None,
     scope: bool = False,
+    hide_signature: bool = False,
 ) -> Callable[P, AbstractContextManager[R]]:
     """Inject dependencies into the given context manager function.
 
@@ -181,8 +203,11 @@ def contextmanager(
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
         scope: Whether injected values should be shared for the duration of the context.
+        hide_signature: Whether to hide required parameters from the function signature.
     """
-    return _contextmanager(iterator(func, requires=requires, scope=scope))
+    return _contextmanager(
+        iterator(func, requires=requires, scope=scope, hide_signature=hide_signature)
+    )
 
 
 @paramorator
@@ -191,6 +216,7 @@ def asynccontextmanager(
     *,
     requires: HintMap | HintSeq | None = None,
     scope: bool = False,
+    hide_signature: bool = False,
 ) -> Callable[P, AbstractAsyncContextManager[R]]:
     """Inject dependencies into the given async context manager function.
 
@@ -200,5 +226,8 @@ def asynccontextmanager(
         func: The function to inject dependencies into.
         requires: The parameters and dependencies to inject. Otherwise infered from signature.
         scope: Whether injected values should be shared for the duration of the context.
+        hide_signature: Whether to hide required parameters from the function signature.
     """
-    return _asynccontextmanager(asynciterator(func, requires=requires, scope=scope))
+    return _asynccontextmanager(
+        asynciterator(func, requires=requires, scope=scope, hide_signature=hide_signature)
+    )

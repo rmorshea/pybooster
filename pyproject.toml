@@ -43,7 +43,7 @@ dev = [
 util = ["click==8.1.7", "ipykernel==6.29.5", "copier==9.4.1"]
 docs = [
     { include-group = "test" },
-    "litestar>=2.14.0",
+    "litestar==2.14.0",
     "mkdocs-gen-files==0.5.0",
     "mkdocs-literate-nav==0.6.1",
     "mkdocs-material==9.6.4",
@@ -52,6 +52,7 @@ docs = [
     "pymdown-extensions==10.14.3",
     "mkdocstrings-python==1.13.0",
     "pillow==11.1.0",
+    "asgi-lifespan>=2.1.0",
 ]
 lint = [
     { include-group = "test" },
@@ -84,6 +85,7 @@ test = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore:datetime.datetime.utcnow:DeprecationWarning"]
 
 [tool.ruff]
 line-length = 100
