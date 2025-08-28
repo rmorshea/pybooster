@@ -193,16 +193,15 @@ from pybooster import injector
 
 @injector.function
 def get_current_values_with_scope(*, recipient: Recipient = required) -> Scope:
-    with new_scope((Recipient, recipient)) as values:
+    with new_scope({Recipient: recipient}) as values:
         return values
 ```
 
 ### Overriding Parameters
 
-You can pass values to a required parameter of a function with an
-[injector decorator](#decorator-injectors). The value will be passed as-is to the
-function and be used when other providers are called to fulfill the function's remaining
-dependencies:
+You can pass values to a required parameter of a function with an injector decorator.
+The value will be passed as-is to the function and be used when other providers are
+called to fulfill the function's remaining dependencies:
 
 ```python
 from dataclasses import dataclass
@@ -620,8 +619,8 @@ with solution(auth):
     In general, if you're in an async function then you should default to using `async with`
     when calling `new_scope`.
 
-You can also override the current values by passing a tuple with the dependency and its
-value to the `new_scope` context manager:
+You can also override the current values by passing a dict mapping dependencies to
+values into the `new_scope` context manager:
 
 ```python
 from dataclasses import dataclass
@@ -665,7 +664,7 @@ def get_profile_summary(*, user_id: UserId = required, profile: Profile = requir
 
 with solution(user_id_provider, profile_provider):
     assert get_profile_summary() == "#1 Alice: Alice's bio"
-    with new_scope((UserId, 2)):
+    with new_scope({UserId: 2}):
         assert get_profile_summary() == "#2 Bob: Bob's bio"
 ```
 
@@ -684,7 +683,7 @@ UserId = NewType("UserId", int)
 
 
 assert get_scope() == {}
-with new_scope((UserId, 1)):
+with new_scope({UserId: 1}):
     assert get_scope() == {UserId: 1}
 ```
 

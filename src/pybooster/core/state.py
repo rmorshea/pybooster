@@ -36,7 +36,7 @@ def copy_state() -> StateSetter:
 
 
         def from_thread(future):
-            with new_scope((Greeting, "Hello")):
+            with new_scope({Greeting: "Hello"}):
                 set_state = copy_state()
                 future.set_result(set_state)
 

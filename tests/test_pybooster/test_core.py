@@ -562,7 +562,8 @@ def test_injecting_current_value_does_not_invalidate_providers():
     with solution(greeting_provider, message_provider):
         with new_scope(Greeting, Message) as values:
             assert call_count == 1
-            assert get_double_greeting_message(greeting=values[Greeting]) == "Hello Hello, World!"
+            g = values[Greeting]  # pyright: ignore[reportArgumentType]
+            assert get_double_greeting_message(greeting=g) == "Hello Hello, World!"
             assert call_count == 1
 
 
@@ -576,7 +577,7 @@ async def test_async_shared_context_with_dependencies_and_overrides():
         raise AssertionError  # nocov
 
     with solution(greeting_provider, recipient_provider):
-        async with new_scope((Greeting, "Hello"), (Recipient, "World")) as values:
+        async with new_scope({Greeting: "Hello", Recipient: "World"}) as values:
             assert values == {Greeting: "Hello", Recipient: "World"}
 
 
@@ -602,6 +603,6 @@ def test_implicit_provider_from_current_values():
     def get_message(*, message: Message = required):
         return message
 
-    with new_scope((Greeting, "Hello")):
+    with new_scope({Greeting: "Hello"}):
         with solution(message_provider):
             assert get_message() == "Hello, World!"

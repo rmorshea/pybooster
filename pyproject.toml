@@ -50,7 +50,7 @@ docs = [
     "mkdocs-open-in-new-tab==1.0.5",
     "mkdocs==1.6.1",
     "pymdown-extensions==10.14.3",
-    "mkdocstrings-python==1.13.0",
+    "mkdocstrings-python==1.18.0",
     "pillow==11.1.0",
     "asgi-lifespan>=2.1.0",
 ]
@@ -61,7 +61,7 @@ lint = [
     "mdformat-pyproject==0.0.1",
     "mdformat-tables==1.0.0",
     "mdformat==0.7.19",
-    "pyright==1.1.389",
+    "pyright==1.1.404",
     "ruff==0.8.1",
     "yamlfix==1.17.0",
     "doccmd==2025.1.11",

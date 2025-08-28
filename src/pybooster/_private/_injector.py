@@ -35,8 +35,80 @@ def sync_inject_into_params(
     param_vals: dict[str, Any],
     param_deps: HintMap,
     *,
-    keep_current_values: bool = False,
+    set_scope: bool = False,
 ) -> None:
+    """Inject missing dependencies and overwrite the current scope with any given.
+
+    Args:
+        stack:
+            An exit stack to attach callbacks that clean up any values that were injected for the
+            requested dependencies. The caller must close the stack later. When they do, injected
+            values will be cleaned up.
+        param_vals:
+            A dict of parameter names to their values into which values for missing dependencies
+            (defined by `param_deps`) will be injected. Any prepopulated values in this dictionary
+            will be used to overwrite the values of any corresponding dependencies.
+        param_deps:
+            A mapping of parameter names to their dependencies. All parameter names in `param_vals`
+            must be present in `param_deps`.
+        set_scope:
+            By default, values generated to fulfill missing dependencies will not survive this call.
+            That is they will be generated once and then will not be saved in the current scope.
+            Setting this to `True` will allow those values to persist in the current scope until
+            the `stack` is closed.
+
+    Examples:
+        Injecting values into parameters:
+
+        ```python
+        from typing import NewType
+        from pybooster import solution
+        from pybooster import provider
+        from pybooster import get_scope
+        from pybooster._private._utils import FastStack
+        from pybooster._private._injector import sync_inject_into_params
+
+        Username = NewType("Username", str)
+        Password = NewType("Password", str)
+
+
+        @provider.function
+        def provide_username() -> Username:
+            return Username("bob")
+
+
+        with solution(provide_username):
+            stack = FastStack()
+
+            param_vals = {"pw": "monkey123"}
+            param_deps = {"un": Username, "pw": Password}
+            sync_inject_into_params(
+                stack,
+                param_vals,
+                param_deps,
+            )
+            assert param_vals == {"un": "bob", "pw": "monkey123"}
+
+            # no current values because set_scope=False
+            assert get_scope() == {}
+
+            sync_inject_into_params(
+                stack,
+                param_vals,
+                param_deps,
+                set_scope=True,
+            )
+            assert param_vals == {"un": "bob", "pw": "monkey123"}
+
+            # current values persist because set_scope=True
+            assert get_scope() == {Username: "bob", Password: "monkey123"}
+
+            stack.close()
+
+            # Current values are cleared after the stack is closed
+            assert get_scope() == {}
+        ```
+    """
     solution = SYNC_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
@@ -45,7 +117,7 @@ def sync_inject_into_params(
     _inject_current_values_into_params(param_vals, missing_params, current_values)
 
     if not missing_params:
-        if keep_current_values:
+        if set_scope:
             stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
         return
 
@@ -55,7 +127,7 @@ def sync_inject_into_params(
             stack, param_vals, missing_params, current_values, solution
         )
     finally:
-        if keep_current_values:
+        if set_scope:
             stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
         else:
             _CURRENT_VALUES.reset(current_values_token)
@@ -63,30 +135,106 @@ def sync_inject_into_params(
 
 async def async_inject_into_params(
     stack: AsyncFastStack,
-    params: dict[str, Any],
-    required_params: HintMap,
+    param_vals: dict[str, Any],
+    param_deps: HintMap,
     *,
-    keep_current_values: bool = False,
+    set_scope: bool = False,
 ) -> None:
+    """Inject missing dependencies and overwrite the current scope with any given.
+
+    Args:
+        stack:
+            An exit stack to attach callbacks that clean up any values that were injected for the
+            requested dependencies. The caller must close the stack later. When they do, injected
+            values will be cleaned up.
+        param_vals:
+            A dict of parameter names to their values into which values for missing dependencies
+            (defined by `param_deps`) will be injected. Any prepopulated values in this dictionary
+            will be used to overwrite the values of any corresponding dependencies.
+        param_deps:
+            A mapping of parameter names to their dependencies. All parameter names in `param_vals`
+            must be present in `param_deps`.
+        set_scope:
+            By default, values generated to fulfill missing dependencies will not survive this call.
+            That is they will be generated once and then will not be saved in the current scope.
+            Setting this to `True` will allow those values to persist in the current scope until
+            the `stack` is closed.
+
+    Examples:
+        ```python
+        import asyncio
+
+        from typing import NewType
+        from pybooster import solution
+        from pybooster import provider
+        from pybooster import get_scope
+        from pybooster._private._utils import AsyncFastStack
+        from pybooster._private._injector import async_inject_into_params
+
+        Username = NewType("Username", str)
+        Password = NewType("Password", str)
+
+
+        @provider.function
+        def provide_username() -> Username:
+            return Username("bob")
+
+
+        async def main():
+            with solution(provide_username):
+                stack = AsyncFastStack()
+
+                param_vals = {"pw": "monkey123"}
+                param_deps = {"un": Username, "pw": Password}
+                await async_inject_into_params(
+                    stack,
+                    param_vals,
+                    param_deps,
+                )
+                assert param_vals == {"un": "bob", "pw": "monkey123"}
+
+                # no current values because set_scope=False
+                assert get_scope() == {}
+
+                await async_inject_into_params(
+                    stack,
+                    param_vals,
+                    param_deps,
+                    set_scope=True,
+                )
+                assert param_vals == {"un": "bob", "pw": "monkey123"}
+
+                # current values persist because set_scope=True
+                assert get_scope() == {Username: "bob", Password: "monkey123"}
+
+                await stack.aclose()
+
+                # Current values are cleared after the stack is closed
+                assert get_scope() == {}
+
+
+        asyncio.run(main())
+        ```
+    """
     solution = FULL_SOLUTION.get()
     current_values = dict(_CURRENT_VALUES.get())
 
-    _inject_params_into_current_values(params, required_params, current_values, solution)
-    missing_params = {k: required_params[k] for k in required_params.keys() - params}
-    _inject_current_values_into_params(params, missing_params, current_values)
+    _inject_params_into_current_values(param_vals, param_deps, current_values, solution)
+    missing_params = {k: param_deps[k] for k in param_deps.keys() - param_vals}
+    _inject_current_values_into_params(param_vals, missing_params, current_values)
 
     if not missing_params:
-        if keep_current_values:
+        if set_scope:
             stack.push_callback(_CURRENT_VALUES.reset, _CURRENT_VALUES.set(current_values))
         return
 
     current_values_token = _CURRENT_VALUES.set(current_values)
     try:
         await _async_inject_from_provider_values(
-            stack, params, missing_params, current_values, solution
+            stack, param_vals, missing_params, current_values, solution
         )
     finally:
-        if keep_current_values:
+        if set_scope:
             stack.push_callback(_CURRENT_VALUES.reset, current_values_token)
         else:
             _CURRENT_VALUES.reset(current_values_token)

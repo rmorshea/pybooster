@@ -116,12 +116,15 @@ from base64 import b64decode
 from collections.abc import Mapping
 from uuid import uuid4
 
+PreviewGeneratorMap = Mapping[str, PreviewGenerator]
+StorageMap = Mapping[str, Storage]
+
 
 @put("/upload")
 async def upload(data: UploadData) -> str:
     encryptor: Encryptor = ...
-    preview_generators: Mapping[str, PreviewGenerator] = ...
-    storages: Mapping[str, Storage] = ...
+    preview_generators: PreviewGeneratorMap = ...
+    storages: StorageMap = ...
 
     raw = b64decode(data.content_b64)
     preview = preview_generators[data.content_type].generate(raw)
@@ -150,8 +153,6 @@ parameters from the function signature in order to keep them from being treated 
 request parameters.
 
 ```python
-from collections.abc import Mapping
-
 from pybooster import injector
 from pybooster import required
 
@@ -162,8 +163,8 @@ async def upload(
     data: UploadData,
     *,
     encryptor: Encryptor = required,
-    preview_generators: Mapping[str, PreviewGenerator] = required,
-    storages: Mapping[str, Storage] = required,
+    preview_generators: PreviewGeneratorMap = required,
+    storages: StorageMap = required,
 ) -> str: ...
 ```
 
@@ -183,11 +184,11 @@ def encryptor_provider() -> Encryptor: ...
 
 
 @provider.function
-def preview_generators_provider() -> Mapping[str, PreviewGenerator]: ...
+def preview_generators_provider() -> PreviewGeneratorMap: ...
 
 
 @provider.contextmanager
-def storages_provider() -> Iterator[Mapping[str, Storage]]: ...
+def storages_provider() -> Iterator[StorageMap]: ...
 ```
 
 !!! note
@@ -242,7 +243,7 @@ from pybooster.extra.asgi import PyBoosterMiddleware
 @asynccontextmanager
 async def lifespan(_: Litestar) -> AsyncIterator[None]:
     with solution(encryptor_provider, preview_generators_provider, storages_provider):
-        async with new_scope(Encryptor, Mapping[str, PreviewGenerator], Mapping[str, Storage]):
+        async with new_scope(Encryptor, PreviewGeneratorMap, StorageMap):
             yield
 
 
@@ -268,7 +269,6 @@ will just handle PNG files, and the storage will be a save to a temporary direct
 
 ```python
 from collections.abc import Iterator
-from collections.abc import Mapping
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -309,7 +309,7 @@ class PngPreviewGenerator:
 
 
 @provider.function
-def preview_generators_provider() -> Mapping[str, PreviewGenerator]:
+def preview_generators_provider() -> PreviewGeneratorMap:
     return {"image/png": PngPreviewGenerator((128, 128))}
 
 
@@ -326,7 +326,7 @@ class FileStorage(Storage):
 
 
 @provider.contextmanager
-def storages_provider() -> Iterator[Mapping[str, Storage]]:
+def storages_provider() -> Iterator[StorageMap]:
     with TemporaryDirectory() as tempdir:
         yield {"temp": FileStorage(Path(tempdir))}
 ```
@@ -344,7 +344,6 @@ from base64 import b64encode
 from collections.abc import AsyncIterator
 from collections.abc import Collection
 from collections.abc import Iterator
-from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from io import BytesIO
@@ -417,7 +416,7 @@ class PngPreviewGenerator(PreviewGenerator):
 
 
 @provider.function
-def preview_generators_provider() -> Mapping[str, PreviewGenerator]:
+def preview_generators_provider() -> PreviewGeneratorMap:
     return {"image/png": PngPreviewGenerator((128, 128))}
 
 
@@ -434,7 +433,7 @@ class FileStorage(Storage):
 
 
 @provider.contextmanager
-def storages_provider() -> Iterator[Mapping[str, Storage]]:
+def storages_provider() -> Iterator[StorageMap]:
     with TemporaryDirectory() as tempdir:
         yield {"temp": FileStorage(Path(tempdir))}
 
@@ -455,8 +454,8 @@ async def upload(
     data: UploadData,
     *,
     encryptor: Encryptor = required,
-    preview_generators: Mapping[str, PreviewGenerator] = required,
-    storages: Mapping[str, Storage] = required,
+    preview_generators: PreviewGeneratorMap = required,
+    storages: StorageMap = required,
 ) -> str:
     raw = b64decode(data.content_b64)
     preview = preview_generators[data.content_type].generate(raw)
@@ -474,7 +473,7 @@ async def upload(
 @asynccontextmanager
 async def lifespan(_: Litestar) -> AsyncIterator[None]:
     with solution(encryptor_provider, preview_generators_provider, storages_provider):
-        async with new_scope(Encryptor, Mapping[str, PreviewGenerator], Mapping[str, Storage]):
+        async with new_scope(Encryptor, PreviewGeneratorMap, StorageMap):
             yield
 
 

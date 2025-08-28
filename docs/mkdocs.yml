@@ -12,7 +12,9 @@ nav:
   - Integrations: integrations.md
   - Examples: examples.md
   - Reference: reference/
-  - Contributing: contributing.md
+  - Contributing:
+      - Overview: contributing.md
+      - Code of Conduct: conduct.md
 theme:
   name: material
   icon:
@@ -53,7 +55,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          import:
+          inventories:
             - https://docs.sqlalchemy.org/en/latest/objects.inv
             - https://docs.python.org/3/objects.inv
           paths: [src]
