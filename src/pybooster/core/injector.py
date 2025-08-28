@@ -70,7 +70,7 @@ def function(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         stack = FastStack()
         try:
-            sync_inject_into_params(stack, kwargs, requires, keep_current_values=scope)
+            sync_inject_into_params(stack, kwargs, requires, set_scope=scope)
             return func(*args, **kwargs)
         finally:
             stack.close()
@@ -105,7 +105,7 @@ def asyncfunction(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[reportReturnType]
         stack = AsyncFastStack()
         try:
-            await async_inject_into_params(stack, kwargs, requires, keep_current_values=scope)
+            await async_inject_into_params(stack, kwargs, requires, set_scope=scope)
             return await func(*args, **kwargs)
         finally:
             await stack.aclose()
@@ -140,7 +140,7 @@ def iterator(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Iterator[R]:
         stack = FastStack()
         try:
-            sync_inject_into_params(stack, kwargs, requires, keep_current_values=scope)
+            sync_inject_into_params(stack, kwargs, requires, set_scope=scope)
             yield from func(*args, **kwargs)
         finally:
             stack.close()
@@ -175,7 +175,7 @@ def asynciterator(
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[R]:
         stack = AsyncFastStack()
         try:
-            await async_inject_into_params(stack, kwargs, requires, keep_current_values=scope)
+            await async_inject_into_params(stack, kwargs, requires, set_scope=scope)
             async for value in func(*args, **kwargs):
                 yield value
         finally:

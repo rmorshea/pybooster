@@ -81,7 +81,7 @@ def get_user(
 def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
-            new_scope((Session, Session())),
+            new_scope({Session: Session()}),
             solution(client_provider[S3Client].bind("s3"), bucket_provider.bind("my-bucket")),
             new_scope(BucketName),
         ):

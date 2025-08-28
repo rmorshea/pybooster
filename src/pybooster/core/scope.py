@@ -19,18 +19,22 @@ R = TypeVar("R")
 N = TypeVar("N", default=None)
 
 
-def new_scope(*args: Hint | tuple[Hint, Any]) -> _ScopeContext:
+def new_scope(*args: Hint | Mapping[Hint, Any]) -> _ScopeContext:
     """Share the values for a set of dependencies for the duration of a context."""
     param_vals: dict[str, Any] = {}
     param_deps: dict[str, Hint] = {}
-    for index, arg in enumerate(args):
-        key = f"__{index}"
+    index = 0
+    for arg in args:
         match arg:
-            case [cls, val]:
-                param_vals[key] = val
-                param_deps[key] = cls
+            case Mapping():
+                for cls, val in arg.items():
+                    key = f"__{index}"
+                    param_vals[key] = val
+                    param_deps[key] = cls
+                    index += 1
             case cls:
-                param_deps[key] = cls
+                param_deps[f"__{index}"] = cls
+                index += 1
     return _ScopeContext(param_vals, param_deps)
 
 
@@ -65,7 +69,7 @@ class _ScopeContext(AbstractContextManager[Scope], AbstractAsyncContextManager[S
             self._sync_stack,
             params,
             self._param_deps,
-            keep_current_values=True,
+            set_scope=True,
         )
         return cast("Scope", {self._param_deps[k]: v for k, v in params.items()})
 
@@ -85,7 +89,7 @@ class _ScopeContext(AbstractContextManager[Scope], AbstractAsyncContextManager[S
             self._async_stack,
             params,
             self._param_deps,
-            keep_current_values=True,
+            set_scope=True,
         )
         return cast("Scope", {self._param_deps[k]: v for k, v in params.items()})
 

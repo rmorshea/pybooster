@@ -47,7 +47,7 @@ with solution(switch_on):
 ### Eager Singletons
 
 The easiest way to declare a static value is by defining a [scope](concepts.md#scopes)
-with the [`new_scope`](concepts.md#creating-scopes) context manager while passing a
+with the [`new_scope`](concepts.md#creating-a-new-scope) context manager while passing a
 tuple with the dependency and its value. This will bind the dependency's value to the
 scope and reuse it whenever the dependency is requested.
 
@@ -70,7 +70,7 @@ def get_dataset(*, dataset: Dataset = required) -> Dataset:
     return dataset
 
 
-with new_scope((Dataset, Dataset(x=[1, 2, 3], y=[4, 5, 6]))):
+with new_scope({Dataset: Dataset(x=[1, 2, 3], y=[4, 5, 6])}):
     dataset_1 = get_dataset()
     dataset_2 = get_dataset()
     assert dataset_1 is dataset_2
@@ -81,8 +81,8 @@ with new_scope((Dataset, Dataset(x=[1, 2, 3], y=[4, 5, 6]))):
 To have a static value that is created at the last possible moment, you'll need to
 define a [solution](concepts.md#solutions) with a [provider](concepts.md#providers) that
 returns the value. Then you'll create a new [scope](concepts.md#scopes) with the
-[`new_scope`](concepts.md#creating-scopes) context manager while passing the desired
-dependency without a value to instead request it from the provider.
+[`new_scope`](concepts.md#creating-a-new-scope) context manager while passing the
+desired dependency without a value to instead request it from the provider.
 
 ```python
 from dataclasses import dataclass
@@ -281,8 +281,8 @@ def query_database(*, conn: Connection = required) -> None: ...
 Under the hood, PyBooster uses `contextvars` to manage the state of providers and
 injectors. If you use `pytest-asyncio` to write async tests it's likely you'll run into
 [this issue](https://github.com/pytest-dev/pytest-asyncio/issues/127) where context
-established in a fixture is not propagated to your tests. As of writing, the solution
-is to create a custom event loop policy and task factory as suggested in
+established in a fixture is not propagated to your tests. As of writing, the solution is
+to create a custom event loop policy and task factory as suggested in
 [this comment](https://github.com/pytest-dev/pytest-asyncio/issues/127#issuecomment-2062158881):
 
 ```python
