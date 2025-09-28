@@ -137,12 +137,12 @@ with solution(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
-- [`injector.function`][pybooster.core.injector.function]
-- [`injector.iterator`][pybooster.core.injector.iterator]
-- [`injector.contextmanager`][pybooster.core.injector.contextmanager]
-- [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
-- [`injector.asynciterator`][pybooster.core.injector.asynciterator]
-- [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+-   [`injector.function`][pybooster.core.injector.function]
+-   [`injector.iterator`][pybooster.core.injector.iterator]
+-   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+-   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+-   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+-   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
 ### Scoping Parameters
 
@@ -371,11 +371,11 @@ Async providers are executed concurrently where possible in the current
 ### Generic Providers
 
 A single provider can supply multiple types of dependencies if it provides a base class,
-union, `Any`, or includes a `TypeVar` which is narrowed later. To narrow the type before
-using it in a solution you can use the `[]` syntax to annotate the concrete type that
-the provider will supply when solving. So, in the case you have a provider that loads
-json data from a file you could annotate its return type as `Any` but narrow the type to
-`ConfigDict` before declaring a solution:
+union, `Any`, or includes a `TypeVar` so long as it is narrowed later. To narrow the
+type before using it in a solution you can use the `[]` syntax to annotate the concrete
+type that the provider will supply when solving. So, in the case you have a provider
+that loads json data from a file you could annotate its return type as `Any` but narrow
+the type to `ConfigDict` before declaring a solution:
 
 ```python
 import json
@@ -391,7 +391,7 @@ from pybooster import solution
 
 
 @provider.function
-def json_provider(path: Path) -> Any:
+def json_file_provider(path: Path) -> Any:
     with path.open() as f:
         return json.load(f)
 
@@ -411,7 +411,7 @@ tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
 json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with solution(json_provider[ConfigDict].bind(json_file)):
+with solution(json_file_provider[ConfigDict](json_file)):
     assert get_config() == {
         "app_name": "MyApp",
         "app_version": 1,
@@ -419,12 +419,12 @@ with solution(json_provider[ConfigDict].bind(json_file)):
     }
 ```
 
-Since concrete types for `TypeVar`s cannot be automatically inferred from the arguments
-passed to the provider. You must always narrow the return type (as shown above) or pass
-a `provides` inference function to the `@provider` decorator to specify how to figure
-out the concrete type. This function should take all the non-dependency arguments of the
-provider and return the concrete type. In the example below the provider is generic on
-the `cls: type[T]` argument so the `provides` inference function will just return that:
+You can also infer the return type based on
+[non-dependency arguments](#binding-parameters) passed to the provider. This is done by
+supplying a `provides` function in the `@provider` decorator that takes those
+non-dependency arguments and returns the provided type. In the example below the
+provider is generic on the `cls: type[T]` argument so the `provides` inference function
+will just return that:
 
 ```python
 import json
@@ -470,7 +470,7 @@ tempfile = NamedTemporaryFile()
 json_file = Path(tempfile.name)
 json_file.write_text('{"app_name": "MyApp", "app_version": 1, "debug_mode": true}')
 
-with solution(config_file_provider.bind(Config, json_file)):
+with solution(config_file_provider(Config, json_file)):
     assert get_config() == Config(app_name="MyApp", app_version=1, debug_mode=True)
 ```
 
@@ -481,7 +481,8 @@ with solution(config_file_provider.bind(Config, json_file)):
 ### Binding Parameters
 
 You can pass additional arguments to a provider by adding parameters to a provider
-function signature that are not [dependencies](#dependencies):
+function signature that are not [dependencies](#dependencies). In the example below the
+`database` parameter is not a dependency so it must be defined before solving:
 
 ```python
 import sqlite3
@@ -497,10 +498,10 @@ def sqlite_connection(database: str) -> Iterator[Connection]:
         yield conn
 ```
 
-These parameters can be supplied when solving using the `bind` method:
+These parameters can be supplied by calling the provider:
 
 ```python { test="false"}
-with solution(sqlite_connection.bind(":memory:")):
+with solution(sqlite_connection(":memory:")):
     ...
 ```
 

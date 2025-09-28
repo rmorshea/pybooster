@@ -82,7 +82,7 @@ def main():
     with mock_aws():  # Mock AWS services for testing purposes
         with (
             new_scope({Session: Session()}),
-            solution(client_provider[S3Client].bind("s3"), bucket_provider.bind("my-bucket")),
+            solution(client_provider[S3Client]("s3"), bucket_provider("my-bucket")),
             new_scope(BucketName),
         ):
             user = User(id=1, name="Alice")
@@ -137,7 +137,7 @@ DB_URL = "sqlite+aiosqlite:///:memory:"
 
 @asynccontextmanager
 async def sqlalchemy_lifespan(_: Starlette) -> AsyncIterator[None]:
-    with solution(async_engine_provider.bind(DB_URL), async_session_provider):
+    with solution(async_engine_provider(DB_URL), async_session_provider):
         async with new_scope(AsyncEngine) as values:
             async with values[AsyncEngine].begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
@@ -238,8 +238,8 @@ def main():
     url = "sqlite:///:memory:"
     with (
         solution(
-            engine_provider.bind(url),
-            session_provider.bind(expire_on_commit=False),
+            engine_provider(url),
+            session_provider(expire_on_commit=False),
         ),
         new_scope(Engine),
     ):
@@ -305,8 +305,8 @@ async def get_user(user_id: int, *, session: AsyncSession = required) -> User:
 async def main():
     url = "sqlite+aiosqlite:///:memory:"
     with solution(
-        async_engine_provider.bind(url),
-        async_session_provider.bind(expire_on_commit=False),
+        async_engine_provider(url),
+        async_session_provider(expire_on_commit=False),
     ):
         async with new_scope(AsyncEngine):
             await create_tables()
@@ -365,7 +365,7 @@ class User:
 
 def main():
     with (
-        solution(sqlite_connection.bind(":memory:")),
+        solution(sqlite_connection(":memory:")),
         # Reusing the same connection is only needed for in-memory databases.
         new_scope(sqlite3.Connection),
     ):
