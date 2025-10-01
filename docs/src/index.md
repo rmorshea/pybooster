@@ -19,7 +19,8 @@ Getting started with PyBooster involves a few steps:
 1. Define a [provider](concepts.md#providers) function for a
     [dependency](concepts.md#dependencies).
 1. Add an [injector](concepts.md#injectors) to a function that will use that dependency.
-1. Activate a [solution](concepts.md#solutions) and call the dependent function in its context.
+1. Activate a [solution](concepts.md#solutions) and call the dependent function in its
+    context.
 
 The example below injects a `sqlite3.Connection` into a function that executes SQL:
 
@@ -46,7 +47,7 @@ def sql(cmd: str, *, conn: sqlite3.Connection = required) -> sqlite3.Cursor:
 
 
 tempfile = NamedTemporaryFile()
-with solution(sqlite_connection.bind(tempfile.name)):
+with solution(sqlite_connection(tempfile.name)):
     sql("CREATE TABLE example (id INTEGER PRIMARY KEY, name TEXT)")
     sql("INSERT INTO example (name) VALUES ('alice')")
     cursor = sql("SELECT * FROM example")

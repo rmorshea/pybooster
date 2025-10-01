@@ -136,7 +136,8 @@ with solution(dataset_provider):
 
 ## Calling Providers
 
-Providers can be called directly as normal context managers with no additional effects.
+Providers have a `producer` that can be called as a context managers with no additional
+effects.
 
 ```python
 from typing import NewType
@@ -151,9 +152,13 @@ def answer_provider() -> TheAnswer:
     return TheAnswer(42)
 
 
-with answer_provider() as value:
+with answer_provider.producer() as value:
     assert value == 42
 ```
+
+!!! note
+
+    If this were an async provider you'd use `async with` instead.
 
 This makes it possible to compose provider implementations without requiring them as a
 dependency. For example, you could create a SQLAlchemy transaction provider by wrapping

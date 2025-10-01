@@ -44,7 +44,7 @@ from pybooster.extra.sqlalchemy import session_provider
 class MySession(Session): ...
 
 
-my_session_provider = session_provider.bind(MySession)
+my_session_provider = session_provider(MySession)
 ```
 
 See the [Starlette + SQLAlchemy example](examples.md#starlette-sqlalchemy) for one way

@@ -3,13 +3,12 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from collections.abc import Callable
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
 from typing import Any
 from typing import ParamSpec
-from typing import Protocol
 
 from sqlalchemy import Engine
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL  # noqa: TC002
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -17,65 +16,18 @@ from sqlalchemy.orm import Session
 from typing_extensions import TypeVar
 
 from pybooster import provider
-from pybooster.extra._utils import copy_signature
 
 P = ParamSpec("P")
 F = TypeVar("F", bound=Callable)
 
 S = TypeVar("S", bound=Session, default=Session)
-S_co = TypeVar("S_co", bound=Session, covariant=True)
 A = TypeVar("A", bound=AsyncSession, default=AsyncSession)
-A_co = TypeVar("A_co", bound=AsyncSession, covariant=True)
-
-
-class SessionMaker(Protocol[P, S_co]):
-    """A protocol for creating a SQLAlchemy session."""
-
-    def __call__(self, bind: Engine = ..., *args: P.args, **kwargs: P.kwargs) -> S_co:
-        """Create a SQLAlchemy session."""
-        ...
-
-
-class AsyncSessionMaker(Protocol[P, A_co]):
-    """A protocol for creating an async SQLAlchemy session."""
-
-    def __call__(self, bind: AsyncEngine = ..., *args: P.args, **kwargs: P.kwargs) -> A_co:
-        """Create an async SQLAlchemy session."""
-        ...
-
-
-if TYPE_CHECKING:
-
-    def _session_provider(
-        cls: SessionMaker[P, S] = Session,
-        bind: Engine = ...,
-        *args: P.args,
-        **kwargs: P.kwargs,
-    ) -> Iterator[S]: ...
-
-    def _async_session_provider(
-        cls: AsyncSessionMaker[P, A] = AsyncSession,
-        bind: AsyncEngine = ...,
-        *args: P.args,
-        **kwargs: P.kwargs,
-    ) -> AsyncIterator[A]: ...
-
-else:
-
-    def _session_provider(cls=Session, **kwargs):
-        with cls(**kwargs) as session:
-            yield session
-
-    async def _async_session_provider(cls=AsyncSession, **kwargs):
-        async with cls(**kwargs) as session:
-            yield session
 
 
 @provider.contextmanager
-@copy_signature(create_engine)
-def engine_provider(*args: Any, **kwargs: Any) -> Iterator[Engine]:
+def engine_provider(url: str | URL, **kwargs: Any) -> Iterator[Engine]:
     """Provide a SQLAlchemy engine."""
-    engine = create_engine(*args, **kwargs)
+    engine = create_engine(url, **kwargs)
     try:
         yield engine
     finally:
@@ -83,10 +35,9 @@ def engine_provider(*args: Any, **kwargs: Any) -> Iterator[Engine]:
 
 
 @provider.asynccontextmanager
-@copy_signature(create_async_engine)
-async def async_engine_provider(*args: Any, **kwargs: Any) -> AsyncIterator[AsyncEngine]:
+async def async_engine_provider(url: str | URL, **kwargs: Any) -> AsyncIterator[AsyncEngine]:
     """Provide an async SQLAlchemy engine."""
-    engine = create_async_engine(*args, **kwargs)
+    engine = create_async_engine(url, **kwargs)
     try:
         yield engine
     finally:
@@ -101,17 +52,35 @@ def _infer_async_session_type(cls: type[A] = AsyncSession, *_args, **_kwargs) ->
     return cls
 
 
-session_provider = provider.contextmanager(
-    _session_provider,
-    requires={"bind": Engine},
-    provides=_infer_session_type,
-)
-"""Provide a SQLAlchemy session."""
+@provider.contextmanager(requires={"bind": Engine}, provides=_infer_session_type)
+def session_provider(
+    cls: Callable[..., S] = Session,
+    *args: Any,
+    **kwargs: Any,
+) -> Iterator[S]:
+    """Provide a SQLAlchemy [session][sqlalchemy.orm.Session].
+
+    Args:
+        cls: The session class to instantiate. Defaults to `Session`.
+        args: Positional arguments to pass to the session constructor.
+        kwargs: Keyword arguments to pass to the session constructor.
+    """
+    with cls(*args, **kwargs) as session:
+        yield session
 
 
-async_session_provider = provider.asynccontextmanager(
-    _async_session_provider,
-    requires={"bind": AsyncEngine},
-    provides=_infer_async_session_type,
-)
-"""Provide an async SQLAlchemy session."""
+@provider.asynccontextmanager(requires={"bind": AsyncEngine}, provides=_infer_async_session_type)
+async def async_session_provider(
+    cls: Callable[..., A] = AsyncSession,
+    *args: Any,
+    **kwargs: Any,
+) -> AsyncIterator[A]:
+    """Provide an async SQLAlchemy [session][sqlalchemy.ext.asyncio.AsyncSession].
+
+    Args:
+        cls: The session class to instantiate. Defaults to `AsyncSession`.
+        args: Positional arguments to pass to the session constructor.
+        kwargs: Keyword arguments to pass to the session constructor.
+    """
+    async with cls(*args, **kwargs) as session:
+        yield session

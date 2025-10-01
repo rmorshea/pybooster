@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from contextlib import AbstractAsyncContextManager
-from contextlib import AbstractContextManager
 from contextlib import asynccontextmanager as _asynccontextmanager
 from contextlib import contextmanager as _contextmanager
 from functools import wraps
@@ -128,8 +126,11 @@ def asynccontextmanager(
 
 class _BaseProvider(Generic[R]):
     producer: Any
+    """A sync or async context manager that produces the dependency."""
     provides: Hint | InferHint
+    """The type that the provider provides."""
     dependencies: HintMap
+    """The dependencies of the provider."""
 
     def __getitem__(self, provides: Hint) -> Self:
         """Declare a specific type for a generic provider."""
@@ -139,7 +140,7 @@ class _BaseProvider(Generic[R]):
         pass
     else:
 
-        def bind(self, *args, **kwargs):
+        def __call__(self, *args, **kwargs):
             if disallowed := (self.dependencies.keys() & kwargs):
                 msg = f"Cannot bind dependency parameters: {disallowed}"
                 raise TypeError(msg)
@@ -147,9 +148,6 @@ class _BaseProvider(Generic[R]):
             provides = get_provides_type(self.provides, *args, **kwargs)
             wrapped = wraps(producer)(lambda **kw: producer(*args, **kwargs, **kw))
             return type(self)(wrapped, provides, self.dependencies)
-
-        def __call__(self, *args, **kwargs):
-            return self.producer(*args, **kwargs)
 
 
 class SyncProvider(Generic[P, R], _BaseProvider[R]):
@@ -167,11 +165,9 @@ class SyncProvider(Generic[P, R], _BaseProvider[R]):
 
     if TYPE_CHECKING:
 
-        def bind(self, *args: P.args, **kwargs: P.kwargs) -> SyncProvider[[], R]:
+        def __call__(self, *args: P.args, **kwargs: P.kwargs) -> SyncProvider[[], R]:
             """Inject the dependencies and produce the dependency."""
             ...
-
-        def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractContextManager[R]: ...  # noqa: D102
 
 
 class AsyncProvider(Generic[P, R], _BaseProvider[R]):
@@ -189,11 +185,9 @@ class AsyncProvider(Generic[P, R], _BaseProvider[R]):
 
     if TYPE_CHECKING:
 
-        def bind(self, *args: P.args, **kwargs: P.kwargs) -> AsyncProvider[[], R]:
+        def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AsyncProvider[[], R]:
             """Inject the dependencies and produce the dependency."""
             ...
-
-        def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AbstractAsyncContextManager[R]: ...  # noqa: D102
 
 
 Provider: TypeAlias = "SyncProvider[P, R] | AsyncProvider[P, R]"

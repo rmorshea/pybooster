@@ -244,20 +244,20 @@ def test_allow_provider_return_typevar_if_concrete_type_declared_before_entering
     def get_greeting(*, greeting: Greeting = required) -> Greeting:
         return greeting
 
-    with solution(make_string[Greeting].bind(Greeting, "Hello")):
+    with solution(make_string[Greeting](Greeting, "Hello")):
         assert get_greeting() == "Hello"
 
 
 def test_generic_with_provides_inference_function():
     @provider.function(provides=lambda cls, *a, **kw: cls)
-    def make_string(cls: Callable[[str], T], string: str) -> T:
+    def string_provider(cls: Callable[[str], T], string: str) -> T:
         return cls(string)
 
     @injector.function
     def get_greeting(*, greeting: Greeting = required) -> Greeting:
         return greeting
 
-    with solution(make_string.bind(Greeting, "Hello")):
+    with solution(string_provider(Greeting, "Hello")):
         assert get_greeting() == "Hello"
 
 
@@ -488,7 +488,7 @@ def test_cannot_bind_required_provider_parameters():
         raise AssertionError(greeting)  # nocov
 
     with pytest.raises(TypeError, match="Cannot bind dependency parameters"):
-        message_provider.bind(greeting=Greeting("Hello"))
+        message_provider(greeting=Greeting("Hello"))
 
 
 def test_can_call_provider_directly():
@@ -496,7 +496,7 @@ def test_can_call_provider_directly():
     def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
-    with greeting_provider() as greeting:
+    with greeting_provider.producer() as greeting:
         assert greeting == "Hello"
 
 
@@ -505,7 +505,7 @@ async def test_can_call_async_provider_directly():
     async def greeting_provider() -> Greeting:
         return Greeting("Hello")
 
-    async with greeting_provider() as greeting:
+    async with greeting_provider.producer() as greeting:
         assert greeting == "Hello"
 
 
