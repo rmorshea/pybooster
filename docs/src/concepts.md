@@ -137,12 +137,12 @@ with solution(recipient_provider):
 
 PyBooster supports decorators for the following types of functions or methods:
 
--   [`injector.function`][pybooster.core.injector.function]
--   [`injector.iterator`][pybooster.core.injector.iterator]
--   [`injector.contextmanager`][pybooster.core.injector.contextmanager]
--   [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
--   [`injector.asynciterator`][pybooster.core.injector.asynciterator]
--   [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
+- [`injector.function`][pybooster.core.injector.function]
+- [`injector.iterator`][pybooster.core.injector.iterator]
+- [`injector.contextmanager`][pybooster.core.injector.contextmanager]
+- [`injector.asyncfunction`][pybooster.core.injector.asyncfunction]
+- [`injector.asynciterator`][pybooster.core.injector.asynciterator]
+- [`injector.asynccontextmanager`][pybooster.core.injector.asynccontextmanager]
 
 ### Scoping Parameters
 

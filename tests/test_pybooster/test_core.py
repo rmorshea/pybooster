@@ -4,7 +4,7 @@ from asyncio import wait_for
 from collections.abc import Callable
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, reveal_type
+from typing import TYPE_CHECKING
 from typing import Any
 from typing import NewType
 from typing import TypeVar
